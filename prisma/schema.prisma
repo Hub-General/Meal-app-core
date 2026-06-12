@@ -1,0 +1,234 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider  = "postgresql"
+}
+
+
+model Roles {
+  id Int @id @default(autoincrement())
+  name String @unique
+  description String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  users Users[]
+}
+
+
+model Users {
+  id Int @id @default(autoincrement())
+  name String
+  email String? @unique
+  referenceEmail String @unique
+  status Status @default(ACTIVE)
+  passwordHash String
+  createdAt DateTime @default(now())
+  roleId  Int
+  role Roles @relation(fields: [roleId], references: [id])
+  
+  selections Selections[] @relation("createdBy")
+  createdForSelections Selections[] @relation("createdFor")
+  presets Presets[]
+  tasteProfile TasteProfile[]
+  userAvailability UserAvailability[]
+  refreshTokens RefreshToken[]
+}
+
+model RefreshToken {
+  id Int @id @default(autoincrement())
+  token String @unique
+  expiresAt DateTime
+  revoked Boolean @default(false)
+  createdAt DateTime @default(now())
+  
+  userId Int
+  user Users @relation(fields:[userId], references: [id])
+
+}
+
+model UserAvailability {
+  id Int @id @default(autoincrement())
+  userId Int
+  startDate DateTime
+  endDate DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([startDate, endDate])
+  
+  user Users @relation(fields: [userId], references: [id])
+}
+
+model WeekMenuSchedule {
+  id Int @id @default(autoincrement())
+  week Int
+  year Int
+  menuId Int
+
+  menu Menus @relation(fields: [menuId], references: [id])
+  selections Selections[]
+
+  @@unique([week,year])
+}
+
+enum Days {
+  MONDAY
+  TUESDAY
+  WEDNESDAY
+  THURSDAY
+  FRIDAY
+  SATURDAY
+  SUNDAY
+}
+
+enum Status {
+  ACTIVE
+  INACTIVE
+  RETIRED
+}
+
+model Menus{ 
+  id Int @id @default(autoincrement())
+  title String
+  description String?
+  isActive Boolean @default(true)
+  createdAt DateTime @default(now())
+  
+  menuDays MenuDays[]
+  weekMenuSchedule WeekMenuSchedule[]
+}
+
+model MenuDays{
+  id Int @id @default(autoincrement())
+  menuId Int
+  menu Menus @relation(fields: [menuId], references: [id])
+  day Days
+  createdAt DateTime @default(now())
+  
+  menuDayMeals MenuDayMeals[]
+  selections Selections[]
+  presetItems PresetItems[]
+
+  @@unique([menuId, day])
+}
+
+model MenuDayMeals{
+  id Int @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  menuDayId Int
+  menuDay MenuDays @relation(fields: [menuDayId], references: [id])
+
+  mealId Int
+  meal Meals @relation(fields: [mealId], references: [id])
+  
+  selections Selections[]
+  presetItems PresetItems[]
+  
+  @@unique([menuDayId, mealId])
+}
+
+model Meals{
+  id Int @id @default(autoincrement())
+  image String?
+  name String
+  description String?
+  isActive Boolean @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  foodCode String @unique
+  calories Int?
+  
+  menuDayMeals MenuDayMeals[]
+
+}
+
+model Selections{
+  id Int @id @default(autoincrement())
+
+  menuDayId Int
+  menuDay MenuDays @relation(fields: [menuDayId], references: [id])
+
+  dayMealId Int
+  dayMeal MenuDayMeals @relation(fields: [dayMealId], references: [id])
+
+  weekMenuScheduleId Int
+  weekMenuSchedule WeekMenuSchedule @relation(fields: [weekMenuScheduleId], references: [id])
+
+  createdBy Int
+  createdFor Int?
+  user Users @relation("createdBy", fields: [createdBy], references: [id])
+  createdForUser Users? @relation("createdFor", fields: [createdFor], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([createdBy, weekMenuScheduleId, menuDayId])
+
+  @@index([createdBy, weekMenuScheduleId], name: "idx_user_week_selection")
+  @@index([weekMenuScheduleId], name: "idx_week_selections")
+}
+
+model Presets {
+  id Int @id @default(autoincrement())
+  name String?
+  description String?
+
+  userId Int
+  user Users @relation(fields: [userId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  presetItems PresetItems[]
+
+}
+
+model PresetItems{
+  id Int @id @default(autoincrement())
+  presetId Int
+  preset Presets @relation(fields: [presetId], references: [id])
+  
+  menuDayId Int
+  menuDay MenuDays @relation(fields: [menuDayId], references: [id])
+
+  dayMealId Int
+  menuDayMeals MenuDayMeals @relation(fields: [dayMealId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([menuDayId, presetId])
+}
+
+model TasteProfile {
+  userId             Int    
+  user              Users   @relation(fields: [userId], references: [id])
+
+  calendarYear       Int      @map("calendar_year")
+  totalMealsSelected Int      @default(0) @map("total_meals_selected")
+  metrics            Json     @default("{}")
+  
+
+  personalityType    String?  @map("personality_type") @db.VarChar(50)
+  favoriteProtein    String?  @map("favorite_protein") @db.VarChar(5)
+  
+  updatedAt          DateTime @default(now()) @updatedAt @map("updated_at")
+
+  // The Composite Primary Key (Enforces 1 record per user, per year)
+  @@id([userId, calendarYear])
+
+  @@index([calendarYear, personalityType, favoriteProtein], name: "idx_taste_profiles_filters")
+  @@index([totalMealsSelected], name: "idx_total_meals")
+  @@map("taste_profiles")
+}
