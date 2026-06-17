@@ -1,5 +1,4 @@
 import { prisma } from "../db/prisma";
-import errorHandler from "../helpers/errorHandler";
 import { CreateRoleRequest } from "../interfaces/role";
 
 export const roleService = {

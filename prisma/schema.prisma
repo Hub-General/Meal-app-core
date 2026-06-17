@@ -96,6 +96,11 @@ enum Status {
   RETIRED
 }
 
+enum SelectionStatus {
+  PENDING
+  SUBMITTED
+}
+
 model Menus{ 
   id Int @id @default(autoincrement())
   title String
@@ -167,11 +172,13 @@ model Selections{
 
   createdBy Int
   createdFor Int?
-  user Users @relation("createdBy", fields: [createdBy], references: [id])
+  createdByUser Users @relation("createdBy", fields: [createdBy], references: [id])
   createdForUser Users? @relation("createdFor", fields: [createdFor], references: [id])
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  selectionStatus SelectionStatus
 
   @@unique([createdBy, weekMenuScheduleId, menuDayId])
 
