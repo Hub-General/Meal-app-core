@@ -16,3 +16,9 @@ export interface RegisterUserRequest{
     password: string;
     roleId?: number;
 }
+
+export interface UserLeaveRequestDto{
+    userId: number;
+    startDate: Date;
+    endDate: Date;
+}

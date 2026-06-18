@@ -29,6 +29,7 @@ model Users {
   name String
   email String? @unique
   referenceEmail String @unique
+  referenceID Int
   status Status @default(ACTIVE)
   passwordHash String
   createdAt DateTime @default(now())

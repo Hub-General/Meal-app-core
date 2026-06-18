@@ -2,6 +2,9 @@ import { Request, Response } from "express";
 import { userService } from "../services/userService";
 
 export const userController = {
+
+    // User endpoints
+
     getAllUsersController: async (req: Request, res: Response) => {
         try{
             const users = await userService.getAllUsers();
@@ -34,5 +37,5 @@ export const userController = {
                 error,
             })
         }
-    }
+    },
 }
