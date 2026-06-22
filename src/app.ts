@@ -9,6 +9,7 @@ import selectionRoutes from "./routes/selectionRoutes";
 import presetRoutes from "./routes/presetRoutes";
 import tasteProfileRoutes from "./routes/tasteProfileRoutes";
 import authRoutes from "./routes/authRoutes";
+import foodLibraryRoutes from "./routes/foodLibraryRoutes"
 
 const app = express();
 
@@ -23,5 +24,6 @@ app.use("/week-menu-schedules", weekMenuScheduleRoutes);
 app.use("/users/taste-profiles", tasteProfileRoutes)
 app.use("/meal-selections", selectionRoutes);
 app.use("/presets", presetRoutes);
+app.use("/food-library", foodLibraryRoutes)
 
 export default app;

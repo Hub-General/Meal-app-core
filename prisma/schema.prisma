@@ -29,7 +29,7 @@ model Users {
   name String
   email String? @unique
   referenceEmail String @unique
-  referenceID Int
+  referenceId Int @unique
   status Status @default(ACTIVE)
   passwordHash String
   createdAt DateTime @default(now())
@@ -102,6 +102,13 @@ enum SelectionStatus {
   SUBMITTED
 }
 
+enum FoodGroup {
+  SUPERGROUP
+  BASE
+  PROTEIN
+  PREP
+}
+
 model Menus{ 
   id Int @id @default(autoincrement())
   title String
@@ -144,6 +151,16 @@ model MenuDayMeals{
   @@unique([menuDayId, mealId])
 }
 
+model FoodLibrary{
+  id Int @id @default(autoincrement())
+  name String
+  foodCode String
+  foodGroup FoodGroup
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([foodCode,foodGroup])
+}
 model Meals{
   id Int @id @default(autoincrement())
   image String?

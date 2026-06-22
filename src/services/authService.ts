@@ -8,6 +8,7 @@ interface RegisterRequest {
     password: string;
     email: string;
     referenceEmail: string
+    referenceId: number
 }
 
 interface LoginRequest {
@@ -18,7 +19,7 @@ interface LoginRequest {
 export const authService = {
     register: async (registerRequest: RegisterRequest) => { 
 
-        const existing = await prisma.users.findUnique({where: {email : registerRequest.email}})
+        const existing = await prisma.users.findFirst({where: { OR : [{email : registerRequest.email}, {referenceEmail: registerRequest.referenceEmail}]}})
 
         if(existing){
             throw new Error("User with this email already exists");
@@ -31,7 +32,9 @@ export const authService = {
                 email: registerRequest.email,
                 referenceEmail: registerRequest.referenceEmail,
                 passwordHash: passwordHash,
+                referenceId: registerRequest.referenceId,
                 roleId: 2,
+                status: "ACTIVE"
             },
             include:{
                 role: true
@@ -47,6 +50,10 @@ export const authService = {
             throw new Error("Invalid email or password");
         }
         
+        if(user.status !== "ACTIVE"){
+            throw new Error("Access Denied. User is not active");
+        }
+
         const isValid = await argon2.verify(loginRequest.password, user.passwordHash);
 
         if(!isValid) {
