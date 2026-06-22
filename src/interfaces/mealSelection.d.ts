@@ -23,3 +23,12 @@ export interface CreateMealSelectionRequest {
     weekMenuScheduleId: number;
     menuDayId: number;
 }
+
+export interface MealSelectionFilter{
+    createdBy?: number;
+    createdFor?: number;
+    week?: number;
+    mealId?: number;
+    day?: string;
+    menuId?: number;
+}

@@ -1,6 +1,6 @@
-import { prisma } from "../db/prisma";
-import errorHandler from "../helpers/errorHandler";
+import { prisma } from "../prisma/client";
 import { CreateRoleRequest } from "../interfaces/role";
+
 
 export const roleService = {
     createRole: async(roleData : CreateRoleRequest)=>{
@@ -16,4 +16,5 @@ export const roleService = {
     updateRole: async(roleId: number, roleData: CreateRoleRequest)=>{
         return await prisma.roles.update({where: {id: roleId}, data: roleData});
     },
+
 }

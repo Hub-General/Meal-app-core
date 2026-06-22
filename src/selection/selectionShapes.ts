@@ -4,6 +4,7 @@ export const SafeUser = {
     referenceEmail: true,
     status: true,
     roleId: true,
+    referenceId: true,
     role: {
         select:{
             name : true

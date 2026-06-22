@@ -21,7 +21,7 @@ export const roleController = {
                 return res.status(400).json({message: "Role ID is required"});
             }
             const role = await roleService.updateRole(Number(req.params.id), req.body);
-            res.status(200).json({message: "Role updated successfully", role});
+            res.status(200).json(role);
         } 
         catch (error){
             res.status(500).json({
@@ -33,7 +33,7 @@ export const roleController = {
     getAllRolesController: async (req: Request, res: Response) => {
         try {
             const roles = await roleService.getAllRoles();
-            res.status(200).json({message: "Roles retrieved successfully", roles});
+            res.status(200).json(roles);
         } 
         catch (error){
             res.status(500).json({
@@ -48,7 +48,7 @@ export const roleController = {
                 return res.status(400).json({message: "Role ID is required"});
             }
             const role = await roleService.getRoleById(Number(req.params.id));
-            res.status(200).json({message: "Role retrieved successfully", role});
+            res.status(200).json(role);
         } 
         catch (error){
             res.status(500).json({

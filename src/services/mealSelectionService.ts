@@ -1,12 +1,16 @@
 import { prisma } from "../db/prisma";
 import { Days } from "../generated/prisma";
-import { CreateMealSelectionRequest } from "../interfaces/mealSelection";
+import { getISOWeekInfo } from "../helpers/dateFunctions";
+import { CreateMealSelectionRequest, MealSelectionFilter } from "../interfaces/mealSelection";
+import { weekMenuScheduleService } from "./weekMenuScheduleService";
 
 const selectionSelectShape = {
     id: true,
     createdBy: true,
     createdFor: true,
-    user:{
+    weekMenuScheduleId: true,
+    selectionStatus: true,
+    createdByUser:{
         select: {
             id: true,
             name: true,
@@ -47,9 +51,15 @@ export const mealSelectionService = {
             select: selectionSelectShape
         });
     },
-    getSelectionsByFilter: async(filter: {createdBy?: number, createdFor?: number, mealId?: number, day?: string, menuId?: number})=>{
+    getSelectionsByFilter: async(filter: MealSelectionFilter )=>{
         return await prisma.selections.findMany({
             where: filter,
+            select: selectionSelectShape
+        });
+    },
+    getSelectionsByIds: async(ids: number[])=>{
+        return await prisma.selections.findMany({
+            where: {id: {in: ids}},
             select: selectionSelectShape
         });
     },
@@ -65,12 +75,6 @@ export const mealSelectionService = {
             select: selectionSelectShape
         });
     },
-    getSelectionsByDay: async(day: Days)=>{
-        return await prisma.selections.findMany({
-            where: {menuDay: {day}},
-            select: selectionSelectShape
-        });
-    },
     getSelectionsByMenuId: async(menuId: number)=>{
         return await prisma.selections.findMany({
             where: {menuDay: {menuId}},
@@ -81,16 +85,60 @@ export const mealSelectionService = {
         return await prisma.selections.findUnique({where: {id: selectionId}, select: selectionSelectShape});
     },
     getSelectionsByUserId: async(userId: number)=>{
-        return await prisma.selections.findMany({where: {createdBy: userId}, select: selectionSelectShape});
+        return await prisma.selections.findMany({where: {createdFor: userId}, select: selectionSelectShape});
     },
+    getSelectionsByCreatorId: async(creatorId: number)=>{
+        return await prisma.selections.findMany({where: {createdBy: creatorId}, select: selectionSelectShape})
+    },
+
+    //GET Weekly Selections
+
+    getWeeklySelectionsByDate: async(date: Date)=>{
+        const weekInfo = getISOWeekInfo(date);
+        const weekMenuSchedule = await weekMenuScheduleService.getWeekMenuScheduleByWeekAndYear(weekInfo.week, weekInfo.year);
+        if(!weekMenuSchedule) return [];
+        return await prisma.selections.findMany({
+            where: {
+                weekMenuScheduleId: weekMenuSchedule.id,
+                menuDay: {day: weekInfo.dayName as Days}
+            },
+            select: selectionSelectShape
+        });
+    },
+
+    getWeeklySelections: async(date: Date)=>{
+        const weekInfo = getISOWeekInfo(date);
+        const weekMenuSchedule = await weekMenuScheduleService.getWeekMenuScheduleByWeekAndYear(weekInfo.week, weekInfo.year);
+        if(!weekMenuSchedule) return [];
+        return await prisma.selections.findMany({
+            where: {
+                weekMenuScheduleId: weekMenuSchedule.id
+            },
+            select: selectionSelectShape
+        });
+    },
+
+    getWeeklySelectionsByUser: async(date: Date, createdFor: number)=>{
+        const weekInfo = getISOWeekInfo(date);
+        const weekMenuSchedule = await weekMenuScheduleService.getWeekMenuScheduleByWeekAndYear(weekInfo.week, weekInfo.year);
+        if(!weekMenuSchedule) return [];
+        return await prisma.selections.findMany({
+            where: {
+                weekMenuScheduleId: weekMenuSchedule.id,
+                createdFor
+            },
+            select: selectionSelectShape
+        });
+    },
+
 
     //CREATE Selections
 
     createSelection: async(selectionData : CreateMealSelectionRequest)=>{
-        return await prisma.selections.create({data: selectionData, select: selectionSelectShape});
+        return await prisma.selections.create({data: {...selectionData, selectionStatus: "PENDING"}, select: selectionSelectShape});
     },
     createSelectionsBatch: async(selectionDataArray : CreateMealSelectionRequest[])=>{
-        return await prisma.selections.createMany({data: selectionDataArray});
+        return await prisma.selections.createMany({data: selectionDataArray.map(data => ({...data, selectionStatus: "PENDING"})), skipDuplicates: true});
     },
 
     // UPDATE Selections
@@ -103,6 +151,15 @@ export const mealSelectionService = {
             prisma.selections.update({where: {id: selection.id}, data: selection.data, select: selectionSelectShape})
         );
         return await Promise.all(updateSelections);
+    },
+
+    // SUBMIT selections
+
+    submitSelections:(selectionIds: number[])=>{
+        return prisma.selections.updateMany({
+            where: {id: {in: selectionIds}},
+            data: {selectionStatus: "SUBMITTED"}
+        });
     },
 
 }

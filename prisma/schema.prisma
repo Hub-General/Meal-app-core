@@ -29,6 +29,7 @@ model Users {
   name String
   email String? @unique
   referenceEmail String @unique
+  referenceId Int @unique
   status Status @default(ACTIVE)
   passwordHash String
   createdAt DateTime @default(now())
@@ -96,6 +97,18 @@ enum Status {
   RETIRED
 }
 
+enum SelectionStatus {
+  PENDING
+  SUBMITTED
+}
+
+enum FoodGroup {
+  SUPERGROUP
+  BASE
+  PROTEIN
+  PREP
+}
+
 model Menus{ 
   id Int @id @default(autoincrement())
   title String
@@ -138,6 +151,16 @@ model MenuDayMeals{
   @@unique([menuDayId, mealId])
 }
 
+model FoodLibrary{
+  id Int @id @default(autoincrement())
+  name String
+  foodCode String
+  foodGroup FoodGroup
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([foodCode,foodGroup])
+}
 model Meals{
   id Int @id @default(autoincrement())
   image String?
@@ -167,11 +190,13 @@ model Selections{
 
   createdBy Int
   createdFor Int?
-  user Users @relation("createdBy", fields: [createdBy], references: [id])
+  createdByUser Users @relation("createdBy", fields: [createdBy], references: [id])
   createdForUser Users? @relation("createdFor", fields: [createdFor], references: [id])
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  selectionStatus SelectionStatus
 
   @@unique([createdBy, weekMenuScheduleId, menuDayId])
 
