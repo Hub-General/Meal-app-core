@@ -4,11 +4,8 @@ import jwt from "jsonwebtoken"
 import { generateAccessToken, generateRefreshToken } from "../utility/generateAccessToken";
 
 interface RegisterRequest {
-    name: string;
     password: string;
     email: string;
-    referenceEmail: string
-    referenceId: number
 }
 
 interface LoginRequest {
@@ -19,21 +16,20 @@ interface LoginRequest {
 export const authService = {
     register: async (registerRequest: RegisterRequest) => { 
 
-        const existing = await prisma.users.findFirst({where: { OR : [{email : registerRequest.email}, {referenceEmail: registerRequest.referenceEmail}]}})
-
-        if(existing){
-            throw new Error("User with this email already exists");
-        };
+        const existing = await prisma.users.findFirst({where: {referenceEmail: registerRequest.email}})
+        
+        if(existing && existing.isActivated){
+            throw new Error("User with this email is already activated");
+        }else if (!existing){
+            throw new Error("Email invalid")
+        }
 
         const passwordHash = await argon2.hash(registerRequest.password);
-        const user = await prisma.users.create({
+        const user = await prisma.users.update({
+            where:{ id: existing.id },
             data: {
-                name: registerRequest.name,
-                email: registerRequest.email,
-                referenceEmail: registerRequest.referenceEmail,
                 passwordHash: passwordHash,
-                referenceId: registerRequest.referenceId,
-                roleId: 2,
+                isActivated: true,
                 status: "ACTIVE"
             },
             include:{
@@ -54,7 +50,11 @@ export const authService = {
             throw new Error("Access Denied. User is not active");
         }
 
-        const isValid = await argon2.verify(loginRequest.password, user.passwordHash);
+        if(!user.isActivated || user.passwordHash == null){
+            throw new Error("User has not been activated");
+        }
+
+        const isValid = await argon2.verify( user.passwordHash!, loginRequest.password);
 
         if(!isValid) {
             throw new Error("Invalid email or password");

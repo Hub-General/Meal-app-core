@@ -13,6 +13,21 @@ export const mealController = {
             })
         }
     },
+    createMealBatchController: async(req: Request, res: Response)=>{
+        try{
+            if(!Array.isArray(req.body) || !(req.body.length > 0)){
+                return res.status(400).json({error:'Request body must be an array of objects'})
+            }
+            const meal = await mealService.createMealBatch(req.body);
+            res.status(201).json({message: "Meals created successfully", meal});
+        } catch(error:any ) {
+            console.log(error.message)
+            res.status(500).json({
+                message: "Failed to create meals",
+                error,
+            })
+        }
+    },
     getAllMealsController: async(req: Request, res: Response)=>{
         try{
             const meals = await mealService.getAllMeals();

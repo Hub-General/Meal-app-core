@@ -39,4 +39,5 @@ export interface RegisterUserDigiHRRequest {
     roleId: number;
     status: Status;
     createdAt: Date;
+    isActivated: boolean;
 }

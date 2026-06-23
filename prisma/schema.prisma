@@ -31,8 +31,10 @@ model Users {
   referenceEmail String @unique
   referenceId Int @unique
   status Status @default(ACTIVE)
-  passwordHash String
+  passwordHash String?
   createdAt DateTime @default(now())
+  isActivated Boolean
+  
   roleId  Int
   role Roles @relation(fields: [roleId], references: [id])
   
