@@ -1,4 +1,3 @@
-import errorHandler from "../helpers/errorHandler";
 import prisma from "../prisma/client";
 import { CreateMenuRequest } from "../interfaces/menu";
 

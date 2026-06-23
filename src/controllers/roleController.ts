@@ -1,5 +1,4 @@
 import { Request, Response } from "express";
-import errorHandler from "../helpers/errorHandler";
 import { roleService } from "../services/roleService";
 
 export const roleController = {

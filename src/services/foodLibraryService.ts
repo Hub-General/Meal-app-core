@@ -20,6 +20,6 @@ export const foodLibraryService = {
         return await prisma.foodLibrary.create({data: data})
     },
     createFoodItemBatch: async(data: CreateFoodItemRequest[])=>{
-        return await prisma.foodLibrary.createMany({data: data})
+        return await prisma.foodLibrary.createMany({data: data, skipDuplicates: true})
     }
 }

@@ -24,6 +24,7 @@ app.use("/week-menu-schedules", weekMenuScheduleRoutes);
 app.use("/users/taste-profiles", tasteProfileRoutes)
 app.use("/meal-selections", selectionRoutes);
 app.use("/presets", presetRoutes);
-app.use("/food-library", foodLibraryRoutes)
+app.use("/food-library", foodLibraryRoutes);
+
 
 export default app;
