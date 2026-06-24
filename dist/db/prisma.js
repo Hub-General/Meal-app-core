@@ -12,17 +12,4 @@ if (!connectionString) {
 const pool = new pg_1.Pool({ connectionString });
 const adapter = new adapter_pg_1.PrismaPg(pool);
 exports.prisma = new prisma_1.PrismaClient({ adapter });
-// Default any newly-created user to the "USER" role unless explicitly set.
-exports.prisma.$use(async (params, next) => {
-    if (params.model === "Users" && params.action === "create") {
-        const data = params.args?.data;
-        if (data && data.roleId == null && data.role == null) {
-            params.args.data = {
-                ...params.args.data,
-                role: { connect: { name: "USER" } },
-            };
-        }
-    }
-    return next(params);
-});
 //# sourceMappingURL=prisma.js.map
