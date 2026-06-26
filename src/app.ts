@@ -20,8 +20,8 @@ app.use("/roles", roleRoutes);
 app.use("/meals", mealRoutes);
 app.use("/menus", menuRoutes);
 app.use("/users", userRoutes);
-app.use("/week-menu-schedules", weekMenuScheduleRoutes);
 app.use("/users/taste-profiles", tasteProfileRoutes)
+app.use("/week-menu-schedules", weekMenuScheduleRoutes);
 app.use("/meal-selections", selectionRoutes);
 app.use("/presets", presetRoutes);
 app.use("/food-library", foodLibraryRoutes);

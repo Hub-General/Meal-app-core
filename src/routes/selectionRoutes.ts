@@ -15,6 +15,7 @@ router.get("/by-meal/:id", mealSelectionController.getSelectionsByMealIdControll
 router.get("/weekly", mealSelectionController.getWeeklySelectionsController);
 router.get("/weekly/by-date", mealSelectionController.getWeeklySelectionsByDateController);
 router.get("/weekly/by-user/:id", mealSelectionController.getWeeklySelectionsByUserController);
+router.get("/weekly/no-selections", mealSelectionController.getUsersWithoutSelectionsController);
 
 //CREATE selections routes
 router.post("/", mealSelectionController.createSelectionController);

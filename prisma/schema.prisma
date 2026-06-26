@@ -76,6 +76,7 @@ model WeekMenuSchedule {
   week Int
   year Int
   menuId Int
+  status WeekMenuStatus @default(DRAFT)
 
   menu Menus @relation(fields: [menuId], references: [id])
   selections Selections[]
@@ -111,6 +112,13 @@ enum FoodGroup {
   PREP
 }
 
+enum WeekMenuStatus {
+  DRAFT
+  ACTIVE
+  LOCKED
+  CLOSED
+}
+
 model Menus{ 
   id Int @id @default(autoincrement())
   title String
@@ -140,6 +148,7 @@ model MenuDayMeals{
   id Int @id @default(autoincrement())
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  isActive Boolean @default(true)
 
   menuDayId Int
   menuDay MenuDays @relation(fields: [menuDayId], references: [id])
@@ -163,6 +172,7 @@ model FoodLibrary{
 
   @@unique([foodCode,foodGroup])
 }
+
 model Meals{
   id Int @id @default(autoincrement())
   image String?

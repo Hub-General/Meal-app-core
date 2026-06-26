@@ -123,6 +123,20 @@ export const mealSelectionController = {
             res.status(500).json({ error: "Failed to fetch selections by date" });
         }
     },
+    getUsersWithoutSelectionsController: async( req: Request, res: Response)=>{
+        try{
+            const { date: dateQuery } = req.query;
+            if (!dateQuery) {
+                return res.status(400).json({ error: "Date parameter is required" });
+            }
+            const date = new Date(String(dateQuery));
+    
+            const results = await mealSelectionService.getUsersWithoutSelections(date);
+            res.json(results);
+        } catch (error) {
+            res.status(500).json({ error: "Failed to fetch users without selections" });
+        }
+    },
 
     //CREATE Selections
 
