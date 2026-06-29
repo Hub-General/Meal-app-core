@@ -19,6 +19,9 @@ export const userService = {
     updateUserDetails: async(userId: number, userData: RegisterUserRequest)=>{
         return await prisma.users.update({where: {id: userId}, data: userData});
     },
+    getUsersByRole: async(roleId: number)=>{
+        
+    },
     getUserByReferenceId: async (referenceId: number) => {
         return await prisma.users.findUnique({where: {referenceId}, select: SafeUser});
     },
