@@ -3,9 +3,9 @@ import { mailTransporter } from "../config/emailConfig";
 export const mailService = {
     sendOnboardingEmail: async (to: string, token: string) => {
         const link = `https://meal-app-core.com/onboarding?token=${token}`;
-
+        
         await mailTransporter.sendMail({
-            from: `"Meal App" <${process.env.SMTP_USER}>`,
+            from: `"Meal App" <${process.env.MAIL_FROM}>`,
             to,
             subject: "Join the Meal App!",
             html: `
@@ -18,7 +18,7 @@ export const mailService = {
                             <td style="text-align:center;">
 
                                 
-                                <img src="cid:meal-app-logo" width="230" alt="Meal App Logo" style="padding: 0; margin:-10px"/>
+                                <img src="https://rqjzrmhpyhuzbgcxeuhc.supabase.co/storage/v1/object/public/MealAppImages/BellIcon.png" width="230" alt="Meal App Logo" style="padding: 0; margin:-10px"/>
                                 <h1 style="margin:0 0 10px 0; font-size:24px; color:#333;">
                                     Welcome To The Meal App 👋
                                 </h1>
@@ -50,29 +50,14 @@ export const mailService = {
                                 <p style="margin:0 0 20px 0; font-size:14px; color:#3e584a;">
                                     Contact your administrator if you are not supposed to be receiving this Mail
                                 </p>
-                                <img src="cid:HMDH-logo" width="100" alt="Meal App Logo" />
+                                <img src="https://rqjzrmhpyhuzbgcxeuhc.supabase.co/storage/v1/object/public/MealAppImages/HmdhIcon.png" width="100" alt="Meal App Logo" />
 
                             </td>
                         </tr>
                     </table>
 
                 </div>
-            `,
-            attachments:[
-                {
-                    filename: "BellIcon.png",
-                    cid: "meal-app-logo",
-                    path:"src/assets/BellIcon.png"
-
-                },
-                {
-                    filename: "HmdhIcon.png",
-                    cid: "HMDH-logo",
-                    path:"src/assets/HmdhIcon.png"
-
-                },
-
-            ]
+            `
         });
     },
 };
