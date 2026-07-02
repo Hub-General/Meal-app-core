@@ -25,4 +25,8 @@ router.post("/batch", mealSelectionController.createBatchSelectionController);
 router.put("/:id", mealSelectionController.updateSelectionController);
 router.put("/batch", mealSelectionController.updateSelectionsBatchController);
 
+//SUBMIT selections routes
+router.patch("/submit", mealSelectionController.submitSelectionsController);
+router.patch("/submit-weekly", mealSelectionController.submitWeeklySelectionsController);
+
 export default router;

@@ -221,5 +221,25 @@ export const mealSelectionController = {
         }catch(error){
             res.status(500).json({error:"Failed to update selections batch"})
         }
+    },
+
+    //SUBMIT Selections
+    submitWeeklySelectionsController: async(req: Request, res: Response)=>{
+        try{
+            const { weekNumber, year } = req.body;
+            await mealSelectionService.submitWeeklySelections(Number(weekNumber), Number(year));
+            res.status(200).json({ message: "Weekly selections submitted successfully" });
+        }catch(error){
+            res.status(500).json({error:"Failed to submit weekly selections"})
+        }
+    },
+    submitSelectionsController: async(req: Request, res: Response)=>{
+        try{
+            const selectionIds: number[] = req.body.selectionIds;
+            await mealSelectionService.submitSelections(selectionIds);
+            res.status(200).json({ message: "Selections submitted successfully" });
+        }catch(error){
+            res.status(500).json({error:"Failed to submit selections"})
+        }
     }
 }

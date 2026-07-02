@@ -174,11 +174,16 @@ export const mealSelectionService = {
 
     // SUBMIT selections
 
-    submitSelections:(selectionIds: number[])=>{
-        return prisma.selections.updateMany({
+    submitSelections: async (selectionIds: number[])=>{
+        return await prisma.selections.updateMany({
             where: {id: {in: selectionIds}},
             data: {selectionStatus: "SUBMITTED"}
         });
     },
 
+    submitWeeklySelections: async (weekNumber: number, year: number)=>{
+        const weekMenuSchedule = await weekMenuScheduleService.getWeekMenuScheduleByWeekAndYear(weekNumber, year);
+        if(!weekMenuSchedule) return;
+        return await prisma.selections.updateMany({where:{weekMenuScheduleId: weekMenuSchedule.id}, data: {selectionStatus: "SUBMITTED"}})
+    }
 }

@@ -84,7 +84,7 @@ export const menuController = {
             const result = await menuServices.createMenuDayMeals(meals);
             res.status(200).json(result);
         } catch (error) {
-            res.status(500).json({ error: "Failed to retrieve menu meals" });
+            res.status(500).json({ error: "Failed to create menu meals" });
         }
     },
     updateMenuMealsController: async(req:Request, res: Response)=>{
