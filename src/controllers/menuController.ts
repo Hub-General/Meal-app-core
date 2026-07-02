@@ -8,10 +8,10 @@ export const menuController = {
     createMenuController : async (req: Request, res: Response) => {
         try {
             const menuData = req.body;
-            const newMenu = await menuServices.createMenu(menuData);
+            const newMenu = await menuServices.createMenu(req.body);
             res.status(201).json(newMenu);
         } catch (error) {
-            res.status(500).json({ error: "Failed to create menu" });
+            res.status(500).json({ error: `Failed to create menu. Error:${error}` });
         }
     },
     getAllMenusController : async (req: Request, res: Response) => {
@@ -66,5 +66,37 @@ export const menuController = {
             res.status(500).json({ error: "Failed to retrieve menu meals" });
         }
     },
+    getMenuDaysByMenuIdController : async (req: Request, res: Response) => {
+        try {
+            const menuId = Number(req.params.id)
+            if(isNaN(menuId)|| !menuId){
+                res.status(401).json({error: 'Menu Id is invalid'})
+            }
+            const menuDays = await menuServices.getMenuDaysbyMenuId(menuId);
+            res.status(200).json(menuDays);
+        } catch (error) {
+            res.status(500).json({ error: "Failed to retrieve menus" });
+        }
+    },
+    createMenuMealsController : async (req: Request, res: Response) => {
+        try {
+            const meals = req.body;
+            const result = await menuServices.createMenuDayMeals(meals);
+            res.status(200).json(result);
+        } catch (error) {
+            res.status(500).json({ error: "Failed to create menu meals" });
+        }
+    },
+    updateMenuMealsController: async(req:Request, res: Response)=>{
+        try{
+            const id = Number(req.params.id)
+            const isActive = req.body
+            await menuServices.updateMenuMeals(id,isActive);
+            res.status(200).json({message : "Successfully updated meal status"})
+        
+        }catch (error){
+            res.status(500).json({error:"Failed to update menu meal"})
+        }
+    }
     
 }

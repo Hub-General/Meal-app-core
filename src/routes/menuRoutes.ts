@@ -10,4 +10,9 @@ router.post("/", menuController.createMenuController);
 router.put("/:id", menuController.updateMenuController);
 router.delete("/:id", menuController.deleteMenuController);
 
+//Menu Meals Routes
+router.get("/days/:id", menuController.getMenuDaysByMenuIdController);
+router.post("/meals", menuController.createMenuMealsController);
+router.patch("/meals/:id", menuController.updateMenuMealsController);
+
 export default router;

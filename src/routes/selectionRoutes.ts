@@ -15,6 +15,7 @@ router.get("/by-meal/:id", mealSelectionController.getSelectionsByMealIdControll
 router.get("/weekly", mealSelectionController.getWeeklySelectionsController);
 router.get("/weekly/by-date", mealSelectionController.getWeeklySelectionsByDateController);
 router.get("/weekly/by-user/:id", mealSelectionController.getWeeklySelectionsByUserController);
+router.get("/weekly/no-selections", mealSelectionController.getUsersWithoutSelectionsController);
 
 //CREATE selections routes
 router.post("/", mealSelectionController.createSelectionController);
@@ -23,5 +24,9 @@ router.post("/batch", mealSelectionController.createBatchSelectionController);
 //UPDATE selections routes
 router.put("/:id", mealSelectionController.updateSelectionController);
 router.put("/batch", mealSelectionController.updateSelectionsBatchController);
+
+//SUBMIT selections routes
+router.patch("/submit", mealSelectionController.submitSelectionsController);
+router.patch("/submit-weekly", mealSelectionController.submitWeeklySelectionsController);
 
 export default router;

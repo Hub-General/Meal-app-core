@@ -15,6 +15,9 @@ export const mealService = {
     getMealById: async(mealId: number)=>{
         return await prisma.meals.findUnique({where: {id: mealId}});
     },
+    getMealByFoodCode: async(foodCode: string)=>{
+        return await prisma.meals.findUnique({where:{foodCode:foodCode}})
+    },
     updateMeal : async(mealId: number, mealData: CreateMealRequest)=>{
         return await prisma.meals.update({where: {id: mealId}, data: mealData});
     },

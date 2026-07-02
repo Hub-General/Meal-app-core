@@ -44,6 +44,7 @@ model Users {
   tasteProfile TasteProfile[]
   userAvailability UserAvailability[]
   refreshTokens RefreshToken[]
+  userTokens UserTokens[]
 }
 
 model RefreshToken {
@@ -56,6 +57,20 @@ model RefreshToken {
   userId Int
   user Users @relation(fields:[userId], references: [id])
 
+}
+
+model UserTokens {
+  id Int @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+  usedAt DateTime?
+  type TokenType
+  token String
+
+  userId Int
+  user Users @relation(fields:[userId], references: [id])
+
+  @@unique([userId, type])
 }
 
 model UserAvailability {
@@ -76,6 +91,7 @@ model WeekMenuSchedule {
   week Int
   year Int
   menuId Int
+  status WeekMenuStatus @default(DRAFT)
 
   menu Menus @relation(fields: [menuId], references: [id])
   selections Selections[]
@@ -111,6 +127,20 @@ enum FoodGroup {
   PREP
 }
 
+enum WeekMenuStatus {
+  DRAFT
+  ACTIVE
+  LOCKED
+  CLOSED
+}
+
+enum TokenType {
+  USER_ONBOARDING
+  PASSWORD_RESET
+}
+
+
+
 model Menus{ 
   id Int @id @default(autoincrement())
   title String
@@ -140,6 +170,7 @@ model MenuDayMeals{
   id Int @id @default(autoincrement())
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  isActive Boolean @default(true)
 
   menuDayId Int
   menuDay MenuDays @relation(fields: [menuDayId], references: [id])
@@ -163,6 +194,7 @@ model FoodLibrary{
 
   @@unique([foodCode,foodGroup])
 }
+
 model Meals{
   id Int @id @default(autoincrement())
   image String?

@@ -1,11 +1,14 @@
 import argon2 from "argon2";
 import prisma from "../prisma/client";
+import crypto from "crypto"
 import jwt from "jsonwebtoken"
 import { generateAccessToken, generateRefreshToken } from "../utility/generateAccessToken";
+import { mailService } from "./emailService";
 
 interface RegisterRequest {
     password: string;
     email: string;
+    token: string;
 }
 
 interface LoginRequest {
@@ -18,25 +21,87 @@ export const authService = {
 
         const existing = await prisma.users.findFirst({where: {referenceEmail: registerRequest.email}})
         
+        
+        if(existing && existing.isActivated){
+            throw new Error("User with this email is already activated");
+        }else if (!existing){
+            throw new Error("Email invalid")
+        }
+        
+        const onBoardingToken = await prisma.userTokens.findFirst({where:{userId: existing.id, type:"USER_ONBOARDING"}})
+        
+        if(!onBoardingToken || onBoardingToken.usedAt){
+            throw new Error ("Unused Token not found")
+        } else if (onBoardingToken.expiresAt< new Date()){
+            throw new Error ("Token has expired. Request a new one")
+        }
+        const validToken = await argon2.verify(onBoardingToken.token, registerRequest.token);
+        
+        if(!validToken ){
+            throw new Error("Invalid user token")
+        }
+        
+        const passwordHash = await argon2.hash(registerRequest.password);
+        await prisma.$transaction(async(tx)=>
+        {
+            await tx.users.update({
+                where:{ id: existing.id },
+                data: {
+                    passwordHash: passwordHash,
+                    isActivated: true,
+                    status: "ACTIVE"
+                },
+                include:{
+                    role: true
+                }
+            })
+    
+            await tx.userTokens.update({where:{id: onBoardingToken.id}, data:{
+                usedAt: new Date()
+            }})
+        }
+        )
+
+        return {message:"Account activated!"};
+    },
+    
+    onBoarding: async(email: string)=>{
+
+        const existing = await prisma.users.findFirst({where: {referenceEmail: email}})
+
+
         if(existing && existing.isActivated){
             throw new Error("User with this email is already activated");
         }else if (!existing){
             throw new Error("Email invalid")
         }
 
-        const passwordHash = await argon2.hash(registerRequest.password);
-        const user = await prisma.users.update({
-            where:{ id: existing.id },
-            data: {
-                passwordHash: passwordHash,
-                isActivated: true,
-                status: "ACTIVE"
-            },
-            include:{
-                role: true
+        const token = crypto.randomBytes(32).toString("hex");
+        const tokenHash = await argon2.hash(token);
+
+        await prisma.userTokens.upsert({
+        where: {
+            userId_type: {
+            userId: existing.id,
+            type: "USER_ONBOARDING"
             }
-        })
-        return user;
+        },
+        update: {
+            token: tokenHash,
+            expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+            usedAt: null
+        },
+        create: {
+            userId: existing.id,
+            type: "USER_ONBOARDING",
+            token: tokenHash,
+            expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000)
+        }
+        });
+
+        await mailService.sendOnboardingEmail(email,token)
+        return ({message:"Email sent successfully"})
+
     },
 
     login: async (loginRequest: LoginRequest) => {

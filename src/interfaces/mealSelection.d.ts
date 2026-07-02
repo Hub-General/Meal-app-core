@@ -6,13 +6,17 @@ export interface MealSelection {
         meal: {
             id: number;
             name: string;
+            image?: string;
         }
     };
-    user: {
+    createdByUser: {
         id: number;
-        firstName: string;
-        lastName: string;
+        name: string;
     };
+    createdForUser: {
+        id: number;
+        name:string;
+    }
 
 }
 

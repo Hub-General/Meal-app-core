@@ -24,3 +24,10 @@ export function getISOWeekInfo(date = new Date()) {
 
     return { day, week, year, dayName: d.toLocaleDateString('en-US', { weekday: 'long' }).toUpperCase() };
 }
+
+export function getNextISOWeekInfo(date = new Date()) {
+    const nextDate = new Date(date);
+    nextDate.setUTCDate(nextDate.getUTCDate() + 7);
+
+    return getISOWeekInfo(nextDate);
+}

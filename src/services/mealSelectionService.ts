@@ -57,6 +57,7 @@ export const mealSelectionService = {
             select: selectionSelectShape
         });
     },
+
     getSelectionsByIds: async(ids: number[])=>{
         return await prisma.selections.findMany({
             where: {id: {in: ids}},
@@ -104,6 +105,24 @@ export const mealSelectionService = {
             },
             select: selectionSelectShape
         });
+    },
+
+    getUsersWithoutSelections: async(date: Date)=>{
+        const weekInfo = getISOWeekInfo(date);
+        const weekMenuSchedule = await weekMenuScheduleService.getWeekMenuScheduleByWeekAndYear(weekInfo.week, weekInfo.year);
+        
+        const result = await prisma.$queryRaw`
+            SELECT u.id
+            FROM "Users" u
+            WHERE u."status" = "ACTIVE"
+            LEFT JOIN "Selections" s
+            ON s."createdFor" = u.id
+            AND s."weekMenuScheduleId" = ${weekMenuSchedule}
+            GROUP BY u.id
+            HAVING COUNT(s.id) < 5;
+            `;
+
+        return result
     },
 
     getWeeklySelections: async(date: Date)=>{
@@ -155,11 +174,16 @@ export const mealSelectionService = {
 
     // SUBMIT selections
 
-    submitSelections:(selectionIds: number[])=>{
-        return prisma.selections.updateMany({
+    submitSelections: async (selectionIds: number[])=>{
+        return await prisma.selections.updateMany({
             where: {id: {in: selectionIds}},
             data: {selectionStatus: "SUBMITTED"}
         });
     },
 
+    submitWeeklySelections: async (weekNumber: number, year: number)=>{
+        const weekMenuSchedule = await weekMenuScheduleService.getWeekMenuScheduleByWeekAndYear(weekNumber, year);
+        if(!weekMenuSchedule) return;
+        return await prisma.selections.updateMany({where:{weekMenuScheduleId: weekMenuSchedule.id}, data: {selectionStatus: "SUBMITTED"}})
+    }
 }

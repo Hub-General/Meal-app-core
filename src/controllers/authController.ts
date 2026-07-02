@@ -17,6 +17,23 @@ export const authController = {
         }
     },
 
+    onBoardingController : async (req: Request, res: Response) => {
+        try{
+            if(!req.body.email.trim()) {
+                return res.status(400).json({ message: "Email is required" });
+            }
+            const result = await authService.onBoarding(req.body.email);
+            res.status(200).json({result})
+        }catch(error){
+            res.status(400).json({
+                message: error instanceof Error
+                    ? error.message
+                    : "Onboarding failed",
+            });
+        }
+    },
+
+
     signUpController : async (req: Request, res: Response) => {
         try{
             if(!req.body.email.trim() || !req.body.password.trim()) {
