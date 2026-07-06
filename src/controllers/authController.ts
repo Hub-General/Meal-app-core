@@ -1,16 +1,20 @@
 import { Request, Response } from "express";
 import {authService} from "../services/authService";
-import { passwordRegex } from "../utility/passwordSchema";
 import { digiHRService } from "../services/digiHRService";
+import { LoginRequestSchema, RegisterRequestSchema } from "../schema/auth";
 
 export const authController = {
     loginController : async (req : Request, res : Response) => {
         try{
-            if(!req.body.email.trim() || !req.body.password.trim()) {
-                return res.status(400).json({ message: "Email and password are required" });
+            const request = LoginRequestSchema.safeParse(req.body);
+            if(!request.success){
+                return res.status(400).json({
+                    message: `Invalid login data`,
+                    errors: request.error.flatten()
+                });
             }
-            const result = await authService.login(req.body);
-            res.status(200).json(result);
+            const user = await authService.login(request.data);
+            res.status(200).json(user);
         }
         catch(error){
             res.status(401).json({message: `Failed to login`});
@@ -26,24 +30,23 @@ export const authController = {
             res.status(200).json({result})
         }catch(error){
             res.status(400).json({
-                message: error instanceof Error
+                messages: error instanceof Error
                     ? error.message
                     : "Onboarding failed",
             });
         }
     },
 
-
     signUpController : async (req: Request, res: Response) => {
         try{
-            if(!req.body.email.trim() || !req.body.password.trim()) {
-                return res.status(400).json({ message: "Email and password are required" });
+            const request = RegisterRequestSchema.safeParse(req.body);
+            if(!request.success){
+                return res.status(400).json({
+                    message: `Invalid signup data`,
+                    errors: request.error.flatten()
+                });
             }
-            if(!passwordRegex.test(req.body.password)){
-                throw new Error("Password must be at least 8 characters long and include uppercase, lowercase, number, and symbol.")
-            }
-            
-            const result = await authService.register(req.body);
+            const result = await authService.register(request.data);
             res.status(200).json({message: 'Successfully Signed Up', result})
         }catch(error){
             res.status(400).json({

@@ -1,10 +1,18 @@
 import { Request, Response } from "express";
 import { mealService } from "../services/mealService";
+import { CreateMealRequestSchema, UpdateMealRequestSchema } from "../schema/meal";
 
 export const mealController = {
     createMealController: async(req: Request, res: Response)=>{
         try{
-            const meal = await mealService.createMeal(req.body);
+            const request = CreateMealRequestSchema.safeParse(req.body)
+            if(!request.success){
+                return res.status(400).json({
+                    message:"Invalid request body", 
+                    error: request.error.flatten()
+                })
+            }
+            const meal = await mealService.createMeal(request.data);
             res.status(201).json({message: "Meal created successfully", meal});
         } catch(error) {
             res.status(500).json({
@@ -52,7 +60,14 @@ export const mealController = {
     },
     updateMealController: async(req: Request, res: Response)=>{
         try{
-            const meal = await mealService.updateMeal(Number(req.params.id), req.body);
+            const request = UpdateMealRequestSchema.safeParse(req.body);
+            if(!request.success){
+                return res.status(400).json({
+                    message:"Invalid request body",
+                    error: request.error.flatten()
+                })
+            }
+            const meal = await mealService.updateMeal(Number(req.params.id), request.data);
             res.status(200).json({message: "Meal updated successfully", meal});
         } catch(error) {
             res.status(500).json({

@@ -23,11 +23,6 @@ interface DigiHRUserLeave {
     ApprovalStatus: string
 }
 
-interface DigiHRUpdate {
-    name?: string;
-    referenceEmail?: string;
-    status?: Status;
-}
 
 
 export const digiHRService = {

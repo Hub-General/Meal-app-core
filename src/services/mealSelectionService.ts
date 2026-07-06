@@ -1,7 +1,7 @@
 import { prisma } from "../db/prisma";
 import { Days } from "../generated/prisma";
 import { getISOWeekInfo } from "../helpers/dateFunctions";
-import { CreateMealSelectionRequest, MealSelectionFilter } from "../interfaces/mealSelection";
+import { CreateMealSelectionRequest, MealSelectionFilter } from "../schema/mealSelection";
 import { weekMenuScheduleService } from "./weekMenuScheduleService";
 
 const selectionSelectShape = {
@@ -96,7 +96,7 @@ export const mealSelectionService = {
 
     getWeeklySelectionsByDate: async(date: Date)=>{
         const weekInfo = getISOWeekInfo(date);
-        const weekMenuSchedule = await weekMenuScheduleService.getWeekMenuScheduleByWeekAndYear(weekInfo.week, weekInfo.year);
+        const weekMenuSchedule = await weekMenuScheduleService.getWeekMenuScheduleByWeekAndYear({week: weekInfo.week, year: weekInfo.year});
         if(!weekMenuSchedule) return [];
         return await prisma.selections.findMany({
             where: {
@@ -109,7 +109,7 @@ export const mealSelectionService = {
 
     getUsersWithoutSelections: async(date: Date)=>{
         const weekInfo = getISOWeekInfo(date);
-        const weekMenuSchedule = await weekMenuScheduleService.getWeekMenuScheduleByWeekAndYear(weekInfo.week, weekInfo.year);
+        const weekMenuSchedule = await weekMenuScheduleService.getWeekMenuScheduleByWeekAndYear({week: weekInfo.week, year: weekInfo.year});
         
         const result = await prisma.$queryRaw`
             SELECT u.id
@@ -127,7 +127,7 @@ export const mealSelectionService = {
 
     getWeeklySelections: async(date: Date)=>{
         const weekInfo = getISOWeekInfo(date);
-        const weekMenuSchedule = await weekMenuScheduleService.getWeekMenuScheduleByWeekAndYear(weekInfo.week, weekInfo.year);
+        const weekMenuSchedule = await weekMenuScheduleService.getWeekMenuScheduleByWeekAndYear({week: weekInfo.week, year: weekInfo.year});
         if(!weekMenuSchedule) return [];
         return await prisma.selections.findMany({
             where: {
@@ -139,7 +139,7 @@ export const mealSelectionService = {
 
     getWeeklySelectionsByUser: async(date: Date, createdFor: number)=>{
         const weekInfo = getISOWeekInfo(date);
-        const weekMenuSchedule = await weekMenuScheduleService.getWeekMenuScheduleByWeekAndYear(weekInfo.week, weekInfo.year);
+        const weekMenuSchedule = await weekMenuScheduleService.getWeekMenuScheduleByWeekAndYear({week: weekInfo.week, year: weekInfo.year});
         if(!weekMenuSchedule) return [];
         return await prisma.selections.findMany({
             where: {
@@ -182,7 +182,7 @@ export const mealSelectionService = {
     },
 
     submitWeeklySelections: async (weekNumber: number, year: number)=>{
-        const weekMenuSchedule = await weekMenuScheduleService.getWeekMenuScheduleByWeekAndYear(weekNumber, year);
+        const weekMenuSchedule = await weekMenuScheduleService.getWeekMenuScheduleByWeekAndYear({week: weekNumber, year: year});
         if(!weekMenuSchedule) return;
         return await prisma.selections.updateMany({where:{weekMenuScheduleId: weekMenuSchedule.id}, data: {selectionStatus: "SUBMITTED"}})
     }
