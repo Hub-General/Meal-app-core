@@ -1,8 +1,8 @@
 
-import { RegisterUserDigiHRRequest, RegisterUserRequest, SyncUserDataRequest, UserLeaveRequestDto } from "../interfaces/user";
 import { Status } from "../generated/prisma";
 import { SafeUser } from "../selection/selectionShapes";
 import { prisma } from "../prisma/client";
+import { RegisterUserDigiHRRequest, RegisterUserRequest, SyncUserDataRequest, UserLeaveRequest } from "../schema/user";
 
 
 
@@ -51,19 +51,24 @@ export const userService = {
 
     // New method for bulk creating users
     bulkCreateUsers: async (users: RegisterUserDigiHRRequest[]) => {
+        const usersWithRoleId = users.map((user) => ({
+            ...user,
+            roleId: 1,
+        }));
+
         return await prisma.users.createMany({
-            data: users,
+            data: usersWithRoleId as any,
             skipDuplicates: true
         });
     },
 
     // User availability endpoints
     
-    createUserLeave: async(data: UserLeaveRequestDto)=>{
+    createUserLeave: async(data: UserLeaveRequest)=>{
         return await prisma.userAvailability.create({data})
     },
 
-    createUserLeaveBatch: async(data: UserLeaveRequestDto[])=>{
+    createUserLeaveBatch: async(data: UserLeaveRequest[])=>{
         return await prisma.userAvailability.createMany({data: data})
     },
 

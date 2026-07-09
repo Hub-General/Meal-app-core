@@ -4,17 +4,7 @@ import crypto from "crypto"
 import jwt from "jsonwebtoken"
 import { generateAccessToken, generateRefreshToken } from "../utility/generateAccessToken";
 import { mailService } from "./emailService";
-
-interface RegisterRequest {
-    password: string;
-    email: string;
-    token: string;
-}
-
-interface LoginRequest {
-    email: string;
-    password: string;
-}
+import { LoginRequest, RegisterRequest } from "../schema/auth";
 
 export const authService = {
     register: async (registerRequest: RegisterRequest) => { 

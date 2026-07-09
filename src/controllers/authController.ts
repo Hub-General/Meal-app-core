@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import {authService} from "../services/authService";
 import { digiHRService } from "../services/digiHRService";
-import { LoginRequestSchema, RegisterRequestSchema } from "../schema/auth";
+import { LoginRequestSchema, LogoutRequestSchema, OnboardingRequestSchema, RefreshRequestSchema, RegisterRequestSchema } from "../schema/auth";
 
 export const authController = {
     loginController : async (req : Request, res : Response) => {
@@ -23,10 +23,11 @@ export const authController = {
 
     onBoardingController : async (req: Request, res: Response) => {
         try{
-            if(!req.body.email.trim()) {
-                return res.status(400).json({ message: "Email is required" });
+            const parsed = OnboardingRequestSchema.safeParse(req.body);
+            if(!parsed.success){
+                return res.status(400).json({ message: "Invalid onboarding data", errors: parsed.error.flatten() });
             }
-            const result = await authService.onBoarding(req.body.email);
+            const result = await authService.onBoarding(parsed.data.email);
             res.status(200).json({result})
         }catch(error){
             res.status(400).json({
@@ -59,10 +60,11 @@ export const authController = {
 
     logOutController: async (req: Request, res: Response) => {
         try{
-            if(!req.body.refreshToken){
-                return res.status(400).json({message: 'Refresh token required'})
+            const parsed = LogoutRequestSchema.safeParse(req.body);
+            if(!parsed.success){
+                return res.status(400).json({message: 'Refresh token required', errors: parsed.error.flatten()})
             }
-            await authService.logout(req.body.refreshToken);
+            await authService.logout(parsed.data.refreshToken);
             return res.status(200).json({message: "Logged out successfully"});
 
         }catch(error){
@@ -74,10 +76,11 @@ export const authController = {
 
     refreshController: async (req: Request, res: Response)=>{
         try{
-            if(!req.body){
-                return res.status(401).json({message: "Refresh token is required"})
+            const parsed = RefreshRequestSchema.safeParse(req.body);
+            if(!parsed.success){
+                return res.status(401).json({message: "Refresh token is required", errors: parsed.error.flatten()})
             }
-            const newAccessToken = await authService.refreshToken(req.body);
+            const newAccessToken = await authService.refreshToken(parsed.data.refreshToken);
             return res.status(200).json(newAccessToken)
 
         }catch(error){

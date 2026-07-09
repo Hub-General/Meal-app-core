@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import { FoodGroup } from "../generated/prisma";
+import { CreateFoodItemRequestSchema } from "../schema/foodLibrary";
 import { foodLibraryService } from "../services/foodLibraryService";
 
 export const foodLibraryController = {
@@ -38,12 +39,14 @@ export const foodLibraryController = {
     },
     createFoodItemsBatch: async(req:Request, res: Response)=>{
         try{
-            if (!Array.isArray(req.body)) {
+            const parsed = CreateFoodItemRequestSchema.array().safeParse(req.body);
+            if (!parsed.success) {
                 return res.status(400).json({
-                    error: 'Request body must be an array'
+                    error: 'Request body must be an array',
+                    details: parsed.error.flatten()
                 })
             } 
-            const items = await foodLibraryService.createFoodItemBatch(req.body)
+            const items = await foodLibraryService.createFoodItemBatch(parsed.data)
             res.status(200).json(items)
         }catch (error){
             res.status(500).json({error: 'Failed to create food items'})
@@ -51,12 +54,14 @@ export const foodLibraryController = {
     },
     createFoodItem: async(req: Request, res: Response)=>{
         try{
-            if(!req.body){
+            const parsed = CreateFoodItemRequestSchema.safeParse(req.body);
+            if(!parsed.success){
                 return res.status(400).json({
-                    error:'Invalid request body'
+                    error:'Invalid request body',
+                    details: parsed.error.flatten()
                 })
             }
-            const foodItem = await foodLibraryService.createFoodItem(req.body)
+            const foodItem = await foodLibraryService.createFoodItem(parsed.data)
             res.status(200).json("Successfully created food item")
         }catch(error){
             res.status(500).json({error:'Failed to create food item'})

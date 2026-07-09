@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import { createMenuDayMealsRequestSchema, createMenuRequestSchema } from "../schema/menu";
 import { menuServices } from "../services/menuService";
 
 export const menuController = {
@@ -7,8 +8,11 @@ export const menuController = {
 
     createMenuController : async (req: Request, res: Response) => {
         try {
-            const menuData = req.body;
-            const newMenu = await menuServices.createMenu(req.body);
+            const parsed = createMenuRequestSchema.safeParse(req.body);
+            if (!parsed.success) {
+                return res.status(400).json({ message: "Invalid menu payload", errors: parsed.error.flatten() });
+            }
+            const newMenu = await menuServices.createMenu(parsed.data);
             res.status(201).json(newMenu);
         } catch (error) {
             res.status(500).json({ error: `Failed to create menu. Error:${error}` });
@@ -38,8 +42,11 @@ export const menuController = {
     updateMenuController : async (req: Request, res: Response) => {
         try {
             const menuId = Number(req.params.id);
-            const menuData = req.body;
-            const updatedMenu = await menuServices.updateMenu(menuId, menuData);
+            const parsed = createMenuRequestSchema.safeParse(req.body);
+            if (!parsed.success) {
+                return res.status(400).json({ message: "Invalid menu payload", errors: parsed.error.flatten() });
+            }
+            const updatedMenu = await menuServices.updateMenu(menuId, parsed.data);
             res.status(200).json(updatedMenu);
         } catch (error) {
             res.status(500).json({ error: "Failed to update menu" });
@@ -80,8 +87,11 @@ export const menuController = {
     },
     createMenuMealsController : async (req: Request, res: Response) => {
         try {
-            const meals = req.body;
-            const result = await menuServices.createMenuDayMeals(meals);
+            const parsed = createMenuDayMealsRequestSchema.array().safeParse(req.body);
+            if (!parsed.success) {
+                return res.status(400).json({ message: "Invalid menu day meals payload", errors: parsed.error.flatten() });
+            }
+            const result = await menuServices.createMenuDayMeals(parsed.data);
             res.status(200).json(result);
         } catch (error) {
             res.status(500).json({ error: "Failed to create menu meals" });
