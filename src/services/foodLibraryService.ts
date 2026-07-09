@@ -1,11 +1,7 @@
 import { prisma } from "../db/prisma";
 import { FoodGroup } from "../generated/prisma";
+import { CreateFoodItemRequest } from "../schema/foodLibrary";
 
-export interface CreateFoodItemRequest{
-    name : string
-    foodCode: string
-    foodGroup: FoodGroup
-}
 export const foodLibraryService = {
     getAllFoodItems: async()=>{
         return await prisma.foodLibrary.findMany()

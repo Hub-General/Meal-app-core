@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import { mealSelectionService } from "../services/mealSelectionService";
-import { MealSelectionFilter } from "../interfaces/mealSelection";
+import { createMealSelectionBatchRequestSchema, createMealSelectionRequestSchema, MealSelectionFilter, submitSelectionsRequestSchema, submitWeeklySelectionsRequestSchema, updateMealSelectionRequestSchema, updateMealSelectionsBatchRequestSchema } from "../schema/mealSelection";
 import { selectionHelper } from "../helpers/mealSelectionHelpers";
 
 export const mealSelectionController = {
@@ -45,7 +45,7 @@ export const mealSelectionController = {
             const filter: MealSelectionFilter = {};
             if(userId) filter.createdFor = Number(userId);
             if(mealId) filter.mealId = Number(mealId);
-            if(day) filter.day = String(day);
+            if(day) filter.day = day as "MONDAY" | "TUESDAY" | "WEDNESDAY" | "THURSDAY" | "FRIDAY" | "SATURDAY" | "SUNDAY";
             if(menuId) filter.menuId = Number(menuId);
             const selections = await mealSelectionService.getSelectionsByFilter(filter);
             res.json(selections);
@@ -142,7 +142,11 @@ export const mealSelectionController = {
 
     createSelectionController: async(req: Request, res: Response)=>{
         try{
-            const { weekMenuScheduleId, createdFor, menuDayId } = req.body;
+            const parsed = createMealSelectionRequestSchema.safeParse(req.body);
+            if (!parsed.success) {
+                return res.status(400).json({ error: "Invalid selection payload", details: parsed.error.flatten() });
+            }
+            const { weekMenuScheduleId, createdFor, menuDayId } = parsed.data;
 
             // Check if the user has already submitted for the day
             const isSelectionExist = await selectionHelper.isSelectionExist(weekMenuScheduleId, menuDayId, createdFor);
@@ -152,7 +156,7 @@ export const mealSelectionController = {
                 });
             }
             
-            const selectionResponse = await mealSelectionService.createSelection(req.body);
+            const selectionResponse = await mealSelectionService.createSelection(parsed.data);
             res.status(201).json(selectionResponse);
         }catch(error){
             res.status(500).json({error:"Failed to create a new selection"});
@@ -161,7 +165,11 @@ export const mealSelectionController = {
 
     createBatchSelectionController: async( req: Request, res: Response) =>{
         try{
-            const selectionsData: any[] = req.body;
+            const parsed = createMealSelectionBatchRequestSchema.safeParse(req.body);
+            if (!parsed.success) {
+                return res.status(400).json({ error: "Invalid selection batch payload", details: parsed.error.flatten() });
+            }
+            const selectionsData = parsed.data;
             
             // Check if any of the weeks in the batch are already submitted
             for (const data of selectionsData) {
@@ -173,7 +181,7 @@ export const mealSelectionController = {
                 }
             }
 
-            const selectionsResponse = await mealSelectionService.createSelectionsBatch(req.body);
+            const selectionsResponse = await mealSelectionService.createSelectionsBatch(parsed.data);
             res.status(201).json(selectionsResponse);
         }catch(error){
             res.status(500).json({error:"Failed to create new selections batch"})
@@ -184,7 +192,11 @@ export const mealSelectionController = {
     updateSelectionController: async(req: Request, res: Response)=>{
         try{
             const selectionId = Number(req.params.id);
-            const selectionData = req.body;
+            const parsed = updateMealSelectionRequestSchema.safeParse(req.body);
+            if (!parsed.success) {
+                return res.status(400).json({ error: "Invalid selection update payload", details: parsed.error.flatten() });
+            }
+            const selectionData = parsed.data;
 
             // Get the selection to check its week
             const selection = await mealSelectionService.getSelectionById(selectionId);
@@ -207,7 +219,11 @@ export const mealSelectionController = {
     },
     updateSelectionsBatchController: async(req: Request, res: Response)=>{
         try{
-            const ids = req.body.map((s: any) => s.id);
+            const parsed = updateMealSelectionsBatchRequestSchema.safeParse(req.body);
+            if (!parsed.success) {
+                return res.status(400).json({ error: "Invalid selection batch update payload", details: parsed.error.flatten() });
+            }
+            const ids = parsed.data.map((s) => s.id);
             const selections = await mealSelectionService.getSelectionsByIds(ids);
 
             const submitted = selections.find(s => s.selectionStatus === "SUBMITTED");
@@ -216,7 +232,7 @@ export const mealSelectionController = {
                     error: `Selection with ID ${submitted.id} has already been submitted and cannot be updated.` 
                 });
             }
-            const selectionsResponse = await mealSelectionService.updateSelectionsBatch(req.body);
+            const selectionsResponse = await mealSelectionService.updateSelectionsBatch(parsed.data);
             res.status(200).json(selectionsResponse);
         }catch(error){
             res.status(500).json({error:"Failed to update selections batch"})
@@ -226,8 +242,12 @@ export const mealSelectionController = {
     //SUBMIT Selections
     submitWeeklySelectionsController: async(req: Request, res: Response)=>{
         try{
-            const { weekNumber, year } = req.body;
-            await mealSelectionService.submitWeeklySelections(Number(weekNumber), Number(year));
+            const parsed = submitWeeklySelectionsRequestSchema.safeParse(req.body);
+            if (!parsed.success) {
+                return res.status(400).json({ error: "Invalid weekly submission payload", details: parsed.error.flatten() });
+            }
+            const { weekNumber, year } = parsed.data;
+            await mealSelectionService.submitWeeklySelections(weekNumber, year);
             res.status(200).json({ message: "Weekly selections submitted successfully" });
         }catch(error){
             res.status(500).json({error:"Failed to submit weekly selections"})
@@ -235,7 +255,11 @@ export const mealSelectionController = {
     },
     submitSelectionsController: async(req: Request, res: Response)=>{
         try{
-            const selectionIds: number[] = req.body.selectionIds;
+            const parsed = submitSelectionsRequestSchema.safeParse(req.body);
+            if (!parsed.success) {
+                return res.status(400).json({ error: "Invalid selection submission payload", details: parsed.error.flatten() });
+            }
+            const selectionIds = parsed.data.selectionIds;
             await mealSelectionService.submitSelections(selectionIds);
             res.status(200).json({ message: "Selections submitted successfully" });
         }catch(error){

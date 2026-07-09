@@ -1,4 +1,4 @@
-import { CreateMealRequest } from "../interfaces/meal";
+import { CreateMealRequest, UpdateMealRequest } from "../schema/meal";
 import prisma from "../prisma/client";
 
 export const mealService = {
@@ -18,7 +18,7 @@ export const mealService = {
     getMealByFoodCode: async(foodCode: string)=>{
         return await prisma.meals.findUnique({where:{foodCode:foodCode}})
     },
-    updateMeal : async(mealId: number, mealData: CreateMealRequest)=>{
+    updateMeal : async(mealId: number, mealData: UpdateMealRequest)=>{
         return await prisma.meals.update({where: {id: mealId}, data: mealData});
     },
     deleteMeal: async(mealId: number)=>{

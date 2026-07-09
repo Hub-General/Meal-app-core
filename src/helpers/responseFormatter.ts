@@ -1,5 +1,5 @@
 import { Days } from "../generated/prisma";
-import { MealSelection } from "../interfaces/mealSelection";
+import { MealSelection } from "../schema/mealSelection";
 
 type FormatterSelection = {
     menuDay: {

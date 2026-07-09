@@ -1,4 +1,5 @@
 import express, { type Request, type Response } from "express";
+import cors from "cors";
 
 import roleRoutes from "./routes/roleRoutes";
 import mealRoutes from "./routes/mealRoutes";
@@ -13,6 +14,7 @@ import foodLibraryRoutes from "./routes/foodLibraryRoutes"
 
 const app = express();
 
+app.use(cors());
 app.use(express.json());
 
 app.use("/auth", authRoutes);

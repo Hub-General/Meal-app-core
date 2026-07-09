@@ -1,10 +1,15 @@
 import { Request, Response } from "express";
+import { createRoleRequestSchema } from "../schema/role";
 import { roleService } from "../services/roleService";
 
 export const roleController = {
     createRoleController: async (req: Request, res: Response) => {
         try {
-            const role = await roleService.createRole(req.body);
+            const parsed = createRoleRequestSchema.safeParse(req.body);
+            if (!parsed.success) {
+                return res.status(400).json({ message: "Invalid role payload", errors: parsed.error.flatten() });
+            }
+            const role = await roleService.createRole(parsed.data);
             res.status(201).json({message: "Role created successfully", role});
         } 
         catch (error){
@@ -19,7 +24,11 @@ export const roleController = {
             if(!req.params.id || isNaN(Number(req.params.id))){
                 return res.status(400).json({message: "Role ID is required"});
             }
-            const role = await roleService.updateRole(Number(req.params.id), req.body);
+            const parsed = createRoleRequestSchema.safeParse(req.body);
+            if (!parsed.success) {
+                return res.status(400).json({ message: "Invalid role payload", errors: parsed.error.flatten() });
+            }
+            const role = await roleService.updateRole(Number(req.params.id), parsed.data);
             res.status(200).json(role);
         } 
         catch (error){

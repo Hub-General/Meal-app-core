@@ -1,10 +1,18 @@
 import { Request, Response } from "express";
 import { mealService } from "../services/mealService";
+import { CreateMealRequestSchema, UpdateMealRequestSchema } from "../schema/meal";
 
 export const mealController = {
     createMealController: async(req: Request, res: Response)=>{
         try{
-            const meal = await mealService.createMeal(req.body);
+            const request = CreateMealRequestSchema.safeParse(req.body)
+            if(!request.success){
+                return res.status(400).json({
+                    message:"Invalid request body", 
+                    error: request.error.flatten()
+                })
+            }
+            const meal = await mealService.createMeal(request.data);
             res.status(201).json({message: "Meal created successfully", meal});
         } catch(error) {
             res.status(500).json({
@@ -15,10 +23,11 @@ export const mealController = {
     },
     createMealBatchController: async(req: Request, res: Response)=>{
         try{
-            if(!Array.isArray(req.body) || !(req.body.length > 0)){
-                return res.status(400).json({error:'Request body must be an array of objects'})
+            const parsed = CreateMealRequestSchema.array().safeParse(req.body);
+            if(!parsed.success){
+                return res.status(400).json({error:'Request body must be an array of objects', details: parsed.error.flatten()})
             }
-            const meal = await mealService.createMealBatch(req.body);
+            const meal = await mealService.createMealBatch(parsed.data);
             res.status(201).json({message: "Meals created successfully", meal});
         } catch(error:any ) {
             console.log(error.message)
@@ -52,7 +61,14 @@ export const mealController = {
     },
     updateMealController: async(req: Request, res: Response)=>{
         try{
-            const meal = await mealService.updateMeal(Number(req.params.id), req.body);
+            const request = UpdateMealRequestSchema.safeParse(req.body);
+            if(!request.success){
+                return res.status(400).json({
+                    message:"Invalid request body",
+                    error: request.error.flatten()
+                })
+            }
+            const meal = await mealService.updateMeal(Number(req.params.id), request.data);
             res.status(200).json({message: "Meal updated successfully", meal});
         } catch(error) {
             res.status(500).json({

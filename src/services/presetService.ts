@@ -1,5 +1,5 @@
 import { prisma } from "../db/prisma";
-import { CreatePresetItemDataRequest, CreatePresetRequest } from "../interfaces/preset";
+import { CreatePresetItemDataRequest, CreatePresetRequest } from "../schema/preset";
 import { Days as EDays } from "../enums/EDays";
 
 const dayOrder: EDays[] = [

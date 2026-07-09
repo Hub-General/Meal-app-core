@@ -1,5 +1,5 @@
 import { prisma } from "../prisma/client";
-import { CreateRoleRequest } from "../interfaces/role";
+import { CreateRoleRequest } from "../schema/role";
 
 const defaultRoles: CreateRoleRequest[] = [
     { name: "user", description: "Standard user role with basic access" },

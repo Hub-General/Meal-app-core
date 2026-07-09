@@ -1,6 +1,7 @@
 import { WeekMenuStatus } from "../generated/prisma";
-import { WeekMenuScheduleCreateRequest } from "../interfaces/weekMenuSchedule";
+import { WeekMenuScheduleCreateRequest, WeekMenuScheduleUpdateRequest } from "../schema/weekMenuSchedule";
 import { prisma } from "../prisma/client";
+import { WeekAndYearRequest } from "../schema/common/commonSchema";
 
 const weekMenuScheduleSelectShape = {
     id: true,
@@ -15,10 +16,6 @@ const weekMenuScheduleSelectShape = {
     status: true
 }
 
-interface WeekMenuDataUpdateRequest {
-    menuId: number,
-    status: WeekMenuStatus,
-}
 export const weekMenuScheduleService = {
     getAllWeekMenuSchedules: async()=>{
         return await prisma.weekMenuSchedule.findMany({
@@ -33,7 +30,7 @@ export const weekMenuScheduleService = {
         });
     },
 
-    getWeekMenuScheduleByWeekAndYear: async(week: number, year: number)=>{
+    getWeekMenuScheduleByWeekAndYear: async({ week, year }: WeekAndYearRequest)=>{
         return await prisma.weekMenuSchedule.findFirst({
             where: {week, year},
             select: weekMenuScheduleSelectShape
@@ -68,7 +65,7 @@ export const weekMenuScheduleService = {
         });
     },
 
-    updateWeekMenuSchedule: async(id: number, data: WeekMenuDataUpdateRequest)=>{
+    updateWeekMenuSchedule: async(id: number, data: WeekMenuScheduleUpdateRequest)=>{
         return await prisma.weekMenuSchedule.update({
             where: {id},
             data: data,

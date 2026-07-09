@@ -1,12 +1,12 @@
 import prisma from "../prisma/client";
-import { CreateMenuDayMealsRequest, CreateMenuRequest } from "../interfaces/menu";
+import { CreateMenuDayMealsRequest, CreateMenuRequest } from "../schema/menu";
 
 const menuSelectionShape = {
             id:true,
             title: true,
             description: true
-        
 }
+
 export const menuServices = {
 
     //Simple Menu DTO operations
@@ -53,28 +53,28 @@ export const menuServices = {
     },
 
     createMenuDayMeals: async (data: CreateMenuDayMealsRequest[]) => {
-    const menuDayIds = data.map(d => d.menuDayId);
+        const menuDayIds = data.map(d => d.menuDayId);
 
-    const validMenuDays = await prisma.menuDays.findMany({
-        where: { id: { in: menuDayIds } },
-        select: { id: true },
-    });
+        const validMenuDays = await prisma.menuDays.findMany({
+            where: { id: { in: menuDayIds } },
+            select: { id: true },
+        });
 
-    const validSet = new Set(validMenuDays.map(d => d.id));
+        const validSet = new Set(validMenuDays.map(d => d.id));
 
-    const rows = data.flatMap(({ menuDayId, meals }) =>
-        validSet.has(menuDayId)
-        ? meals.map(mealId => ({ menuDayId, mealId }))
-        : []
-    );
+        const rows = data.flatMap(({ menuDayId, meals }) =>
+            validSet.has(menuDayId)
+            ? meals.map(mealId => ({ menuDayId, mealId }))
+            : []
+        );
 
-    return prisma.menuDayMeals.createMany({
-        data: rows,
-        skipDuplicates: true,
-    });
+        return prisma.menuDayMeals.createMany({
+            data: rows,
+            skipDuplicates: true,
+        });
     },
 
-    updateMenuMeals: async(id: number, data: boolean)=>{
-        return await prisma.menuDayMeals.update({where:{id}, data:{isActive:data}})
+    updateMenuMeals: async(id: number, isActive: boolean)=>{
+        return await prisma.menuDayMeals.update({where:{id}, data:{isActive}})
     }
 }
