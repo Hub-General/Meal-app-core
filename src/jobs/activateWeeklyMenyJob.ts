@@ -3,8 +3,8 @@ import { weekMenuScheduleService } from "../services/weekMenuScheduleService";
 export async function activateWeeklyMenuJob(targetWeek: { week: number; year: number }) {
     try {
         const correctWeekMenu = await weekMenuScheduleService.getWeekMenuScheduleByWeekAndYear(
-            targetWeek.week,
-            targetWeek.year
+            { week:targetWeek.week,
+             year: targetWeek.year}
         );
 
         if (!correctWeekMenu) {
