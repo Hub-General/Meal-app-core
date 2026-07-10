@@ -14,7 +14,7 @@ export async function scheduleWeeklyMenuScheduleJob (targetWeek: { week: number;
         }
 
         const assignedMenu = activeMenus[(targetWeek.week) % activeMenus.length];
-        const existingSchedule = await weekMenuScheduleService.getWeekMenuScheduleByWeekAndYear(targetWeek.week, targetWeek.year);
+        const existingSchedule = await weekMenuScheduleService.getWeekMenuScheduleByWeekAndYear({week:targetWeek.week, year: targetWeek.year});
 
         if (existingSchedule) {
             console.log(`Week ${targetWeek.week}/${targetWeek.year} already has a menu schedule.`);
