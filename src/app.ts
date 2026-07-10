@@ -28,5 +28,23 @@ app.use("/meal-selections", selectionRoutes);
 app.use("/presets", presetRoutes);
 app.use("/food-library", foodLibraryRoutes);
 
+app._router.stack.forEach((middleware: any) => {
+    if (middleware.route) {
+        console.log(
+            middleware.route.path,
+            middleware.route.methods
+        );
+    } else if (middleware.name === "router") {
+        middleware.handle.stack.forEach((handler: any) => {
+            if(handler.route){
+                console.log(
+                    handler.route.path,
+                    handler.route.methods
+                );
+            }
+        })
+    }
+});
+
 
 export default app;
