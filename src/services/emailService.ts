@@ -2,7 +2,7 @@ import { mailTransporter } from "../config/emailConfig";
 
 export const mailService = {
     sendOnboardingEmail: async (to: string, token: string) => {
-        const link = `https://meal-app-core.com/onboarding?token=${token}`;
+        const firstName = to.split(' ')[0];
         
         await mailTransporter.sendMail({
             from: `"Meal App" <${process.env.MAIL_FROM}>`,
@@ -10,49 +10,64 @@ export const mailService = {
             subject: "Join the Meal App!",
             html: `
                 <div style="width:100%; background:#f5f5f5; padding:40px 0; font-family:system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif, sans-serif;">
-
-                    <table role="presentation" align="center" cellpadding="0" cellspacing="15px" 
-                        style="background:#ffffff; border-radius:12px; padding:30px; width:100%; max-width:480px; text-align:center;">
-
+                    <table role="presentation" align="center" cellpadding="0" cellspacing="0">
                         <tr>
-                            <td style="text-align:center;">
+                        <table role="presentation" align="center" cellpadding="0" cellspacing="15px" 
+                                style="background:#ffffff; border-radius:12px; padding:30px; width:100%; max-width:480px; text-align:center;">
 
+                                <tr>
+                                    <td style="text-align:center;">
+
+                                        
+                                        <img src="https://rqjzrmhpyhuzbgcxeuhc.supabase.co/storage/v1/object/public/MealAppImages/BellIcon.png" width="200" alt="Meal App Logo" style="padding: 20px;"/>
+                                        
+                                        <h1 style="margin:0 0 0 0; font-size:28px; color:#333; padding:0 0 20px 0">
+                                            Hello ${firstName} 👋, 
+                                            <br/>
+                                            Welcome To The Meal App
+                                        </h1>
+                                        <table role="presentation" cellpadding="0" cellspacing="15" align="center">
+                                        <tr>
+                                            <td style="
+                                            border:2px dashed #4CAF50;
+                                            border-radius:8px;
+                                            background:#f8faf8;
+                                            padding:15px 35px;
+                                            text-align:center;
+                                            font-size:24px;
+                                            font-weight:700;
+                                            letter-spacing:4px;
+                                            color:#333333;
+                                            ">
+                                                ${token}
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td>
+                                        <p style="margin:0 0 10px 0; font-size:14px; color:#666; text-align:center;">
+                                            This Verification Code Expires in 25 Minutes. Please copy it into your sign-up form.
+                                        </p>
+                                            </td>
+                                        </tr>
+                                </table>
                                 
-                                <img src="https://rqjzrmhpyhuzbgcxeuhc.supabase.co/storage/v1/object/public/MealAppImages/BellIcon.png" width="230" alt="Meal App Logo" style="padding: 0; margin:-10px"/>
-                                <h1 style="margin:0 0 10px 0; font-size:24px; color:#333;">
-                                    Welcome To The Meal App 👋
-                                </h1>
 
-                                <p style="margin:0 0 10px 0; font-size:14px; color:#666;">
-                                    Click below to continue onboarding:
-                                </p>
+                                    </td>
+                                </tr>
+                                
+                                <tr >
+                                    <td style="text-align: center; background:#f8faf8; padding:30px 40px; border-radius:5px;">
+                                        <p style="margin:0 0 20px 0; font-size:14px; color:#3e584a;">
+                                            Contact your administrator if you are not supposed to be receiving this Mail
+                                        </p>
+                                        <img src="https://rqjzrmhpyhuzbgcxeuhc.supabase.co/storage/v1/object/public/MealAppImages/HmdhIcon.png" width="100" alt="Meal App Logo" />
 
-                                <a href="${link}" 
-                                    style="
-                                        display:inline-block;
-                                        padding:12px 18px;
-                                        background:#4CAF50;
-                                        color:#ffffff;
-                                        text-decoration:none;
-                                        border-radius:6px;
-                                        font-size:14px;
-                                        font-weight:600;
-                                        margin: 0 0 10px 0;
-                                    ">
-                                    Continue Onboarding
-                                </a>
-
-                            </td>
+                                    </td>
+                                </tr>
+                            </table>
                         </tr>
-                        
-                        <tr >
-                            <td style="text-align: center; background:#f8faf8; padding:30px 40px; border-radius:5px;">
-                                <p style="margin:0 0 20px 0; font-size:14px; color:#3e584a;">
-                                    Contact your administrator if you are not supposed to be receiving this Mail
-                                </p>
-                                <img src="https://rqjzrmhpyhuzbgcxeuhc.supabase.co/storage/v1/object/public/MealAppImages/HmdhIcon.png" width="100" alt="Meal App Logo" />
+                        <tr>
 
-                            </td>
                         </tr>
                     </table>
 
@@ -61,3 +76,4 @@ export const mailService = {
         });
     },
 };
+

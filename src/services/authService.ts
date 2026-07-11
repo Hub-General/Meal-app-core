@@ -66,7 +66,8 @@ export const authService = {
             throw new Error("Email invalid")
         }
 
-        const token = crypto.randomBytes(32).toString("hex");
+        
+        const token = crypto.randomBytes(4).toString("hex").toUpperCase();
         const tokenHash = await argon2.hash(token);
 
         await prisma.userTokens.upsert({
@@ -89,8 +90,8 @@ export const authService = {
         }
         });
 
-        await mailService.sendOnboardingEmail(email,token)
-        return ({message:"Email sent successfully"})
+        mailService.sendOnboardingEmail(email,token)
+        return ({message:"Succesfully onboarded. Please wait for Email"})
 
     },
 

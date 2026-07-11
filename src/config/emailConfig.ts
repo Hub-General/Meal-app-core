@@ -7,4 +7,7 @@ export const mailTransporter = nodemailer.createTransport({
     user: process.env.SMTP_USER,
     pass: process.env.SMTP_PASSWORD,
   },
+  pool: true,
+  maxConnections:5,
+  maxMessages:100,
 });
