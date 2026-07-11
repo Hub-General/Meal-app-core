@@ -1,8 +1,8 @@
 import { mailTransporter } from "../config/emailConfig";
 
 export const mailService = {
-    sendOnboardingEmail: async (to: string, token: string) => {
-        const firstName = to.split(' ')[0];
+    sendOnboardingEmail: async (to: string, name: string ,token: string) => {
+        const firstName = name.split(' ')[0];
         
         await mailTransporter.sendMail({
             from: `"Meal App" <${process.env.MAIL_FROM}>`,

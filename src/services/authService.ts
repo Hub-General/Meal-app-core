@@ -22,7 +22,7 @@ export const authService = {
         
         if(!onBoardingToken || onBoardingToken.usedAt){
             throw new Error ("Unused Token not found")
-        } else if (onBoardingToken.expiresAt< new Date()){
+        } else if (onBoardingToken.expiresAt < new Date()){
             throw new Error ("Token has expired. Request a new one")
         }
         const validToken = await argon2.verify(onBoardingToken.token, registerRequest.token);
@@ -90,7 +90,7 @@ export const authService = {
         }
         });
 
-        mailService.sendOnboardingEmail(email,token)
+        mailService.sendOnboardingEmail(email,existing.name,token)
         return ({message:"Succesfully onboarded. Please wait for Email"})
 
     },
