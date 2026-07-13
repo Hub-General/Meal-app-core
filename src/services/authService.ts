@@ -59,7 +59,6 @@ export const authService = {
 
         const existing = await prisma.users.findFirst({where: {referenceEmail: email}})
 
-
         if(existing && existing.isActivated){
             throw new Error("User with this email is already activated");
         }else if (!existing){
