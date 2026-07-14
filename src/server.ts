@@ -20,6 +20,16 @@ process.on("beforeExit", () => {
     console.log("NODE BEFORE EXIT");
 });
 
+process.on("uncaughtException", err => {
+    console.error("UNCAUGHT EXCEPTION");
+    console.error(err);
+});
+
+process.on("unhandledRejection", err => {
+    console.error("UNHANDLED REJECTION");
+    console.error(err);
+});
+
 process.on("exit", () => {
     console.log("NODE EXIT");
 });

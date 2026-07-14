@@ -4,7 +4,7 @@ import crypto from "crypto"
 import jwt from "jsonwebtoken"
 import { generateAccessToken, generateRefreshToken } from "../utility/generateAccessToken";
 import { mailService } from "./emailService";
-import { LoginRequest, RegisterRequest } from "../schema/auth";
+import { LoginRequest, RegisterRequest, ResetPasswordRequest } from "../schema/auth";
 
 export const authService = {
     register: async (registerRequest: RegisterRequest) => { 
@@ -92,6 +92,82 @@ export const authService = {
         mailService.sendOnboardingEmail(email,existing.name,token)
         return ({message:"Succesfully onboarded. Please wait for Email"})
 
+    },
+
+    generateforgetPasswordToken: async(email: string)=>{
+        const user = await prisma.users.findFirst({where:{referenceEmail:email}})
+
+        if(!user){
+            throw new Error("Invalid Email")
+        }
+
+        const token = crypto.randomBytes(4).toString("hex").toUpperCase();
+        const tokenHash = await argon2.hash(token);
+
+        await prisma.userTokens.upsert({
+        where: {
+            userId_type: {
+            userId: user.id,
+            type: "PASSWORD_RESET"
+            }
+        },
+        update: {
+            token: tokenHash,
+            expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+            usedAt: null
+        },
+        create: {
+            userId: user.id,
+            type: "PASSWORD_RESET",
+            token: tokenHash,
+            expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000)
+        }
+        });
+
+        mailService.sendPasswordResetMail(email, user.name, token)
+        return ({message:"Succesfully sent Reset Password Mail"})
+    },
+
+    resetPassword: async(resetPasswordRequest: ResetPasswordRequest)=>{
+        const existing = await prisma.users.findFirst({where:{referenceEmail:resetPasswordRequest.email}})
+        
+        if(!existing){
+            throw new Error("Invalid email")
+        }
+        
+        const resetToken = await prisma.userTokens.findFirst({where:{id: existing?.id, type:"PASSWORD_RESET"}})
+
+        if(existing.status !== "ACTIVE"){
+            throw new Error("User is inactive")
+        }
+
+        if(!existing.isActivated || existing.passwordHash == null){
+            throw new Error("User Inactive")
+        }
+
+        if(!resetToken || resetToken.token == null){
+            throw new Error("Invalid Token")
+        }
+        const isValid = await argon2.verify(resetToken?.token, resetPasswordRequest.token)
+
+        if(!isValid){
+            throw new Error("Invalid Token")
+        }
+        const passwordHash = await argon2.hash(resetPasswordRequest.password);
+        await prisma.$transaction(async(tx)=>
+        {
+            await tx.users.update({
+                where:{ id: existing.id },
+                data: {
+                    passwordHash: passwordHash,
+                },
+            })
+    
+            await tx.userTokens.update({where:{id: resetToken.id}, data:{
+                usedAt: new Date()
+            }})
+        })
+        return ({message:"Succesfully reset password"})
     },
 
     login: async (loginRequest: LoginRequest) => {
