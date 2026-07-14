@@ -11,11 +11,10 @@ export const mailTransporter = nodemailer.createTransport({
     user: process.env.SMTP_USER,
     pass: process.env.SMTP_PASSWORD,
   },
-  pool: true,
-  maxConnections:1,
-  maxMessages:Infinity,
   logger: true,
   debug: true
 });
+
+mailTransporter.verify().then(()=>console.log("SMTP READY")).catch(err=> console.error("SMTP VERIFY ERROR", err))
 
 console.log("Transporter created");
