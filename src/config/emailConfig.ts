@@ -1,5 +1,9 @@
 import nodemailer from "nodemailer"
 
+
+console.log("Creating transporter");
+
+
 export const mailTransporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST,
   port: Number(process.env.SMTP_PORT),
@@ -10,4 +14,8 @@ export const mailTransporter = nodemailer.createTransport({
   pool: true,
   maxConnections:1,
   maxMessages:Infinity,
+  logger: true,
+  debug: true
 });
+
+console.log("Transporter created");
