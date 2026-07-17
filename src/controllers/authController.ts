@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import {authService} from "../services/authService";
 import { digiHRService } from "../services/digiHRService";
-import { LoginRequestSchema, LogoutRequestSchema, OnboardingRequestSchema, RefreshRequestSchema, RegisterRequestSchema } from "../schema/auth";
+import { GeneratePasswordTokenSchema, LoginRequestSchema, LogoutRequestSchema, OnboardingRequestSchema, RefreshRequestSchema, RegisterRequestSchema, ResetPasswordSchema, VerifyOTPSchema } from "../schema/auth";
 
 export const authController = {
     loginController : async (req : Request, res : Response) => {
@@ -62,7 +62,7 @@ export const authController = {
         try{
             const parsed = LogoutRequestSchema.safeParse(req.body);
             if(!parsed.success){
-                return res.status(400).json({message: 'Refresh token required', errors: parsed.error.flatten()})
+                return res.status(400).json({message: 'Refresh token required'})
             }
             await authService.logout(parsed.data.refreshToken);
             return res.status(200).json({message: "Logged out successfully"});
@@ -78,7 +78,7 @@ export const authController = {
         try{
             const parsed = RefreshRequestSchema.safeParse(req.body);
             if(!parsed.success){
-                return res.status(401).json({message: "Refresh token is required", errors: parsed.error.flatten()})
+                return res.status(401).json({message: "Refresh token is required"})
             }
             const newAccessToken = await authService.refreshToken(parsed.data.refreshToken);
             return res.status(200).json(newAccessToken)
@@ -90,6 +90,43 @@ export const authController = {
         }
     },
 
+    verifyPasswordResetOTPController: async(req: Request, res: Response)=>{
+        try{
+            const parsed = VerifyOTPSchema.safeParse(req.body);
+            if(!parsed.success){
+                return res.status(401).json({message: "Email and Token are required"})
+            }
+            await authService.verifyResetPasswordOTP(parsed.data)
+            res.status(200).json({message:"OTP is valid"})
+        }catch(error){
+            res.status(500).json({message:"Failed to verifyOTP"})
+        }
+    },
+
+    getResetPasswordTokenController: async(req:Request, res: Response)=>{
+        try{
+            const parsed =  GeneratePasswordTokenSchema.safeParse(req.body)
+            if(!parsed.success){
+                return res.status(401).json({message:"Email Required"})
+            }
+            await authService.generateforgetPasswordToken({email:parsed.data.email})
+        }catch(error){
+            res.status(500).json(`${error}`)
+        }
+    },
+
+    resetPasswordController: async(req:Request, res: Response)=>{
+        try{
+            const parsed = ResetPasswordSchema.safeParse(req.body);
+            if(!parsed.success){
+                return res.status(401).json({message: "Email and New Password are required"})
+            }
+            await authService.resetPassword(parsed.data)
+            res.status(200).json({message:"Successfully reset Password"})
+        }catch(error){
+            res.status(500).json({message:"Failed to reset Password", error:`${error}`})
+        }
+    },
     syncUserController: async(req: Request, res: Response)=>{
         try{
             const syncUsers = await digiHRService.syncUsersWithDatabase();

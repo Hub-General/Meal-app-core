@@ -1,10 +1,10 @@
-import argon2 from "argon2";
+import argon2, { verify } from "argon2";
 import prisma from "../prisma/client";
 import crypto from "crypto"
 import jwt from "jsonwebtoken"
 import { generateAccessToken, generateRefreshToken } from "../utility/generateAccessToken";
 import { mailService } from "./emailService";
-import { LoginRequest, RegisterRequest, ResetPasswordRequest } from "../schema/auth";
+import { LoginRequest, RegisterRequest, ResetPasswordRequest, VerifyResetPasswordOTPSchema } from "../schema/auth";
 
 export const authService = {
     register: async (registerRequest: RegisterRequest) => { 
@@ -94,13 +94,17 @@ export const authService = {
 
     },
 
-    generateforgetPasswordToken: async(email: string)=>{
+    generateforgetPasswordToken: async({email}:{email:string})=>{
         const user = await prisma.users.findFirst({where:{referenceEmail:email}})
 
         if(!user){
             throw new Error("Invalid Email")
         }
 
+        if(user.passwordHash == null || user.status !== "ACTIVE"){
+            throw new Error("User Inactive")
+        }
+        
         const token = crypto.randomBytes(4).toString("hex").toUpperCase();
         const tokenHash = await argon2.hash(token);
 
@@ -123,9 +127,8 @@ export const authService = {
             expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000)
         }
         });
-
         mailService.sendPasswordResetMail(email, user.name, token)
-        return ({message:"Succesfully sent Reset Password Mail"})
+        return ({message:"Succesfully sent Reset Password Mail to"})
     },
 
     resetPassword: async(resetPasswordRequest: ResetPasswordRequest)=>{
@@ -135,7 +138,7 @@ export const authService = {
             throw new Error("Invalid email")
         }
         
-        const resetToken = await prisma.userTokens.findFirst({where:{id: existing?.id, type:"PASSWORD_RESET"}})
+        const resetToken = await prisma.userTokens.findFirst({where:{userId: existing.id, type:"PASSWORD_RESET"}})
 
         if(existing.status !== "ACTIVE"){
             throw new Error("User is inactive")
@@ -148,7 +151,7 @@ export const authService = {
         if(!resetToken || resetToken.token == null){
             throw new Error("Invalid Token")
         }
-        const isValid = await argon2.verify(resetToken?.token, resetPasswordRequest.token)
+        const isValid = authService.verifyResetPasswordOTP({email: resetPasswordRequest.email, token: resetPasswordRequest.token})
 
         if(!isValid){
             throw new Error("Invalid Token")
@@ -260,5 +263,24 @@ export const authService = {
             accessToken: newAccessToken
         }
 
+    },
+
+    verifyResetPasswordOTP: async({email, token}:VerifyResetPasswordOTPSchema)=> {
+        const user = await prisma.users.findFirst({where:{referenceEmail: email}})
+
+        if (!user){
+            throw new Error("Invalid User")
+        }
+
+        const passwordToken = await prisma.userTokens.findFirst({where:{userId:user.id , type:"PASSWORD_RESET"}})
+
+        if(!passwordToken){
+            throw new Error("Invalid OTP")
+        }
+        if (passwordToken?.expiresAt < new Date){
+            throw new Error("OTP Expired, request a new one")
+        }
+
+        return await argon2.verify(passwordToken.token, token)
     }
 }
