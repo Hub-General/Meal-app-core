@@ -5,13 +5,12 @@ import roleRoutes from "./routes/roleRoutes";
 import mealRoutes from "./routes/mealRoutes";
 import menuRoutes from "./routes/menuRoutes";
 import userRoutes from "./routes/userRoutes";
-import weekMenuScheduleRoutes from "./routes/weekMenuScheduleRoutes";
-import selectionRoutes from "./routes/selectionRoutes";
-import presetRoutes from "./routes/presetRoutes";
-import tasteProfileRoutes from "./routes/tasteProfileRoutes";
 import authRoutes from "./routes/authRoutes";
+import presetRoutes from "./routes/presetRoutes";
+import selectionRoutes from "./routes/selectionRoutes";
 import foodLibraryRoutes from "./routes/foodLibraryRoutes"
-import { mailTransporter } from "./config/emailConfig";
+import tasteProfileRoutes from "./routes/tasteProfileRoutes";
+import weekMenuScheduleRoutes from "./routes/weekMenuScheduleRoutes";
 
 const app = express();
 
@@ -28,16 +27,6 @@ app.use("/week-menu-schedules", weekMenuScheduleRoutes);
 app.use("/meal-selections", selectionRoutes);
 app.use("/presets", presetRoutes);
 app.use("/food-library", foodLibraryRoutes);
-
-app.get("/smtp-test", async (req, res) => {
-    try {
-        await mailTransporter.verify();
-        res.send("SMTP OK");
-    } catch (err) {
-        console.error(err);
-        res.status(500).send(err);
-    }
-});
 
 
 export default app;
