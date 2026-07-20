@@ -38,7 +38,7 @@ export const presetController ={
                     error:'Invalid Preset Id'
                 })
             }
-            const preset = await presetService.getPresetWithDetailsById(Number(req.params.id));
+            const preset = await presetService.getPresetItemsByPresetId(Number(req.params.id));
             res.status(200).json(preset)
         }catch(error){
             res.status(500).json({

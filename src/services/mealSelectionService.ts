@@ -1,6 +1,7 @@
 import { prisma } from "../db/prisma";
 import { Days } from "../generated/prisma";
 import { getISOWeekInfo } from "../helpers/dateFunctions";
+import { selectionHelper } from "../helpers/mealSelectionHelpers";
 import { CreateMealSelectionRequest, MealSelectionFilter } from "../schema/mealSelection";
 import { weekMenuScheduleService } from "./weekMenuScheduleService";
 
@@ -14,13 +15,11 @@ const selectionSelectShape = {
         select: {
             id: true,
             name: true,
-            email: true,
         }},
     createdForUser:{
         select: {
             id: true,
             name: true,
-            email: true,
         }},
     menuDay:{
         select: {
@@ -34,6 +33,9 @@ const selectionSelectShape = {
                 select: {
                     id: true,
                     name: true,
+                    calories: true,
+                    image: true,
+                    foodCode: true,
                 }
             }
         }
@@ -98,13 +100,14 @@ export const mealSelectionService = {
         const weekInfo = getISOWeekInfo(date);
         const weekMenuSchedule = await weekMenuScheduleService.getWeekMenuScheduleByWeekAndYear({week: weekInfo.week, year: weekInfo.year});
         if(!weekMenuSchedule) return [];
-        return await prisma.selections.findMany({
+        const response = await prisma.selections.findMany({
             where: {
                 weekMenuScheduleId: weekMenuSchedule.id,
                 menuDay: {day: weekInfo.dayName as Days}
             },
             select: selectionSelectShape
         });
+        return selectionHelper.formatDaySelectionResponse(response)
     },
 
     getUsersWithoutSelections: async(date: Date)=>{
@@ -129,12 +132,13 @@ export const mealSelectionService = {
         const weekInfo = getISOWeekInfo(date);
         const weekMenuSchedule = await weekMenuScheduleService.getWeekMenuScheduleByWeekAndYear({week: weekInfo.week, year: weekInfo.year});
         if(!weekMenuSchedule) return [];
-        return await prisma.selections.findMany({
+        const response =  await prisma.selections.findMany({
             where: {
                 weekMenuScheduleId: weekMenuSchedule.id
             },
             select: selectionSelectShape
         });
+        return selectionHelper.formatSelectionResponse(response)
     },
 
     getWeeklySelectionsByUser: async(date: Date, createdFor: number)=>{
