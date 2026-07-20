@@ -1,16 +1,6 @@
 import { prisma } from "../db/prisma";
 import { CreatePresetItemDataRequest, CreatePresetRequest } from "../schema/preset";
-import { Days as EDays } from "../enums/EDays";
 
-const dayOrder: EDays[] = [
-    EDays.MONDAY,
-    EDays.TUESDAY,
-    EDays.WEDNESDAY,
-    EDays.THURSDAY,
-    EDays.FRIDAY,
-    EDays.SATURDAY,
-    EDays.SUNDAY,
-];
 
 export const presetService = {
 
@@ -80,61 +70,40 @@ export const presetService = {
     },
 
     //Enriched Preset Operations
-
-    getPresetWithDetailsById: async(presetID: number)=>{
-        const preset = await prisma.presets.findUnique({
-            where: {id: presetID},
-            include: {
-                presetItems: {
-                    include: {
-                        menuDay: {
-                            select: {
-                                day: true
-                            }
-                        },
-                        menuDayMeals: {
-                            include: {
-                                meal:{
-                                    select: {
-                                        name: true,
-                                        id: true,
-                                    }
-                                },
-                            },
-                        },
+    getPresetwithDetails: async(presetId: number)=>{
+        const preset =  await prisma.presets.findUnique({
+            where:{id: presetId}
+        })
+        const presetDetails = await prisma.presetItems.findMany({
+            where:{presetId: presetId}, 
+            select:{
+                id:true,
+                presetId:true,
+                menuDayId:true,
+                menuDay:{
+                    select:{
+                        day: true
                     }
-                }},
+                },
+                dayMealId:true,
+                menuDayMeals:{
+                    select:{
+                        meal:{
+                            select:{
+                                id:true,
+                                name: true,
+                                foodCode: true,
+                                calories: true,
+                                image: true,
+                        }}
+                    }
+                }
+            }
         })
 
-        if (!preset) return null;
-
-        const presetItemsByDay = dayOrder.reduce(
-            (acc, day) => {
-                acc[day] = [];
-                return acc;
-            },
-            {} as Record<EDays, typeof preset.presetItems>
-        );
-
-        const unknownDayItems: typeof preset.presetItems = [];
-
-        for (const item of preset.presetItems) {
-            const day = item.menuDay?.day as EDays | undefined;
-            if (day && presetItemsByDay[day]) {
-                presetItemsByDay[day].push(item);
-            } else {
-                unknownDayItems.push(item);
-            }
-        }
-
-        const presetItemsGrouped = [
-            ...dayOrder.map((day) => ({ day, items: presetItemsByDay[day] })),
-            ...(unknownDayItems.length ? [{ day: "UNKNOWN", items: unknownDayItems }] : []),
-        ];
-
-        return {
+        return ({
             ...preset,
-            presetItemsGrouped,
-        };
+            items: presetDetails
+        })
     }
 }

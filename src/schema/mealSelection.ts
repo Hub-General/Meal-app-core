@@ -1,5 +1,5 @@
 import z from "zod";
-import { Days } from "../generated/prisma";
+import { Days, SelectionStatus } from "../generated/prisma";
 
 
 // Export zod schemas
@@ -42,13 +42,18 @@ export const submitSelectionsRequestSchema = z.object({
 // Export interfaces / types
 export interface MealSelection {
     id: number;
+    menuDay:{
+        id:number,
+        day: Days
+    }
     dayMeal: {
         id: number;
-        day: string;
         meal: {
             id: number;
             name: string;
-            image?: string;
+            image: string | null;
+            calories: number | null;
+            foodCode: string;
         }
     };
     createdByUser: {
@@ -56,10 +61,31 @@ export interface MealSelection {
         name: string;
     };
     createdForUser: {
-        id: number;
-        name:string;
-    }
+        id: number | null;
+        name: string | null;
+    } | null;
+    selectionStatus: SelectionStatus
 
+}
+
+export interface WeekMealSelectionResponse {
+    [day: string]: {
+        total: number;
+        response: DayMealSelections[];
+    };
+}
+
+export interface DayMealSelections {
+    id:number
+    name: string
+    imageUrl: string | null
+    calories: number | null
+    foodCode: string
+    count: number
+    users:{
+        id: number
+        name:string
+    }[]
 }
 
 export type CreateMealSelectionRequest = z.infer<typeof createMealSelectionRequestSchema>;
