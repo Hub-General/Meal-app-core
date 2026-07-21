@@ -5,7 +5,7 @@ import cron from "node-cron"
 export function startWeeklyCron(){
     cron.schedule("0 6 * * 6",async()=>{
         try{
-            weeklyScheduler()
+            await weeklyScheduler()
         }catch(error){
             console.log("Saturday Cron Job Failed")
         }
@@ -15,7 +15,7 @@ export function startWeeklyCron(){
 export function startBiWeeklyCron(){
     cron.schedule("0 6 * * 3",async () => {
         try{
-            cleaningJobs.cleanUpUserTokens()
+            await cleaningJobs.cleanUpUserTokens()
             console.log("Wednesday Cron Job Completed")
         }catch(error){
             console.log("Wednesday Cron Job Failed")
