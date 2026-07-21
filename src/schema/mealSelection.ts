@@ -83,7 +83,7 @@ export interface DayMealSelections {
     foodCode: string
     count: number
     users:{
-        id: number
+        id: number | null
         name:string
     }[]
 }

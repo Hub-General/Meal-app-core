@@ -80,8 +80,8 @@ export const selectionHelper = {
             meal.count++;
 
             meal.users.push({
-                id: selection.createdForUser.id ?? null,
-                name: selection.createdForUser.name ?? "Guest"
+                id: selection.createdForUser?.id ?? null,
+                name: selection.createdForUser?.name ?? "Guest"
             });
 
             response[day].total++;
@@ -116,8 +116,8 @@ export const selectionHelper = {
             meal.count++;
 
             meal.users.push({
-                id: selection.createdForUser.id ?? null,
-                name: selection.createdForUser.name ?? "Guest"
+                id: selection.createdForUser?.id ?? null,
+                name: selection.createdForUser?.name ?? "Guest"
             })
          }
 
