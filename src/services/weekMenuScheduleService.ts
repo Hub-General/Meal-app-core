@@ -10,7 +10,7 @@ const weekMenuScheduleSelectShape = {
     menu: {
         select: {
             id: true,
-            name: true,
+            title: true,
         }
     },
     status: true

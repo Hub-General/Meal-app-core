@@ -8,7 +8,7 @@ export const weekMenuScheduleController ={
             const weekMenuSchedules = await weekMenuScheduleService.getAllWeekMenuSchedules();
             res.json(weekMenuSchedules);
         } catch (error) {
-            res.status(500).json({ error: "Failed to fetch week menu schedules" });
+            res.status(500).json({ error: `Failed to fetch week menu schedules ${console.error(error)}`, });
         }
     },
     getWeekMenuScheduleByIdController: async(req: Request, res: Response) => {
