@@ -36,7 +36,7 @@ export async function uploadFile(
             "Content-Type": contentType,
             "x-upsert": "true",
         },
-        body: buffer,
+        body: new Uint8Array(buffer),
     });
 
     if (!response.ok) {
