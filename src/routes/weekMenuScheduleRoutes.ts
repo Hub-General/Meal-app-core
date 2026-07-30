@@ -6,6 +6,7 @@ const router = Router();
 router.get("/", weekMenuScheduleController.getAllWeekMenuSchedulesController);
 router.get("/by-week-year", weekMenuScheduleController.getWeekMenuScheduleByWeekAndYearController);
 router.get("/by-menu", weekMenuScheduleController.getWeekMenuSchedulesByMenuController);
+router.get("/:id", weekMenuScheduleController.getWeekMenuScheduleByIdController);
 router.post("/", weekMenuScheduleController.createWeekMenuScheduleController);
 router.get("/:id", weekMenuScheduleController.getWeekMenuScheduleByIdController);
 router.put("/:id", weekMenuScheduleController.updateWeekMenuScheduleController);

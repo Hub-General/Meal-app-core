@@ -1,5 +1,5 @@
 import prisma from "../prisma/client";
-import { CreateMenuDayMealsRequest, CreateMenuRequest } from "../schema/menu";
+import { CreateMenuDayMealsRequest, CreateMenuRequest, UpdateMenuRequest } from "../schema/menu";
 
 const menuSelectionShape = {
             id:true,
@@ -35,7 +35,7 @@ export const menuServices = {
     getMenuById: async (menuId: number)=>{
         return await prisma.menus.findUnique({where: {id: menuId}, select: menuSelectionShape});
     },
-    updateMenu: async (menuId: number, menuData: CreateMenuRequest)=>{
+    updateMenu: async (menuId: number, menuData: UpdateMenuRequest)=>{
         return await prisma.menus.update({where: {id: menuId}, data: menuData});
     },
     deleteMenu: async (menuId: number)=>{
