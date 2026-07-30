@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { createMenuDayMealsRequestSchema, createMenuRequestSchema } from "../schema/menu";
+import { createMenuDayMealsRequestSchema, createMenuRequestSchema, updateMenuDayMealRequestSchema, updateMenuRequestSchema } from "../schema/menu";
 import { menuServices } from "../services/menuService";
 
 export const menuController = {
@@ -42,7 +42,7 @@ export const menuController = {
     updateMenuController : async (req: Request, res: Response) => {
         try {
             const menuId = Number(req.params.id);
-            const parsed = createMenuRequestSchema.safeParse(req.body);
+            const parsed = updateMenuRequestSchema.safeParse(req.body);
             if (!parsed.success) {
                 return res.status(400).json({ message: "Invalid menu payload", errors: parsed.error.flatten() });
             }
@@ -77,7 +77,7 @@ export const menuController = {
         try {
             const menuId = Number(req.params.id)
             if(isNaN(menuId)|| !menuId){
-                res.status(401).json({error: 'Menu Id is invalid'})
+                return res.status(400).json({error: 'Menu Id is invalid'})
             }
             const menuDays = await menuServices.getMenuDaysbyMenuId(menuId);
             res.status(200).json(menuDays);
@@ -100,8 +100,11 @@ export const menuController = {
     updateMenuMealsController: async(req:Request, res: Response)=>{
         try{
             const id = Number(req.params.id)
-            const isActive = req.body
-            await menuServices.updateMenuMeals(id,isActive);
+            const parsed = updateMenuDayMealRequestSchema.safeParse(req.body);
+            if (!parsed.success) {
+                return res.status(400).json({ message: "Invalid menu meal payload", errors: parsed.error.flatten() });
+            }
+            await menuServices.updateMenuMeals(id, parsed.data.isActive);
             res.status(200).json({message : "Successfully updated meal status"})
         
         }catch (error){
