@@ -198,7 +198,7 @@ model FoodLibrary{
 
 model Meals{
   id Int @id @default(autoincrement())
-  image String?
+  imagePath String?
   name String
   description String?
   isActive Boolean @default(true)

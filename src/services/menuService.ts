@@ -4,7 +4,8 @@ import { CreateMenuDayMealsRequest, CreateMenuRequest } from "../schema/menu";
 const menuSelectionShape = {
             id:true,
             title: true,
-            description: true
+            description: true,
+            isActive: true,
 }
 
 export const menuServices = {
