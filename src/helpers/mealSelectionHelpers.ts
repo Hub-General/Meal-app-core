@@ -5,10 +5,10 @@ import { DayMealSelections, MealSelection, WeekMealSelectionResponse } from "../
 import { weekMenuScheduleService } from "../services/weekMenuScheduleService";
 import { getISOWeekInfo } from "./dateFunctions";
 
-    // HELPER METHODS FOR VALIDATION
+// HELPER METHODS FOR VALIDATION
 export const selectionHelper = {
 
-    isWeekSubmitted: async(weekMenuScheduleId: number, userId: number): Promise<boolean> => {
+    isWeekSubmitted: async (weekMenuScheduleId: number, userId: number): Promise<boolean> => {
         const count = await prisma.selections.count({
             where: {
                 weekMenuScheduleId,
@@ -20,7 +20,7 @@ export const selectionHelper = {
     },
 
 
-    isSelectionExist: async(weekMenuScheduleId: number, menuDayId: number, userId: number): Promise<boolean> => {
+    isSelectionExist: async (weekMenuScheduleId: number, menuDayId: number, userId: number): Promise<boolean> => {
         const count = await prisma.selections.count({
             where: {
                 weekMenuScheduleId,
@@ -31,18 +31,18 @@ export const selectionHelper = {
         return (count > 0);
     },
 
-    isCurrentWeek: async(weekMenuScheduleId: number): Promise<boolean>=>{
+    isCurrentWeek: async (weekMenuScheduleId: number): Promise<boolean> => {
         const today = new Date();
         const weekInfo = await weekMenuScheduleService.getWeekMenuScheduleById(weekMenuScheduleId);
-        if(!weekInfo) return false;
+        if (!weekInfo) return false;
 
-        return(
+        return (
             getISOWeekInfo(today).week === weekInfo.week &&
             getISOWeekInfo(today).year === weekInfo.year
         );
     },
 
-    formatSelectionResponse: (selections:MealSelection[])=>{
+    formatSelectionResponse: (selections: MealSelection[]) => {
         const response: WeekMealSelectionResponse = {};
         const mealMaps = new Map<string, Map<number, DayMealSelections>>();
 
@@ -67,7 +67,7 @@ export const selectionHelper = {
                     id: selection.dayMeal.meal.id,
                     foodCode: selection.dayMeal.meal.foodCode,
                     name: selection.dayMeal.meal.name,
-                    imageUrl: selection.dayMeal.meal.image ?? "",
+                    imagePath: selection.dayMeal.meal.imagePath ?? "",
                     calories: selection.dayMeal.meal.id,
                     count: 0,
                     users: []
@@ -90,27 +90,27 @@ export const selectionHelper = {
         return response;
     },
 
-    formatDaySelectionResponse:(selections:MealSelection[]): DayMealSelections[] =>{
-        
-        const foodMaps = new Map<number,DayMealSelections>()  
-         
-         for (const selection of selections){
+    formatDaySelectionResponse: (selections: MealSelection[]): DayMealSelections[] => {
+
+        const foodMaps = new Map<number, DayMealSelections>()
+
+        for (const selection of selections) {
             const mealId = selection.dayMeal.id;
 
             let meal = foodMaps.get(mealId)
 
-            if(!meal){
+            if (!meal) {
                 meal = {
                     id: selection.dayMeal.meal.id,
                     name: selection.dayMeal.meal.name,
                     calories: selection.dayMeal.meal.calories,
-                    imageUrl: selection.dayMeal.meal.image ?? "",
+                    imagePath: selection.dayMeal.meal.imagePath ?? "",
                     foodCode: selection.dayMeal.meal.foodCode,
                     count: 0,
                     users: []
                 }
 
-                foodMaps.set(mealId,meal)
+                foodMaps.set(mealId, meal)
             }
 
             meal.count++;
@@ -119,9 +119,9 @@ export const selectionHelper = {
                 id: selection.createdForUser?.id ?? null,
                 name: selection.createdForUser?.name ?? "Guest"
             })
-         }
+        }
 
-         return Array.from(foodMaps.values());
-        
+        return Array.from(foodMaps.values());
+
     }
 }

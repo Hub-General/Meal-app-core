@@ -32,6 +32,7 @@ const selectionSelectShape = {
             meal:{
                 select: {
                     id: true,
+                    imagePath:true,
                     name: true,
                     calories: true,
                     image: true,

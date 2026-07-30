@@ -51,7 +51,7 @@ export interface MealSelection {
         meal: {
             id: number;
             name: string;
-            image: string | null;
+            imagePath: string | null;
             calories: number | null;
             foodCode: string;
         }
@@ -78,7 +78,7 @@ export interface WeekMealSelectionResponse {
 export interface DayMealSelections {
     id:number
     name: string
-    imageUrl: string | null
+    imagePath: string | null
     calories: number | null
     foodCode: string
     count: number
