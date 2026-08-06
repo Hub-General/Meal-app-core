@@ -17,7 +17,7 @@ export const authController = {
             res.status(200).json(user);
         }
         catch(error){
-            res.status(401).json({message: `Failed to login`});
+            res.status(401).json({message: `Failed to login:${error}`});
         }
     },
 
@@ -109,7 +109,9 @@ export const authController = {
             if(!parsed.success){
                 return res.status(401).json({message:"Email Required"})
             }
-            await authService.generateforgetPasswordToken({email:parsed.data.email})
+            await authService.generateforgetPasswordToken({email:parsed.data.email}
+            )
+            res.status(200).json({message: "Successfully sent mail"})    
         }catch(error){
             res.status(500).json(`${error}`)
         }
