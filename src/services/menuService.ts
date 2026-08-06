@@ -46,7 +46,23 @@ export const menuServices = {
     //Menu Meals Assignment
     
     getMenuMeals: async(menuId: number)=>{
-        return await prisma.menuDayMeals.findMany({where:{menuDay:{menuId}}})
+        return await prisma.menuDayMeals.findMany({where:{menuDay:{menuId}}, select:{
+            id:true,
+            createdAt: true,
+            updatedAt: true,
+            isActive: true,
+            menuDayId: true,
+            meal:{
+                select:{
+                    id: true,
+                    imagePath: true,
+                    name: true,
+                    description: true,
+                    foodCode: true,
+                    calories: true
+                }
+            }
+        }})
     },
 
     getMenuDaysbyMenuId: async(menuId:number)=>{

@@ -1,4 +1,4 @@
-import { Days } from "../generated/prisma";
+import { Days, SelectionStatus } from "../generated/prisma";
 import { prisma } from "../prisma/client";
 import { Meal } from "../schema/meal";
 import { DayMealSelections, MealSelection, WeekMealSelectionResponse } from "../schema/mealSelection";
@@ -90,6 +90,42 @@ export const selectionHelper = {
         return response;
     },
 
+    formatUserSelectionsResponse:(selections: MealSelection[])=>{
+        if(!selections?.length){
+            return {
+                createdBy: null,
+                createdFor: null,
+                selectionStatus: null,
+                mealSelections: {}
+            }
+        }
+
+        const mealSelections: Record<string, unknown> = {};
+
+        for(const selection of selections){
+            const selectionDay = selection.menuDay.day;
+
+            if(!mealSelections[selectionDay]){
+                mealSelections[selectionDay] = {
+                    id: selection.id,
+                    mealName: selection.dayMeal.meal.name,
+                    mealID: selection.dayMeal.meal.id,
+                    mealImagePath: selection.dayMeal.meal.imagePath,
+                    foodCode: selection.dayMeal.meal.foodCode,
+                    calories: selection.dayMeal.meal.calories
+                };
+            }
+        }
+
+        return {
+            createdById: selections[0]?.createdByUser?.id ?? null,
+            createdBy: selections[0]?.createdByUser.name ?? null,
+            createdForId: selections[0]?.createdForUser?.id ?? null,
+            createdFor: selections[0]?.createdForUser?.name ?? null,
+            selectionStatus: selections[0]?.selectionStatus ?? null,
+            mealSelections
+        }
+    },
     formatDaySelectionResponse: (selections: MealSelection[]): DayMealSelections[] => {
 
         const foodMaps = new Map<number, DayMealSelections>()

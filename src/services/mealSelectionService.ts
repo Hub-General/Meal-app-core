@@ -7,8 +7,6 @@ import { weekMenuScheduleService } from "./weekMenuScheduleService";
 
 const selectionSelectShape = {
     id: true,
-    createdBy: true,
-    createdFor: true,
     weekMenuScheduleId: true,
     selectionStatus: true,
     createdByUser:{
@@ -35,7 +33,6 @@ const selectionSelectShape = {
                     imagePath:true,
                     name: true,
                     calories: true,
-                    image: true,
                     foodCode: true,
                 }
             }
@@ -146,13 +143,14 @@ export const mealSelectionService = {
         const weekInfo = getISOWeekInfo(date);
         const weekMenuSchedule = await weekMenuScheduleService.getWeekMenuScheduleByWeekAndYear({week: weekInfo.week, year: weekInfo.year});
         if(!weekMenuSchedule) return [];
-        return await prisma.selections.findMany({
+        const response =  await prisma.selections.findMany({
             where: {
                 weekMenuScheduleId: weekMenuSchedule.id,
                 createdFor
             },
             select: selectionSelectShape
         });
+        return selectionHelper.formatUserSelectionsResponse(response)
     },
 
 

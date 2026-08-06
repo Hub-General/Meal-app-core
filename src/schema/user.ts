@@ -2,7 +2,9 @@ import { Status } from "../generated/prisma";
 import z from "zod";
 
 //Export zod schemas
-
+export const GetUsersQueryRequestSchema = z.object({
+    status: z.enum(Status).optional(),
+})
 export const userRegisterRequestSchema = z.object({
     email: z.email(),
     password: z.string().min(6).max(100),

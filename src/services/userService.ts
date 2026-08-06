@@ -10,8 +10,8 @@ export const userService = {
 
     // Users endpoints
 
-    getAllUsers: async()=>{
-        return await prisma.users.findMany({select:SafeUser})
+    getAllUsers: async(status: Status = Status.ACTIVE)=>{
+        return await prisma.users.findMany({where:{status}, select:SafeUser})
     },
     getUserById: async(userId: number)=>{
         return await prisma.users.findUnique({where: {id: userId}, select: SafeUser});

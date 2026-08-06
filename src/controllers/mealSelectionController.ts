@@ -120,7 +120,7 @@ export const mealSelectionController = {
             const selections = await mealSelectionService.getWeeklySelectionsByUser(date, userId);
             res.json(selections);
         } catch (error) {
-            res.status(500).json({ error: "Failed to fetch selections by date" });
+            res.status(500).json({ message: "Failed to fetch selections by date",error });
         }
     },
     getUsersWithoutSelectionsController: async( req: Request, res: Response)=>{
@@ -184,7 +184,7 @@ export const mealSelectionController = {
             const selectionsResponse = await mealSelectionService.createSelectionsBatch(parsed.data);
             res.status(201).json(selectionsResponse);
         }catch(error){
-            res.status(500).json({error:"Failed to create new selections batch"})
+            res.status(500).json({message:`${error}`})
         }
     },
 

@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
-import { userRegisterRequestSchema } from "../schema/user";
+import { GetUsersQueryRequestSchema, userRegisterRequestSchema } from "../schema/user";
 import { userService } from "../services/userService";
+import { Status } from "../generated/prisma";
 
 export const userController = {
 
@@ -8,7 +9,8 @@ export const userController = {
 
     getAllUsersController: async (req: Request, res: Response) => {
         try{
-            const users = await userService.getAllUsers();
+            const {status} = GetUsersQueryRequestSchema.parse(req.query)
+            const users = await userService.getAllUsers(status);
             res.status(200).json(users);
         }catch(error){
             res.status(500).json({
