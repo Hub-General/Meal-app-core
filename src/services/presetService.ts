@@ -1,4 +1,5 @@
 import { prisma } from "../db/prisma";
+import { selectionHelper } from "../helpers/mealSelectionHelpers";
 import { CreatePresetItemDataRequest, CreatePresetRequest } from "../schema/preset";
 
 
@@ -13,9 +14,9 @@ export const presetService = {
             where: {id: presetId},
         })
     },
-    getPresetsbyUserId: async(userId:number)=>{
+    getPresetsbyUserId: async(userId:number, menuId?: number)=>{
         return await prisma.presets.findMany({
-            where: {userId},
+            where: {userId , menuId},
         })
     },
     createPreset: async(presetData: CreatePresetRequest)=>{
@@ -74,6 +75,11 @@ export const presetService = {
         const preset =  await prisma.presets.findUnique({
             where:{id: presetId}
         })
+
+        if(!preset){
+            return
+        }
+        
         const presetDetails = await prisma.presetItems.findMany({
             where:{presetId: presetId}, 
             select:{
@@ -94,16 +100,14 @@ export const presetService = {
                                 name: true,
                                 foodCode: true,
                                 calories: true,
-                                image: true,
+                                imagePath: true,
+                                isActive: true,
                         }}
                     }
                 }
             }
         })
 
-        return ({
-            ...preset,
-            items: presetDetails
-        })
+        return selectionHelper.formatPresetResponse(presetDetails, preset)
     }
 }

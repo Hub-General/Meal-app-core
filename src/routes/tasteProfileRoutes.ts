@@ -1,10 +1,11 @@
 import { Router } from "express";
 import { tasteProfileController } from "../controllers/tasteProfileController";
+import { authenticate } from "../middleware/authMiddleware";
 
 const router = Router();
 
-router.get("/by-user/:id", tasteProfileController.getTasteProfileByUserIdController)
-router.get("/",tasteProfileController.getTasteProfilesController)
-router.put("/by-user/:id", tasteProfileController.updateUserTasteProfileController)
+router.get("/by-user/:id", authenticate, tasteProfileController.getTasteProfileByUserIdController)
+router.get("/", authenticate, tasteProfileController.getTasteProfilesController)
+router.put("/by-user/:id", authenticate, tasteProfileController.updateUserTasteProfileController)
 
 export default router;

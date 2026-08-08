@@ -19,7 +19,7 @@ interface DigiHRUserLeave {
     DaysRequested: number
     StartDate: string
     EndDate: string
-    ID: number
+    referenceID: number
     ApprovalStatus: string
 }
 
@@ -59,12 +59,12 @@ export const digiHRService = {
         );
     },
 
-    updateUserAvailabilityTable: async()=>{
-        const user_leaves_records = await digiHRService.getUsersLeaves();
+    updateUserAvailabilityTable: async(data:DigiHRUserLeave[])=>{
+        const user_leaves_records = data
         
         for (const leave of user_leaves_records) {
             // Resolve the local userId from the DigiHR Email
-            const user = await userService.getUserByReferenceId(leave.ID);
+            const user = await userService.getUserByReferenceId(leave.referenceID);
             
             if (user) {
                 const startDate = new Date(leave.StartDate);

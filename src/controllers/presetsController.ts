@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { createPresetItemDataRequestSchema, createPresetRequestSchema } from "../schema/preset";
+import { createPresetItemDataRequestSchema, createPresetRequestSchema, GetUserPresetsRequestSchema } from "../schema/preset";
 import { presetService } from "../services/presetService";
 
 export const presetController ={
@@ -50,12 +50,14 @@ export const presetController ={
     
     getPresetsByUserIdController: async (req: Request, res: Response) =>{
         try{
-            if(!req.params.id || isNaN(Number(req.params.id))) {
-                res.status(400).json({
-                    error:'Invalid User Id'
-                })
+            const parsed = GetUserPresetsRequestSchema.safeParse(req.params)
+            if (!parsed.success) {
+                return res.status(400).json({
+                    error: "Invalid userId or menuID",
+                    details: parsed.error.flatten()
+                });
             }
-            const preset = await presetService.getPresetsbyUserId(Number(req.params.id));
+            const preset = await presetService.getPresetsbyUserId(parsed.data.id, parsed.data.menuId);
             res.status(200).json(preset)
         }catch(error){
             res.status(500).json({
@@ -79,7 +81,7 @@ export const presetController ={
             res.status(200).json(preset)
         }catch(error){
             res.status(500).json({
-                message: "Failed to retrieve presets",
+                message: "Failed to create preset",
                 error,
             })
         }

@@ -9,10 +9,12 @@ export const createMenuRequestSchema = z.object({
    isActive: z.boolean().optional()
 });
 
-export const updateMenuRequestSchema = createMenuRequestSchema.partial().refine(
-    (menu) => Object.keys(menu).length > 0,
-    { message: "At least one menu field must be provided" }
-);
+export const updateMenuRequestSchema = z.object({
+   title: z.string().min(1).max(100),
+   description: z.string().optional(),
+   isActive: z.boolean().optional(),
+   order: z.int().optional()
+});
 
 export const createMenuDayMealsRequestSchema = z.object({
     menuDayId: z.number(),

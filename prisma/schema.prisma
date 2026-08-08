@@ -14,7 +14,7 @@ datasource db {
 
 
 model Roles {
-  id Int @id @default(autoincrement())
+  id Int @id @db.SmallInt @default(autoincrement())
   name String @unique
   description String?
   createdAt DateTime @default(now())
@@ -35,7 +35,7 @@ model Users {
   createdAt DateTime @default(now())
   isActivated Boolean
   
-  roleId  Int
+  roleId  Int @db.SmallInt
   role Roles @relation(fields: [roleId], references: [id])
   
   selections Selections[] @relation("createdBy")
@@ -90,7 +90,7 @@ model WeekMenuSchedule {
   id Int @id @default(autoincrement())
   week Int
   year Int
-  menuId Int
+  menuId Int @db.SmallInt
   status WeekMenuStatus @default(DRAFT)
 
   menu Menus @relation(fields: [menuId], references: [id])
@@ -142,11 +142,12 @@ enum TokenType {
 
 
 model Menus{ 
-  id Int @id @default(autoincrement())
+  id Int @id @db.SmallInt @default(autoincrement())
   title String
   description String?
   isActive Boolean @default(true)
   createdAt DateTime @default(now())
+  order Int? @db.SmallInt
   
   menuDays MenuDays[]
   presets Presets[]
@@ -155,7 +156,7 @@ model Menus{
 
 model MenuDays{
   id Int @id @default(autoincrement())
-  menuId Int
+  menuId Int @db.SmallInt
   menu Menus @relation(fields: [menuId], references: [id])
   day Days
   createdAt DateTime @default(now())
@@ -243,11 +244,12 @@ model Presets {
   id Int @id @default(autoincrement())
   name String?
   description String?
+  isDefault Boolean @default(false)
 
   userId Int
   user Users @relation(fields: [userId], references: [id])
 
-  menuId Int
+  menuId Int @db.SmallInt
   menu Menus @relation(fields:[menuId], references: [id])
 
   createdAt DateTime @default(now())

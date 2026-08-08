@@ -4,6 +4,7 @@ import { Days, SelectionStatus } from "../generated/prisma";
 
 // Export zod schemas
 export const createMealSelectionRequestSchema = z.object({
+    id: z.number().optional(), 
     dayMealId: z.number(),
     createdBy: z.number(),
     createdFor: z.number(),
@@ -12,30 +13,33 @@ export const createMealSelectionRequestSchema = z.object({
 });
 
 export const mealSelectionFilterSchema = z.object({
-    createdBy: z.number().optional(),
-    createdFor: z.number().optional(),
-    week: z.number().optional(),
-    mealId: z.number().optional(),
+    createdBy: z.coerce.number().optional(),
+    createdFor: z.coerce.number().optional(),
+    week: z.coerce.number().optional(),
+    mealId: z.coerce.number().optional(),
     day: z.enum(Days).optional(),
-    menuId: z.number().optional()
+    menuId: z.coerce.number().optional()
 });
 
 export const createMealSelectionBatchRequestSchema = z.array(createMealSelectionRequestSchema);
 
-export const updateMealSelectionRequestSchema = createMealSelectionRequestSchema;
+export const updateMealSelectionRequestSchema =
+    createMealSelectionRequestSchema.extend({
+        id: z.number().int().positive()
+    });
 
-export const updateMealSelectionsBatchRequestSchema = z.array(z.object({
-    id: z.number().int().positive(),
-    data: createMealSelectionRequestSchema,
-}));
+export const updateMealSelectionsBatchRequestSchema =
+    z.array(updateMealSelectionRequestSchema);
 
 export const submitWeeklySelectionsRequestSchema = z.object({
     weekNumber: z.number().int().min(1).max(53),
     year: z.number().int().min(2000).max(2100),
+    status: z.enum(SelectionStatus)
 });
 
 export const submitSelectionsRequestSchema = z.object({
     selectionIds: z.array(z.number().int().positive()),
+    status: z.enum(SelectionStatus)
 });
 
 
