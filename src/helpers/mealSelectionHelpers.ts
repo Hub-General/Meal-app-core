@@ -1,7 +1,6 @@
-import { Days, SelectionStatus } from "../generated/prisma";
 import { prisma } from "../prisma/client";
-import { Meal } from "../schema/meal";
 import { DayMealSelections, MealSelection, WeekMealSelectionResponse } from "../schema/mealSelection";
+import { Preset, PresetItem } from "../schema/preset";
 import { weekMenuScheduleService } from "../services/weekMenuScheduleService";
 import { getISOWeekInfo } from "./dateFunctions";
 
@@ -159,5 +158,32 @@ export const selectionHelper = {
 
         return Array.from(foodMaps.values());
 
+    },
+
+    formatPresetResponse:(presetItems: PresetItem[], preset: any)=>{
+        if(!presetItems.length){
+            return{
+                ...preset,
+                items: []
+            }
+        }
+
+        const items: Record<string, unknown> ={}
+
+        for (const item of presetItems){
+            const itemDay = item.menuDay.day
+
+            if(!items[itemDay]){
+                items[itemDay] = {
+                    dayMealId: item.dayMealId,
+                    meal: item.menuDayMeals.meal.name,
+                    isActive: item.menuDayMeals.meal.isActive,
+                }
+            }
+        }
+        return {
+            ...preset,
+            items
+        }
     }
 }

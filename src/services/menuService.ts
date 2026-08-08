@@ -6,13 +6,14 @@ const menuSelectionShape = {
             title: true,
             description: true,
             isActive: true,
+            order: true
 }
 
 export const menuServices = {
 
     //Simple Menu DTO operations
     createMenu: async (menuData: CreateMenuRequest)=>{
-        return await prisma.menus.create({
+        const menu = await prisma.menus.create({
         data: {
             ...menuData,
             menuDays: {
@@ -27,6 +28,11 @@ export const menuServices = {
         },
         select:menuSelectionShape
         });
+        return await prisma.menus.update({
+            where:{id: menu.id},
+            data: {order: menu.id},
+            select:menuSelectionShape
+        })
     },
     getAllMenus: async ()=>{
         return await prisma.menus.findMany({

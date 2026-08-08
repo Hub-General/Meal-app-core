@@ -5,8 +5,8 @@ export async function scheduleWeeklyMenuScheduleJob (targetWeek: { week: number;
     try{
         const activeMenus = await prisma.menus.findMany({
             where: {isActive: true},
-            select: { id: true },
-            orderBy: { id: "asc" },
+            select: { id: true, order: true },
+            orderBy: { order: "asc" },
         });
 
         if (activeMenus.length === 0) {

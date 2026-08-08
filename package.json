@@ -6,7 +6,7 @@
   "scripts": {
     "generate": "prisma generate",
     "build": "npm run generate && tsc && node scripts/copyGeneratedPrismaClient.js",
-    "dev": "nodemon",
+    "dev": "nodemon --exec ts-node --files src/server.ts",
     "prestart": "npm run generate && node scripts/copyGeneratedPrismaClient.js",
     "start": "node dist/server.js",
     "test": "echo \"Error: no test specified\" && exit 1"

@@ -1,14 +1,15 @@
 import { Router } from "express";
 import { weekMenuScheduleController } from "../controllers/weekMenuScheduleController";
+import { authenticate, authorize } from "../middleware/authMiddleware";
+import { Roles } from "../enums/ERoles";
 
 const router = Router();
 
-router.get("/", weekMenuScheduleController.getAllWeekMenuSchedulesController);
-router.get("/by-week-year", weekMenuScheduleController.getWeekMenuScheduleByWeekAndYearController);
-router.get("/by-menu", weekMenuScheduleController.getWeekMenuSchedulesByMenuController);
-router.get("/:id", weekMenuScheduleController.getWeekMenuScheduleByIdController);
-router.post("/", weekMenuScheduleController.createWeekMenuScheduleController);
-router.get("/:id", weekMenuScheduleController.getWeekMenuScheduleByIdController);
-router.put("/:id", weekMenuScheduleController.updateWeekMenuScheduleController);
+router.get("/", authenticate, weekMenuScheduleController.getAllWeekMenuSchedulesController);
+router.get("/by-week-year",authenticate, weekMenuScheduleController.getWeekMenuScheduleByWeekAndYearController);
+router.get("/by-menu",authenticate, weekMenuScheduleController.getWeekMenuSchedulesByMenuController);
+router.get("/:id",authenticate, weekMenuScheduleController.getWeekMenuScheduleByIdController);
+router.post("/",authenticate, authorize([Roles.admin, Roles.hr]),weekMenuScheduleController.createWeekMenuScheduleController);
+router.put("/:id",authenticate, authorize([Roles.admin, Roles.hr]),weekMenuScheduleController.updateWeekMenuScheduleController);
 
 export default router;
