@@ -8,7 +8,7 @@ const router = Router();
 router.get("/", menuController.getAllMenusController);
 router.post("/", authenticate, authorize([Roles.admin, Roles.hr]), menuController.createMenuController);
 router.get("/:id", menuController.getMenuByIdController);
-router.get("/:id/meals", menuController.getMenuMealsController);
+router.get("/:id/meals", authenticate, menuController.getMenuMealsController);
 router.put("/:id",  authenticate, authorize([Roles.admin, Roles.hr]), menuController.updateMenuController);
 router.delete("/:id", authenticate, authorize([Roles.admin, Roles.hr]), menuController.deleteMenuController);
 

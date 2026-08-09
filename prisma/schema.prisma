@@ -39,6 +39,7 @@ model Users {
   role Roles @relation(fields: [roleId], references: [id])
   
   selections Selections[] @relation("createdBy")
+  preferences UserPreferences?
   createdForSelections Selections[] @relation("createdFor")
   presets Presets[]
   tasteProfile TasteProfile[]
@@ -195,6 +196,15 @@ model FoodLibrary{
   updatedAt DateTime @updatedAt
 
   @@unique([foodCode,foodGroup])
+}
+
+model UserPreferences {
+  userId Int @id
+  dislikes Json
+  excludedMealIds Json
+  updatedAt DateTime @updatedAt
+
+  user Users @relation(fields:[userId], references: [id], onDelete: Cascade)
 }
 
 model Meals{

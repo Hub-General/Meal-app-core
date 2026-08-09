@@ -1,5 +1,6 @@
 import { CreateMealRequest, UpdateMealRequest } from "../schema/meal";
 import prisma from "../prisma/client";
+import { userPreferenceService } from "./userPreferenceService";
 
 export const mealService = {
 
@@ -9,8 +10,12 @@ export const mealService = {
     createMealBatch: async(mealData: CreateMealRequest[])=>{
         return await prisma.meals.createMany({data: mealData, skipDuplicates: true})
     },
-    getAllMeals: async()=>{
-        return await prisma.meals.findMany();
+    getAllMeals: async(userId?:number)=>{
+        const excludedMealIds = userId
+        ? await userPreferenceService.getUserExcludedMeals(userId)
+        : [];
+
+        return await prisma.meals.findMany({where:{id:{notIn:excludedMealIds}}});
     },
     getMealById: async(mealId: number)=>{
         return await prisma.meals.findUnique({where: {id: mealId}});

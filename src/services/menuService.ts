@@ -1,5 +1,6 @@
 import prisma from "../prisma/client";
 import { CreateMenuDayMealsRequest, CreateMenuRequest, UpdateMenuRequest } from "../schema/menu";
+import { userPreferenceService } from "./userPreferenceService";
 
 const menuSelectionShape = {
             id:true,
@@ -51,8 +52,16 @@ export const menuServices = {
 
     //Menu Meals Assignment
     
-    getMenuMeals: async(menuId: number)=>{
-        return await prisma.menuDayMeals.findMany({where:{menuDay:{menuId}}, select:{
+    getMenuMeals: async(menuId: number , userId?: number)=>{
+
+        const excludedMealIds = userId
+            ? await userPreferenceService.getUserExcludedMeals(userId)
+        : [];
+        return await prisma.menuDayMeals.findMany({
+            where:{
+                menuDay:{menuId},
+                meal:{id:{notIn:excludedMealIds}
+        }}, select:{
             id:true,
             createdAt: true,
             updatedAt: true,
