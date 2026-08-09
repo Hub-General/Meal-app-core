@@ -1,13 +1,17 @@
 import { Request, Response } from "express";
 export declare const mealSelectionController: {
-    getAllSelectionsController: (req: Request, res: Response) => Promise<void>;
+    getAllSelectionsController: (req: Request, res: Response) => Promise<Response<any, Record<string, any>> | undefined>;
     getSelectionsByDateRangeController: (req: Request, res: Response) => Promise<Response<any, Record<string, any>> | undefined>;
     getSelectionByIdController: (req: Request, res: Response) => Promise<Response<any, Record<string, any>> | undefined>;
-    getSelectionsByFilterController: (req: Request, res: Response) => Promise<void>;
     getSelectionsByUserIdController: (req: Request, res: Response) => Promise<Response<any, Record<string, any>> | undefined>;
     getSelectionsByMealIdController: (req: Request, res: Response) => Promise<Response<any, Record<string, any>> | undefined>;
-    getSelectionsByDayController: (req: Request, res: Response) => Promise<void>;
-    createSelectionController: (req: Request, res: Response) => Promise<void>;
-    createBatchSelectionControleer: (req: Request, res: Response) => Promise<void>;
+    getWeeklySelectionsController: (req: Request, res: Response) => Promise<Response<any, Record<string, any>> | undefined>;
+    getWeeklySelectionsByUserController: (req: Request, res: Response) => Promise<Response<any, Record<string, any>> | undefined>;
+    submitSelectionsController: (req: Request, res: Response) => Promise<Response<any, Record<string, any>> | undefined>;
+    getUsersWithoutSelectionsController: (req: Request, res: Response) => Promise<Response<any, Record<string, any>> | undefined>;
+    adminOverrideSelectionsController: (req: Request, res: Response) => Promise<Response<any, Record<string, any>> | undefined>;
+    replaceWeeklyMealController: (req: Request, res: Response) => Promise<Response<any, Record<string, any>>>;
+    replaceWeeklyMealsController: (req: Request, res: Response) => Promise<Response<any, Record<string, any>>>;
+    updateWeeklySelectionsStatusController: (req: Request, res: Response) => Promise<Response<any, Record<string, any>> | undefined>;
 };
 //# sourceMappingURL=mealSelectionController.d.ts.map

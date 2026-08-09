@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { createPresetItemDataRequestSchema, createPresetRequestSchema, GetUserPresetsRequestSchema } from "../schema/preset";
+import { createPresetItemDataRequestSchema, createPresetRequestSchema, GetUserPresetsRequestSchema, updatePresetItemDataRequestSchema, updatePresetRequestSchema } from "../schema/preset";
 import { presetService } from "../services/presetService";
 
 export const presetController ={
@@ -15,19 +15,22 @@ export const presetController ={
         }
     },
     getPresetbyIdController: async (req: Request, res: Response) =>{
+        const parsed = GetUserPresetsRequestSchema.safeParse({ ...req.params, ...req.query });
+        if (!parsed.success) {
+            return res.status(400).json({
+                error: "Invalid preset ID",
+                details: parsed.error.flatten(),
+            });
+        }
+
         try{
-            if(!req.params.id || isNaN(Number(req.params.id))) {
-                res.status(400).json({
-                    error:'Invalid Preset Id'
-                })
-            }
-            const preset = await presetService.getPresetbyId(Number(req.params.id));
-            res.status(200).json(preset)
+            const preset = await presetService.getPresetbyId(parsed.data.id);
+            res.status(200).json(preset);
         }catch(error){
             res.status(500).json({
                 message: "Failed to retrieve preset by ID",
                 error,
-            })
+            });
         }
     },
 
@@ -38,7 +41,7 @@ export const presetController ={
                     error:'Invalid Preset Id'
                 })
             }
-            const preset = await presetService.getPresetItemsByPresetId(Number(req.params.id));
+            const preset = await presetService.getPresetwithDetails(Number(req.params.id));
             res.status(200).json(preset)
         }catch(error){
             res.status(500).json({
@@ -93,7 +96,7 @@ export const presetController ={
                     error:'Invalid Preset ID'
                 })
             }
-            const parsed = createPresetRequestSchema.safeParse(req.body);
+            const parsed = updatePresetRequestSchema.safeParse(req.body);
             if(!parsed.success){
                 return res.status(400).json({ error: "Invalid preset payload", details: parsed.error.flatten() });
             }
@@ -127,16 +130,11 @@ export const presetController ={
     },
     createPresetItemController: async (req: Request, res: Response) =>{
         try{
-            if(!req.params.id || isNaN(Number(req.params.id))) {
-                res.status(400).json({
-                    error:'Invalid Preset Id'
-                })
-            }
             const parsed = createPresetItemDataRequestSchema.safeParse(req.body);
             if(!parsed.success){
                 return res.status(400).json({ error: "Invalid preset item payload", details: parsed.error.flatten() });
             }
-            const preset = await presetService.createPresetItem(Number(req.params.id), parsed.data);
+            const preset = await presetService.createPresetItem(parsed.data.presetId, parsed.data);
             res.status(200).json(preset)
         }catch(error){
             res.status(500).json({
@@ -147,16 +145,15 @@ export const presetController ={
     },
     createPresetItemsBatchController: async (req: Request, res: Response) =>{
          try{
-            if(!req.params.id || isNaN(Number(req.params.id))) {
-                res.status(400).json({
-                    error:'Invalid Preset ID'
-                })
-            }
             const parsed = createPresetItemDataRequestSchema.array().safeParse(req.body);
             if(!parsed.success){
                 return res.status(400).json({ error: "Invalid preset item batch payload", details: parsed.error.flatten() });
             }
-            const preset = await presetService.createPresetItemsBatch(Number(req.params.id), parsed.data);
+            const firstPresetItem = parsed.data[0];
+            if (!firstPresetItem) {
+                return res.status(400).json({ error: "Preset item batch cannot be empty" });
+            }
+            const preset = await presetService.createPresetItemsBatch(firstPresetItem.presetId, parsed.data);
             res.status(200).json(preset)
         }catch(error){
             res.status(500).json({
@@ -172,7 +169,7 @@ export const presetController ={
                     error:'Invalid Preset ID'
                 })
             }
-            const parsed = createPresetItemDataRequestSchema.safeParse(req.body);
+            const parsed = updatePresetItemDataRequestSchema.safeParse(req.body);
             if(!parsed.success){
                 return res.status(400).json({ error: "Invalid preset item payload", details: parsed.error.flatten() });
             }

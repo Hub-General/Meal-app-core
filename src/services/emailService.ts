@@ -1,6 +1,23 @@
 import { mailTransporter } from "../config/emailConfig";
 
 export const mailService = {
+    sendSelectionNotification: async (
+        to: string,
+        recipientName: string,
+        subject: string,
+        message: string
+    ) => {
+        try {
+            await mailTransporter.sendMail({
+                from: `"Meal App" <${process.env.MAIL_FROM}>`,
+                to,
+                subject,
+                html: `<p>Hello ${recipientName.split(" ")[0]},</p><p>${message}</p>`
+            });
+        } catch (error) {
+            console.error("Failed to send selection notification:", error);
+        }
+    },
     sendOnboardingEmail: async (to: string, name: string ,token: string) => {
         try{
         const firstName = name.split(' ')[0];

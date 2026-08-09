@@ -1,4 +1,4 @@
-import { CreatePresetItemDataRequest, CreatePresetRequest } from "../interfaces/preset";
+import { CreatePresetItemDataRequest, CreatePresetRequest, UpdatePresetItemDataRequest, UpdatePresetRequest } from "../schema/preset";
 export declare const presetService: {
     getAllPresets: () => Promise<{
         name: string | null;
@@ -7,6 +7,8 @@ export declare const presetService: {
         updatedAt: Date;
         id: number;
         userId: number;
+        menuId: number;
+        isDefault: boolean;
     }[]>;
     getPresetbyId: (presetId: number) => Promise<{
         name: string | null;
@@ -15,14 +17,18 @@ export declare const presetService: {
         updatedAt: Date;
         id: number;
         userId: number;
+        menuId: number;
+        isDefault: boolean;
     } | null>;
-    getPresetsbyUserId: (userId: number) => Promise<{
+    getPresetsbyUserId: (userId: number, menuId?: number) => Promise<{
         name: string | null;
         description: string | null;
         createdAt: Date;
         updatedAt: Date;
         id: number;
         userId: number;
+        menuId: number;
+        isDefault: boolean;
     }[]>;
     createPreset: (presetData: CreatePresetRequest) => Promise<{
         name: string | null;
@@ -31,102 +37,52 @@ export declare const presetService: {
         updatedAt: Date;
         id: number;
         userId: number;
+        menuId: number;
+        isDefault: boolean;
     }>;
-    updatePreset: (presetId: number, presetData: CreatePresetRequest) => Promise<{
+    updatePreset: (presetId: number, presetData: UpdatePresetRequest) => Promise<{
         name: string | null;
         description: string | null;
         createdAt: Date;
         updatedAt: Date;
         id: number;
         userId: number;
+        menuId: number;
+        isDefault: boolean;
     }>;
     getPresetItemsByPresetId: (presetId: number) => Promise<{
         createdAt: Date;
         updatedAt: Date;
         id: number;
         menuDayId: number;
-        dayMealId: number;
         presetId: number;
+        dayMealId: number;
     }[]>;
     createPresetItem: (presetId: number, presetItemData: CreatePresetItemDataRequest) => Promise<{
         createdAt: Date;
         updatedAt: Date;
         id: number;
         menuDayId: number;
-        dayMealId: number;
         presetId: number;
+        dayMealId: number;
     }>;
     createPresetItemsBatch: (presetId: number, presetItemDataArray: CreatePresetItemDataRequest[]) => Promise<import("../generated/prisma").Prisma.BatchPayload>;
-    updatePresetItem: (presetItemId: number, presetItemData: CreatePresetItemDataRequest) => Promise<{
+    updatePresetItem: (presetItemId: number, presetItemData: UpdatePresetItemDataRequest) => Promise<{
         createdAt: Date;
         updatedAt: Date;
         id: number;
         menuDayId: number;
-        dayMealId: number;
         presetId: number;
+        dayMealId: number;
     }>;
     deletePresetItem: (presetItemId: number) => Promise<{
         createdAt: Date;
         updatedAt: Date;
         id: number;
         menuDayId: number;
-        dayMealId: number;
         presetId: number;
+        dayMealId: number;
     }>;
-    getPresetWithDetailsById: (presetID: number) => Promise<{
-        presetItemsGrouped: {
-            day: string;
-            items: ({
-                menuDayMeals: {
-                    createdAt: Date;
-                    updatedAt: Date;
-                    id: number;
-                    menuDayId: number;
-                    mealId: number;
-                };
-                menuDay: {
-                    createdAt: Date;
-                    id: number;
-                    menuId: number;
-                    day: import("../generated/prisma").$Enums.Days;
-                };
-            } & {
-                createdAt: Date;
-                updatedAt: Date;
-                id: number;
-                menuDayId: number;
-                dayMealId: number;
-                presetId: number;
-            })[] | undefined;
-        }[];
-        presetItems: ({
-            menuDayMeals: {
-                createdAt: Date;
-                updatedAt: Date;
-                id: number;
-                menuDayId: number;
-                mealId: number;
-            };
-            menuDay: {
-                createdAt: Date;
-                id: number;
-                menuId: number;
-                day: import("../generated/prisma").$Enums.Days;
-            };
-        } & {
-            createdAt: Date;
-            updatedAt: Date;
-            id: number;
-            menuDayId: number;
-            dayMealId: number;
-            presetId: number;
-        })[];
-        name: string | null;
-        description: string | null;
-        createdAt: Date;
-        updatedAt: Date;
-        id: number;
-        userId: number;
-    } | null>;
+    getPresetwithDetails: (presetId: number) => Promise<any>;
 };
 //# sourceMappingURL=presetService.d.ts.map

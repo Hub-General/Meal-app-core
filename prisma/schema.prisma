@@ -236,6 +236,7 @@ model Selections{
 
   createdBy Int
   createdFor Int?
+  guestCount Int @default(1)
   createdByUser Users @relation("createdBy", fields: [createdBy], references: [id])
   createdForUser Users? @relation("createdFor", fields: [createdFor], references: [id])
 
@@ -244,9 +245,9 @@ model Selections{
 
   selectionStatus SelectionStatus
 
-  @@unique([createdBy, weekMenuScheduleId, menuDayId])
+  @@unique([createdFor, weekMenuScheduleId, menuDayId])
 
-  @@index([createdBy, weekMenuScheduleId], name: "idx_user_week_selection")
+  @@index([createdFor, weekMenuScheduleId], name: "idx_user_week_selection")
   @@index([weekMenuScheduleId], name: "idx_week_selections")
 }
 

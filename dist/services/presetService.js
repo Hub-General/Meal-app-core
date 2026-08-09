@@ -2,15 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.presetService = void 0;
 const prisma_1 = require("../db/prisma");
-const dayOrder = [
-    "MONDAY",
-    "TUESDAY",
-    "WEDNESDAY",
-    "THURSDAY",
-    "FRIDAY",
-    "SATURDAY",
-    "SUNDAY",
-];
+const mealSelectionHelpers_1 = require("../helpers/mealSelectionHelpers");
 exports.presetService = {
     //Simple Preset Operations
     getAllPresets: async () => {
@@ -21,9 +13,9 @@ exports.presetService = {
             where: { id: presetId },
         });
     },
-    getPresetsbyUserId: async (userId) => {
+    getPresetsbyUserId: async (userId, menuId) => {
         return await prisma_1.prisma.presets.findMany({
-            where: { userId },
+            where: { userId, menuId },
         });
     },
     createPreset: async (presetData) => {
@@ -44,15 +36,16 @@ exports.presetService = {
         });
     },
     createPresetItem: async (presetId, presetItemData) => {
+        const { presetId: _, ...data } = presetItemData;
         return await prisma_1.prisma.presetItems.create({
             data: {
                 presetId,
-                ...presetItemData
+                ...data
             }
         });
     },
     createPresetItemsBatch: async (presetId, presetItemDataArray) => {
-        const batchData = presetItemDataArray.map(itemData => ({
+        const batchData = presetItemDataArray.map(({ presetId: _, ...itemData }) => ({
             presetId,
             ...itemData
         }));
@@ -71,37 +64,43 @@ exports.presetService = {
             where: { id: presetItemId }
         });
     },
-    //Enriched Presset Operations
-    getPresetWithDetailsById: async (presetID) => {
+    //Enriched Preset Operations
+    getPresetwithDetails: async (presetId) => {
         const preset = await prisma_1.prisma.presets.findUnique({
-            where: { id: presetID },
-            include: {
-                presetItems: {
-                    include: {
-                        menuDay: true,
-                        menuDayMeals: true
+            where: { id: presetId }
+        });
+        if (!preset) {
+            return;
+        }
+        const presetDetails = await prisma_1.prisma.presetItems.findMany({
+            where: { presetId: presetId },
+            select: {
+                id: true,
+                presetId: true,
+                menuDayId: true,
+                menuDay: {
+                    select: {
+                        day: true
+                    }
+                },
+                dayMealId: true,
+                menuDayMeals: {
+                    select: {
+                        meal: {
+                            select: {
+                                id: true,
+                                name: true,
+                                foodCode: true,
+                                calories: true,
+                                imagePath: true,
+                                isActive: true,
+                            }
+                        }
                     }
                 }
-            },
+            }
         });
-        if (!preset)
-            return null;
-        const presetItemsByDay = preset.presetItems.reduce((acc, item) => {
-            const day = item.menuDay?.day ?? "UNKNOWN";
-            (acc[day] ?? (acc[day] = [])).push(item);
-            return acc;
-        }, {});
-        const presetItemsGrouped = [
-            ...dayOrder.filter((d) => presetItemsByDay[d]?.length),
-            ...Object.keys(presetItemsByDay).filter((d) => !dayOrder.includes(d) && presetItemsByDay[d]?.length),
-        ].map((day) => ({
-            day,
-            items: presetItemsByDay[day],
-        }));
-        return {
-            ...preset,
-            presetItemsGrouped,
-        };
+        return mealSelectionHelpers_1.selectionHelper.formatPresetResponse(presetDetails, preset);
     }
 };
 //# sourceMappingURL=presetService.js.map

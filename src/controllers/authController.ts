@@ -17,7 +17,7 @@ export const authController = {
             res.status(200).json(user);
         }
         catch(error){
-            res.status(401).json({message: `Failed to login:${error}`});
+            res.status(401).json({message: "Invalid credentials"});
         }
     },
 

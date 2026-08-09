@@ -1,6 +1,6 @@
 import { prisma } from "../db/prisma";
 import { selectionHelper } from "../helpers/mealSelectionHelpers";
-import { CreatePresetItemDataRequest, CreatePresetRequest } from "../schema/preset";
+import { CreatePresetItemDataRequest, CreatePresetRequest, UpdatePresetItemDataRequest, UpdatePresetRequest } from "../schema/preset";
 
 
 export const presetService = {
@@ -24,7 +24,7 @@ export const presetService = {
             data: presetData,
         })
     },
-    updatePreset: async(presetId: number, presetData: CreatePresetRequest)=>{
+    updatePreset: async(presetId: number, presetData: UpdatePresetRequest)=>{
         return await prisma.presets.update({
             where: {id: presetId},
             data: presetData,
@@ -39,16 +39,17 @@ export const presetService = {
     },
 
     createPresetItem: async(presetId: number, presetItemData: CreatePresetItemDataRequest) =>{
+        const { presetId: _, ...data } = presetItemData;
         return await prisma.presetItems.create({
             data: {
                 presetId,
-                ...presetItemData
+                ...data
             }
         })
     },
 
     createPresetItemsBatch: async(presetId: number, presetItemDataArray: CreatePresetItemDataRequest[]) =>{
-        const batchData = presetItemDataArray.map(itemData => ({
+        const batchData = presetItemDataArray.map(({ presetId: _, ...itemData }) => ({
             presetId,
             ...itemData
         }));
@@ -57,7 +58,7 @@ export const presetService = {
         })
     },
 
-    updatePresetItem: async(presetItemId: number, presetItemData: CreatePresetItemDataRequest) =>{
+    updatePresetItem: async(presetItemId: number, presetItemData: UpdatePresetItemDataRequest) =>{
         return await prisma.presetItems.update({
             where: {id: presetItemId},
             data: presetItemData

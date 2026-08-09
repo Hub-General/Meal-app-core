@@ -76,14 +76,15 @@ export const selectionHelper = {
                 response[day].response.push(meal);
             }
 
-            meal.count++;
+            meal.count += selection.guestCount;
 
             meal.users.push({
                 id: selection.createdForUser?.id ?? null,
-                name: selection.createdForUser?.name ?? "Guest"
+                name: selection.createdForUser?.name ?? "Guest",
+                quantity: selection.guestCount
             });
 
-            response[day].total++;
+            response[day].total += selection.guestCount;
         }
 
         return response;
@@ -148,11 +149,12 @@ export const selectionHelper = {
                 foodMaps.set(mealId, meal)
             }
 
-            meal.count++;
+            meal.count += selection.guestCount;
 
             meal.users.push({
                 id: selection.createdForUser?.id ?? null,
-                name: selection.createdForUser?.name ?? "Guest"
+                name: selection.createdForUser?.name ?? "Guest",
+                quantity: selection.guestCount
             })
         }
 

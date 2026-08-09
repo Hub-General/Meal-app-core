@@ -24,6 +24,12 @@ export const createPresetRequestSchema = z.object({
     userId: z.number().int().positive(),
 });
 
+export const updatePresetRequestSchema = z.object({
+    name: z.string().min(1).max(100).optional(),
+    description: z.string().optional(),
+    isDefault: z.boolean().optional(),
+});
+
 export const presetItemSchema = z.object({
     id: z.number().int().positive(),
     presetId: z.number().int().positive(),
@@ -34,8 +40,14 @@ export const presetItemSchema = z.object({
 });
 
 export const createPresetItemDataRequestSchema = z.object({
+    presetId: z.number().int().positive(),
     menuDayId: z.number().int().positive(),
     dayMealId: z.number().int().positive(),
+});
+
+export const updatePresetItemDataRequestSchema = z.object({
+    menuDayId: z.number().int().positive().optional(),
+    dayMealId: z.number().int().positive().optional(),
 });
 
 
@@ -61,4 +73,6 @@ export interface PresetItem {
 
 export type Preset = z.infer<typeof presetSchema>;
 export type CreatePresetRequest = z.infer<typeof createPresetRequestSchema>;
+export type UpdatePresetRequest = z.infer<typeof updatePresetRequestSchema>;
 export type CreatePresetItemDataRequest = z.infer<typeof createPresetItemDataRequestSchema>;
+export type UpdatePresetItemDataRequest = z.infer<typeof updatePresetItemDataRequestSchema>;

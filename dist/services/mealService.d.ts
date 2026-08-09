@@ -1,4 +1,4 @@
-import { CreateMealRequest } from "../interfaces/meal";
+import { CreateMealRequest, UpdateMealRequest } from "../schema/meal";
 export declare const mealService: {
     createMeal: (mealData: CreateMealRequest) => Promise<{
         name: string;
@@ -6,18 +6,19 @@ export declare const mealService: {
         createdAt: Date;
         updatedAt: Date;
         id: number;
-        image: string | null;
+        imagePath: string | null;
         isActive: boolean;
         foodCode: string;
         calories: number | null;
     }>;
-    getAllMeals: () => Promise<{
+    createMealBatch: (mealData: CreateMealRequest[]) => Promise<import("../generated/prisma").Prisma.BatchPayload>;
+    getAllMeals: (userId?: number) => Promise<{
         name: string;
         description: string | null;
         createdAt: Date;
         updatedAt: Date;
         id: number;
-        image: string | null;
+        imagePath: string | null;
         isActive: boolean;
         foodCode: string;
         calories: number | null;
@@ -28,18 +29,29 @@ export declare const mealService: {
         createdAt: Date;
         updatedAt: Date;
         id: number;
-        image: string | null;
+        imagePath: string | null;
         isActive: boolean;
         foodCode: string;
         calories: number | null;
     } | null>;
-    updateMeal: (mealId: number, mealData: CreateMealRequest) => Promise<{
+    getMealByFoodCode: (foodCode: string) => Promise<{
         name: string;
         description: string | null;
         createdAt: Date;
         updatedAt: Date;
         id: number;
-        image: string | null;
+        imagePath: string | null;
+        isActive: boolean;
+        foodCode: string;
+        calories: number | null;
+    } | null>;
+    updateMeal: (mealId: number, mealData: UpdateMealRequest) => Promise<{
+        name: string;
+        description: string | null;
+        createdAt: Date;
+        updatedAt: Date;
+        id: number;
+        imagePath: string | null;
         isActive: boolean;
         foodCode: string;
         calories: number | null;
@@ -50,7 +62,7 @@ export declare const mealService: {
         createdAt: Date;
         updatedAt: Date;
         id: number;
-        image: string | null;
+        imagePath: string | null;
         isActive: boolean;
         foodCode: string;
         calories: number | null;

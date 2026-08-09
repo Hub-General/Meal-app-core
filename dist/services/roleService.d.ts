@@ -1,4 +1,4 @@
-import { CreateRoleRequest } from "../interfaces/role";
+import { CreateRoleRequest } from "../schema/role";
 export declare const roleService: {
     createRole: (roleData: CreateRoleRequest) => Promise<{
         name: string;
@@ -28,5 +28,9 @@ export declare const roleService: {
         updatedAt: Date;
         id: number;
     }>;
+    seedRoles: () => Promise<{
+        name: string;
+        id: number;
+    }[]>;
 };
 //# sourceMappingURL=roleService.d.ts.map

@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
-import { mealSelectionService } from "../services/mealSelectionService";
-import { createMealSelectionBatchRequestSchema, mealSelectionFilterSchema, submitWeeklySelectionsRequestSchema, updateMealSelectionsBatchRequestSchema } from "../schema/mealSelection";
+import { mealSelectionService, SelectionConflictError } from "../services/mealSelectionService";
+import { createMealSelectionBatchRequestSchema, mealSelectionFilterSchema, replaceWeeklyMealRequestSchema, replaceWeeklyMealsBatchRequestSchema, submitWeeklySelectionsRequestSchema, updateMealSelectionsBatchRequestSchema } from "../schema/mealSelection";
 import { SelectionValidationError } from "../helpers/validateSelectionUpdate";
 
 export const mealSelectionController = {
@@ -126,6 +126,10 @@ export const mealSelectionController = {
             });
             }
 
+            if (error instanceof SelectionConflictError) {
+                return res.status(409).json({ message: error.message });
+            }
+
             res.status(500).json({message:`${error}`})
         }
     },
@@ -153,10 +157,47 @@ export const mealSelectionController = {
             if (!parsed.success) {
                 return res.status(400).json({ error: "Invalid selection batch update payload", details: parsed.error.flatten() });
             }
-            const response = await mealSelectionService.adminOverrideSelections(parsed.data)
+            const response = await mealSelectionService.adminOverrideSelections(parsed.data, req.user!.id)
             res.status(200).json(response)
         }catch(error){
+            if (error instanceof SelectionConflictError) {
+                return res.status(409).json({ message: error.message });
+            }
             res.status(500).json({message:"Failed to override Selections", error})
+        }
+    },
+
+    replaceWeeklyMealController: async (req: Request, res: Response) => {
+        try {
+            const parsed = replaceWeeklyMealRequestSchema.safeParse(req.body);
+            if (!parsed.success) {
+                return res.status(400).json({ error: "Invalid meal replacement payload", details: parsed.error.flatten() });
+            }
+
+            const response = await mealSelectionService.replaceWeeklyMeal(parsed.data);
+            return res.status(200).json(response);
+        } catch (error) {
+            if (error instanceof SelectionConflictError) {
+                return res.status(409).json({ message: error.message });
+            }
+            return res.status(500).json({ message: "Failed to replace weekly meal", error });
+        }
+    },
+
+    replaceWeeklyMealsController: async (req: Request, res: Response) => {
+        try {
+            const parsed = replaceWeeklyMealsBatchRequestSchema.safeParse(req.body);
+            if (!parsed.success) {
+                return res.status(400).json({ error: "Invalid meal replacement batch payload", details: parsed.error.flatten() });
+            }
+
+            const response = await mealSelectionService.replaceWeeklyMeals(parsed.data);
+            return res.status(200).json(response);
+        } catch (error) {
+            if (error instanceof SelectionConflictError) {
+                return res.status(409).json({ message: error.message });
+            }
+            return res.status(500).json({ message: "Failed to replace weekly meals", error });
         }
     },
         

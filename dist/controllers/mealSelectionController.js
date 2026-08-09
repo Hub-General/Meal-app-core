@@ -2,14 +2,23 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.mealSelectionController = void 0;
 const mealSelectionService_1 = require("../services/mealSelectionService");
+const mealSelection_1 = require("../schema/mealSelection");
+const validateSelectionUpdate_1 = require("../helpers/validateSelectionUpdate");
 exports.mealSelectionController = {
     getAllSelectionsController: async (req, res) => {
         try {
-            const selections = await mealSelectionService_1.mealSelectionService.getAllSelections();
+            const parsed = mealSelection_1.mealSelectionFilterSchema.safeParse(req.query);
+            if (!parsed.success) {
+                return res.status(400).json({
+                    error: "Invalid filter parameters",
+                    details: parsed.error.flatten()
+                });
+            }
+            const selections = await mealSelectionService_1.mealSelectionService.getAllSelections(parsed.data);
             res.json(selections);
         }
         catch (error) {
-            res.status(500).json({ error: "Failed to fetch selections" });
+            res.status(500).json({ message: "Failed to fetch selections", error });
         }
     },
     getSelectionsByDateRangeController: async (req, res) => {
@@ -41,28 +50,9 @@ exports.mealSelectionController = {
             res.status(500).json({ error: "Failed to fetch selection by ID" });
         }
     },
-    getSelectionsByFilterController: async (req, res) => {
-        try {
-            const { userId, mealId, day, menuId } = req.query;
-            const filter = {};
-            if (userId)
-                filter.userId = Number(userId);
-            if (mealId)
-                filter.mealId = Number(mealId);
-            if (day)
-                filter.day = String(day);
-            if (menuId)
-                filter.menuId = Number(menuId);
-            const selections = await mealSelectionService_1.mealSelectionService.getSelectionsByFilter(filter);
-            res.json(selections);
-        }
-        catch (error) {
-            res.status(500).json({ error: "Failed to fetch selections by filter" });
-        }
-    },
     getSelectionsByUserIdController: async (req, res) => {
         try {
-            const userId = Number(req.query.userId);
+            const userId = Number(req.params.id);
             if (isNaN(userId)) {
                 return res.status(400).json({ error: "Invalid user ID" });
             }
@@ -75,7 +65,7 @@ exports.mealSelectionController = {
     },
     getSelectionsByMealIdController: async (req, res) => {
         try {
-            const mealId = Number(req.query.mealId);
+            const mealId = Number(req.params.id);
             if (isNaN(mealId)) {
                 return res.status(400).json({ error: "Invalid meal ID" });
             }
@@ -86,33 +76,139 @@ exports.mealSelectionController = {
             res.status(500).json({ error: "Failed to fetch selections by meal ID" });
         }
     },
-    getSelectionsByDayController: async (req, res) => {
+    // GET Weekly Selections
+    getWeeklySelectionsController: async (req, res) => {
         try {
-            const day = String(req.query.day);
-            const selections = await mealSelectionService_1.mealSelectionService.getSelectionsByDay(day);
+            const { date: dateQuery } = req.query;
+            if (!dateQuery) {
+                return res.status(400).json({ error: "Date parameter is required" });
+            }
+            const date = new Date(String(dateQuery));
+            const selections = await mealSelectionService_1.mealSelectionService.getWeeklySelections(date);
             res.json(selections);
         }
         catch (error) {
-            res.status(500).json({ error: "Failed to fetch selections by day" });
+            res.status(500).json({ error: "Failed to fetch selections by date" });
         }
     },
-    createSelectionController: async (req, res) => {
+    getWeeklySelectionsByUserController: async (req, res) => {
         try {
-            const selectionResponse = await mealSelectionService_1.mealSelectionService.createSelection(req.body);
-            res.status(201).json(selectionResponse);
+            const { date: dateQuery } = req.query;
+            const userId = Number(req.params.id);
+            if (!dateQuery) {
+                return res.status(400).json({ error: "Date parameter is required" });
+            }
+            const date = new Date(String(dateQuery));
+            if (!userId && isNaN(userId)) {
+                return res.status(400).json({ error: "User ID is required" });
+            }
+            const selections = await mealSelectionService_1.mealSelectionService.getWeeklySelectionsByUser(date, userId);
+            res.json(selections);
         }
         catch (error) {
-            res.status(500).json({ error: "Failed to create a new selection" });
+            res.status(500).json({ message: "Failed to fetch selections by date", error });
         }
     },
-    createBatchSelectionControleer: async (req, res) => {
+    //SUMBIT SELECTIONS
+    submitSelectionsController: async (req, res) => {
         try {
-            const selectionsResponse = await mealSelectionService_1.mealSelectionService.createSelectionsBatch(req.body);
+            const parsed = mealSelection_1.createMealSelectionBatchRequestSchema.safeParse(req.body);
+            if (!parsed.success) {
+                return res.status(400).json({ error: "Invalid selection batch payload", details: parsed.error.flatten() });
+            }
+            const selectionsResponse = await mealSelectionService_1.mealSelectionService.submitSelections(parsed.data, req.user.id);
             res.status(201).json(selectionsResponse);
         }
         catch (error) {
-            res.status(500).json({ error: "Failed to create new selections batch" });
+            if (error instanceof validateSelectionUpdate_1.SelectionValidationError) {
+                return res.status(403).json({
+                    message: error.message,
+                    errors: error.errors
+                });
+            }
+            if (error instanceof mealSelectionService_1.SelectionConflictError) {
+                return res.status(409).json({ message: error.message });
+            }
+            res.status(500).json({ message: `${error}` });
         }
-    }
+    },
+    //ADMIN CONTROLLERS
+    getUsersWithoutSelectionsController: async (req, res) => {
+        try {
+            const { date: dateQuery } = req.query;
+            if (!dateQuery) {
+                return res.status(400).json({ error: "Date parameter is required" });
+            }
+            const date = new Date(String(dateQuery));
+            const results = await mealSelectionService_1.mealSelectionService.getUsersWithoutSelections(date);
+            res.status(200).json(results);
+        }
+        catch (error) {
+            res.status(500).json({ message: "Failed to fetch users without selections", error });
+        }
+    },
+    adminOverrideSelectionsController: async (req, res) => {
+        try {
+            const parsed = mealSelection_1.updateMealSelectionsBatchRequestSchema.safeParse(req.body);
+            if (!parsed.success) {
+                return res.status(400).json({ error: "Invalid selection batch update payload", details: parsed.error.flatten() });
+            }
+            const response = await mealSelectionService_1.mealSelectionService.adminOverrideSelections(parsed.data, req.user.id);
+            res.status(200).json(response);
+        }
+        catch (error) {
+            if (error instanceof mealSelectionService_1.SelectionConflictError) {
+                return res.status(409).json({ message: error.message });
+            }
+            res.status(500).json({ message: "Failed to override Selections", error });
+        }
+    },
+    replaceWeeklyMealController: async (req, res) => {
+        try {
+            const parsed = mealSelection_1.replaceWeeklyMealRequestSchema.safeParse(req.body);
+            if (!parsed.success) {
+                return res.status(400).json({ error: "Invalid meal replacement payload", details: parsed.error.flatten() });
+            }
+            const response = await mealSelectionService_1.mealSelectionService.replaceWeeklyMeal(parsed.data);
+            return res.status(200).json(response);
+        }
+        catch (error) {
+            if (error instanceof mealSelectionService_1.SelectionConflictError) {
+                return res.status(409).json({ message: error.message });
+            }
+            return res.status(500).json({ message: "Failed to replace weekly meal", error });
+        }
+    },
+    replaceWeeklyMealsController: async (req, res) => {
+        try {
+            const parsed = mealSelection_1.replaceWeeklyMealsBatchRequestSchema.safeParse(req.body);
+            if (!parsed.success) {
+                return res.status(400).json({ error: "Invalid meal replacement batch payload", details: parsed.error.flatten() });
+            }
+            const response = await mealSelectionService_1.mealSelectionService.replaceWeeklyMeals(parsed.data);
+            return res.status(200).json(response);
+        }
+        catch (error) {
+            if (error instanceof mealSelectionService_1.SelectionConflictError) {
+                return res.status(409).json({ message: error.message });
+            }
+            return res.status(500).json({ message: "Failed to replace weekly meals", error });
+        }
+    },
+    //UPDATE Selections Status
+    updateWeeklySelectionsStatusController: async (req, res) => {
+        try {
+            const parsed = mealSelection_1.submitWeeklySelectionsRequestSchema.safeParse(req.body);
+            if (!parsed.success) {
+                return res.status(400).json({ error: "Invalid weekly submission payload", details: parsed.error.flatten() });
+            }
+            const { weekNumber, year, status } = parsed.data;
+            await mealSelectionService_1.mealSelectionService.changeWeeklySelectionsStatus(weekNumber, year, status);
+            res.status(200).json({ message: "Weekly selections submitted successfully" });
+        }
+        catch (error) {
+            res.status(500).json({ error: "Failed to submit weekly selections" });
+        }
+    },
 };
 //# sourceMappingURL=mealSelectionController.js.map

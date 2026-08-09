@@ -1,11 +1,12 @@
-import { CreateMealSelectionRequest, MealSelection } from "../schema/mealSelection";
+import { CreateMealSelectionRequest } from "../schema/mealSelection";
 
 // selection.errors.ts
 
 export type SelectionErrorReason =
     | "NOT_FOUND"
     | "NOT_PENDING"
-    | "NOT_AUTHORIZED";
+    | "NOT_AUTHORIZED"
+    | "NOT_RECIPIENT";
 
 export interface SelectionError {
     id: number;
@@ -26,7 +27,10 @@ export class SelectionValidationError extends Error {
 export const validateSelectionUpdates = (
     selectionRequests: CreateMealSelectionRequest[],
     requesterId: number,
-    existingMap: Map<number, Partial<MealSelection>>
+    existingMap: Map<number, {
+        createdFor: number | null;
+        selectionStatus: string;
+    }>
 ): SelectionError[] => {
 
     const errors: SelectionError[] = [];
@@ -53,16 +57,10 @@ export const validateSelectionUpdates = (
             continue;
         }
 
-        const isCreatedForOwner =
-            existing.createdForUser?.id === requesterId;
-
-        const isCreatedByOwner =
-            existing.createdByUser?.id === requesterId;
-
-        if (!isCreatedForOwner && !isCreatedByOwner) {
+        if (existing.createdFor !== requesterId) {
             errors.push({
                 id: request.id!,
-                reason: "NOT_AUTHORIZED"
+                reason: "NOT_RECIPIENT"
             });
         }
     }
