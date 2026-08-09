@@ -25,6 +25,10 @@ export const updateMenuDayMealRequestSchema = z.object({
     isActive: z.boolean()
 });
 
+export const getMenuMealsRequestSchema = z.object({
+    id: z.coerce.number().int().positive(),
+    personalized: z.enum(["true", "false"]).transform(value => value === "true").optional()
+});
 
 // Export interfaces / types
 

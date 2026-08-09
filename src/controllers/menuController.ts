@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { createMenuDayMealsRequestSchema, createMenuRequestSchema, updateMenuDayMealRequestSchema, updateMenuRequestSchema } from "../schema/menu";
+import { createMenuDayMealsRequestSchema, createMenuRequestSchema, getMenuMealsRequestSchema, updateMenuDayMealRequestSchema, updateMenuRequestSchema } from "../schema/menu";
 import { menuServices } from "../services/menuService";
 
 export const menuController = {
@@ -66,8 +66,23 @@ export const menuController = {
 
     getMenuMealsController : async (req: Request, res: Response) => {
         try {
-            const menuId = Number(req.params.id);
-            const meals = await menuServices.getMenuMeals(menuId);
+            const parsed = getMenuMealsRequestSchema.safeParse({
+                id: req.params.id,
+                ...req.query
+            });
+
+            if (!parsed.success) {
+                return res.status(400).json({
+                    message: "Invalid request",
+                    details: parsed.error.flatten()
+                });
+            }
+
+            const { id: menuId, personalized } = parsed.data;
+            const meals = await menuServices.getMenuMeals(
+            menuId,
+            personalized ? req.user!.id : undefined
+            );
             res.status(200).json(meals);
         } catch (error) {
             res.status(500).json({ error: "Failed to retrieve menu meals" });

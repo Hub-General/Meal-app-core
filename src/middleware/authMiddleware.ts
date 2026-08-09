@@ -22,10 +22,9 @@ export const authenticate = (req: Request, res: Response, next: NextFunction) =>
     const decoded = verifyToken(token)
 
     req.user = {
-      id: decoded.id,
-      roleId: decoded.roleId
+      id: decoded.userId,
+      roleId: decoded.role.id
     }
-
     next();
 
   } catch (error) {

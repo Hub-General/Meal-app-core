@@ -4,8 +4,10 @@ const JWT_ACCESS_SECRET = process.env.JWT_ACCESS_SECRET!;
 
 
 export interface JwtPayload {
-    id: number;
-    roleId?: number;
+    userId: number;
+    role:{
+        id: number
+    };
 }
 
 
