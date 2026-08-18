@@ -1,4 +1,5 @@
 import { prisma } from "../db/prisma";
+import { tasteProfileService } from "../services/tasteProfileService";
 
 export async function cleanUpExpiredTokens() {
     const deleted = await prisma.userTokens.deleteMany({
@@ -7,7 +8,9 @@ export async function cleanUpExpiredTokens() {
     return `Deleted ${deleted.count} expired tokens`;
 }
 
-// TODO: Implement taste profile recalculation logic
+
 export async function updateUserTasteProfiles() {
-    return "Taste profile update not yet implemented";
+    const currentYear = new Date().getFullYear();
+    const updatedProfiles = await tasteProfileService.updateActiveUsersTasteProfiles(currentYear);
+    return `Updated ${updatedProfiles.length} active user taste profiles for ${currentYear}`;
 }
