@@ -20,7 +20,6 @@ export const presetService = {
             where: { id: presetId },
         });
     },
-
     getPresetsbyUserId: async (userId: number, menuId?: number) => {
         return await prisma.presets.findMany({
             where: { userId, menuId },

@@ -20,7 +20,6 @@ export const GetUserPresetsRequestSchema = z.object({
 export const createPresetItemDataRequestSchema = z.object({
     menuDayId: z.number().int().positive(),
     dayMealId: z.number().int().positive(),
-    presetId: z.number().int().positive().optional(),
 });
 
 export const createPresetRequestSchema = z.object({
