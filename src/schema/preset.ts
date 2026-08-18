@@ -4,6 +4,7 @@ import { Days } from "../generated/prisma";
 export const presetSchema = z.object({
     id: z.number().int().positive(),
     name: z.string().min(1).max(100),
+    menuId: z.number().int().positive(),
     description: z.string().optional(),
     userId: z.number().int().positive(),
     createdAt: z.date(),
@@ -16,12 +17,19 @@ export const GetUserPresetsRequestSchema = z.object({
     menuId: z.coerce.number().optional()
 })
 
+export const createPresetItemDataRequestSchema = z.object({
+    presetId: z.number().int().positive(),
+    menuDayId: z.number().int().positive(),
+    dayMealId: z.number().int().positive(),
+});
+
 export const createPresetRequestSchema = z.object({
     name: z.string().min(1).max(100).optional(),
     description: z.string().optional(),
     isDefault: z.boolean().optional(),
     menuId: z.number(),
     userId: z.number().int().positive(),
+    presetItems: z.array(createPresetItemDataRequestSchema).optional()
 });
 
 export const updatePresetRequestSchema = z.object({
@@ -39,11 +47,6 @@ export const presetItemSchema = z.object({
     updatedAt: z.date(),
 });
 
-export const createPresetItemDataRequestSchema = z.object({
-    presetId: z.number().int().positive(),
-    menuDayId: z.number().int().positive(),
-    dayMealId: z.number().int().positive(),
-});
 
 export const updatePresetItemDataRequestSchema = z.object({
     menuDayId: z.number().int().positive().optional(),

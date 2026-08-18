@@ -11,6 +11,7 @@ router.get("/:id", authenticate, presetController.getPresetbyIdController);
 router.get("/by-user/:id", authenticate, presetController.getPresetsByUserIdController);
 router.get("/with-details/:id", authenticate, presetController.getPresetWithDetailsByIdController);
 router.post("/",authenticate, presetController.createPresetController);
+router.put("/set-default/:id", authenticate, presetController.setDefaultPresetController);
 router.put("/:id", authenticate, presetController.updatePresetController);
 
 //Preset Items Routes

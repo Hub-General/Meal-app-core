@@ -1,34 +1,46 @@
 import { prisma } from "../db/prisma";
 import { selectionHelper } from "../helpers/mealSelectionHelpers";
-import { CreatePresetItemDataRequest, CreatePresetRequest, UpdatePresetItemDataRequest, UpdatePresetRequest } from "../schema/preset";
-
+import { CreatePresetItemDataRequest, CreatePresetRequest, Preset, UpdatePresetItemDataRequest, UpdatePresetRequest } from "../schema/preset";
 
 export const presetService = {
 
     //Simple Preset Operations
-    getAllPresets: async()=>{
-        return await prisma.presets.findMany()
+    getAllPresets: async () => {
+        return await prisma.presets.findMany();
     },
-    getPresetbyId : async(presetId: number)=>{
+    getPresetbyId: async (presetId: number) => {
         return await prisma.presets.findUnique({
-            where: {id: presetId},
-        })
+            where: { id: presetId },
+        });
     },
-    getPresetsbyUserId: async(userId:number, menuId?: number)=>{
+    getPresetsbyUserId: async (userId: number, menuId?: number) => {
         return await prisma.presets.findMany({
-            where: {userId , menuId},
-        })
+            where: { userId, menuId },
+        });
     },
-    createPreset: async(presetData: CreatePresetRequest)=>{
+    createPreset: async (presetData: CreatePresetRequest) => {
+        const { presetItems, ...presetDetails } = presetData;
         return await prisma.presets.create({
-            data: presetData,
-        })
+            data: {
+                ...presetDetails,
+                ...(presetItems && presetItems.length > 0
+                    ? {
+                        presetItems: {
+                            create: presetItems,
+                        },
+                    }
+                    : {}),
+            },
+            include: {
+                presetItems: true,
+            },
+        });
     },
-    updatePreset: async(presetId: number, presetData: UpdatePresetRequest)=>{
+    updatePreset: async (presetId: number, presetData: UpdatePresetRequest) => {
         return await prisma.presets.update({
-            where: {id: presetId},
+            where: { id: presetId },
             data: presetData,
-        })
+        });
     },
 
     //Preset Items Operations
@@ -36,6 +48,22 @@ export const presetService = {
         return await prisma.presetItems.findMany({
             where: {presetId},
         })
+    },
+
+    setDefaultPreset: async(data:Preset, userId: number)=>{
+        await prisma.$transaction(async(tx)=>{
+            
+            await tx.presets.updateMany({
+                where:{userId: userId, isDefault:true , menuId: data.menuId},
+                data:{isDefault: false}
+            })
+            await tx.presets.update({
+               where:{id: data.id},
+               data:{isDefault:true}
+           })
+        })
+
+        return {message: `Default Preset for Menu ID ${data.menuId} successfully set`}
     },
 
     createPresetItem: async(presetId: number, presetItemData: CreatePresetItemDataRequest) =>{
