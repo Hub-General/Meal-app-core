@@ -4,6 +4,7 @@ import { Days } from "../generated/prisma";
 export const presetSchema = z.object({
     id: z.number().int().positive(),
     name: z.string().min(1).max(100),
+    menuId: z.number().int().positive(),
     description: z.string().optional(),
     userId: z.number().int().positive(),
     createdAt: z.date(),
@@ -13,21 +14,35 @@ export const presetSchema = z.object({
 
 export const GetUserPresetsRequestSchema = z.object({
     id: z.coerce.number(),
-    menuId: z.coerce.number().optional()
-})
+    menuId: z.coerce.number().optional(),
+});
+
+export const createPresetItemDataRequestSchema = z.object({
+    menuDayId: z.number().int().positive(),
+    dayMealId: z.number().int().positive(),
+});
 
 export const createPresetRequestSchema = z.object({
     name: z.string().min(1).max(100).optional(),
     description: z.string().optional(),
     isDefault: z.boolean().optional(),
-    menuId: z.number(),
-    userId: z.number().int().positive(),
+    menuId: z.number().int().positive(),
+    userId: z.number().int().positive().optional(),
+    presetItems: z.array(createPresetItemDataRequestSchema).optional(),
 });
 
 export const updatePresetRequestSchema = z.object({
     name: z.string().min(1).max(100).optional(),
     description: z.string().optional(),
     isDefault: z.boolean().optional(),
+    menuId: z.number().int().positive().optional(),
+    presetItems: z.array(createPresetItemDataRequestSchema).optional(),
+});
+
+export const setDefaultPresetRequestSchema = z.object({
+    presetId: z.coerce.number().int().positive().optional(),
+    id: z.coerce.number().int().positive().optional(),
+    menuId: z.coerce.number().int().positive().optional(),
 });
 
 export const presetItemSchema = z.object({
@@ -39,36 +54,29 @@ export const presetItemSchema = z.object({
     updatedAt: z.date(),
 });
 
-export const createPresetItemDataRequestSchema = z.object({
-    presetId: z.number().int().positive(),
-    menuDayId: z.number().int().positive(),
-    dayMealId: z.number().int().positive(),
-});
-
 export const updatePresetItemDataRequestSchema = z.object({
     menuDayId: z.number().int().positive().optional(),
     dayMealId: z.number().int().positive().optional(),
 });
 
-
 export interface PresetItem {
     id: number;
     presetId: number;
     menuDayId: number;
-    menuDay:{
-        day: Days
-    }
+    menuDay: {
+        day: Days;
+    };
     dayMealId: number;
-    menuDayMeals:{
-        meal:{
-            id: number
-            name:string
-            foodCode: string
-            calories: number | null
-            imagePath: string | null
-            isActive: boolean
-        }
-    }
+    menuDayMeals: {
+        meal: {
+            id: number;
+            name: string;
+            foodCode: string;
+            calories: number | null;
+            imagePath: string | null;
+            isActive: boolean;
+        };
+    };
 }
 
 export type Preset = z.infer<typeof presetSchema>;

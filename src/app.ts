@@ -10,6 +10,7 @@ import presetRoutes from "./routes/presetRoutes";
 import selectionRoutes from "./routes/selectionRoutes";
 import foodLibraryRoutes from "./routes/foodLibraryRoutes"
 import tasteProfileRoutes from "./routes/tasteProfileRoutes";
+import cronRoutes from "./routes/cronRoutes";
 import weekMenuScheduleRoutes from "./routes/weekMenuScheduleRoutes";
 
 const app = express();
@@ -18,6 +19,7 @@ app.use(cors());
 app.use(express.json());
 
 app.use("/auth", authRoutes);
+app.use("/cron", cronRoutes)
 app.use("/roles", roleRoutes);
 app.use("/meals", mealRoutes);
 app.use("/menus", menuRoutes);
