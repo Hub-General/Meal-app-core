@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import { getNextISOWeekInfo } from "../helpers/dateFunctions";
-import { syncDigiHRUsers, scheduleWeeklyMenu, activateWeeklyMenu } from "./periodic";
+import { syncDigiHRUsers, scheduleWeeklyMenu, activateWeeklyMenu, updateBiWeeklyTasteProfiles } from "./periodic";
 import { cleanUpExpiredTokens, updateUserTasteProfiles } from "./maintenance";
 
 type JobResult = { job: string; status: "success" | "failed"; message: string };
@@ -24,6 +24,7 @@ export const cronController = {
         results.push(await runJob("syncDigiHRUsers", syncDigiHRUsers));
         results.push(await runJob("scheduleWeeklyMenu", () => scheduleWeeklyMenu(targetWeek)));
         results.push(await runJob("activateWeeklyMenu", () => activateWeeklyMenu(targetWeek)));
+        results.push(await runJob("updateBiWeeklyTasteProfiles", updateBiWeeklyTasteProfiles));
 
         const failed = results.filter((r) => r.status === "failed").length;
 

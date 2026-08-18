@@ -8,6 +8,7 @@ const tasteProfileSelectionShape = {
             meal: {
                 select: {
                     id: true,
+                    name: true,
                     calories: true,
                     foodCode: true,
                 }
@@ -19,11 +20,18 @@ const tasteProfileSelectionShape = {
 export const tasteProfileService = {
 
     //Simple Taste Profile Operations
-    getTasteProfileByUserId: async (userId: number) => {
-        return await prisma.tasteProfile.findMany({
-            where: {userId},
-            orderBy: {calendarYear: "desc"}
+    getTasteProfileByUserId: async (userId: number, calendarYear: number = new Date().getFullYear()) => {
+        let profiles = await prisma.tasteProfile.findMany({
+            where: { userId },
+            orderBy: { calendarYear: "desc" }
         });
+
+        if (profiles.length === 0) {
+            const emptyProfile = await tasteProfileService.updateUserTasteProfile(userId, calendarYear);
+            profiles = [emptyProfile];
+        }
+
+        return profiles;
     },
 
     getTasteProfiles: async (year?: number)=>{
@@ -42,8 +50,8 @@ export const tasteProfileService = {
     // },
 
     //Advanced Taste Profile Operations
-    getYearlySubmittedSelectionsByUser: async(userId: number, calendarYear: number) => {
-        return await prisma.selections.findMany({
+    getYearlySubmittedSelectionsByUser: async (userId: number, calendarYear: number) => {
+        let selections = await prisma.selections.findMany({
             where: {
                 createdFor: userId,
                 selectionStatus: SelectionStatus.SUBMITTED,
@@ -53,9 +61,23 @@ export const tasteProfileService = {
             },
             select: tasteProfileSelectionShape
         });
+
+        if (selections.length === 0) {
+            selections = await prisma.selections.findMany({
+                where: {
+                    createdFor: userId,
+                    weekMenuSchedule: {
+                        year: calendarYear
+                    }
+                },
+                select: tasteProfileSelectionShape
+            });
+        }
+
+        return selections;
     },
 
-    updateUserTasteProfile: async(userId: number, calendarYear: number = new Date().getFullYear())=>{
+    updateUserTasteProfile: async (userId: number, calendarYear: number = new Date().getFullYear()) => {
         const selections = await tasteProfileService.getYearlySubmittedSelectionsByUser(userId, calendarYear);
         const profile = tasteProfileHelper.generateProfile(selections);
         const profileMetrics = profile.metrics as unknown as Prisma.InputJsonValue;
@@ -84,16 +106,16 @@ export const tasteProfileService = {
         });
     },
 
-    updateUsersTasteProfiles: async(userIds: number[], calendarYear: number = new Date().getFullYear())=>{
+    updateUsersTasteProfiles: async (userIds: number[], calendarYear: number = new Date().getFullYear()) => {
         return await Promise.all(
             userIds.map(userId => tasteProfileService.updateUserTasteProfile(userId, calendarYear))
         );
     },
 
-    updateWeeklySubmittersTasteProfiles: async(weekNumber: number, calendarYear: number = new Date().getFullYear())=>{
+    updateWeeklySubmittersTasteProfiles: async (weekNumber: number, calendarYear: number = new Date().getFullYear()) => {
         const submittedUsers = await prisma.selections.findMany({
             where: {
-                createdFor: {not: null},
+                createdFor: { not: null },
                 selectionStatus: SelectionStatus.SUBMITTED,
                 weekMenuSchedule: {
                     week: weekNumber,
@@ -114,16 +136,24 @@ export const tasteProfileService = {
         );
     },
 
-    updateActiveUsersTasteProfiles: async(calendarYear: number = new Date().getFullYear())=>{
+    updateActiveUsersTasteProfiles: async (calendarYear: number = new Date().getFullYear()) => {
         const users = await prisma.users.findMany({
-            where: {status: Status.ACTIVE},
-            select: {id: true}
+            select: { id: true }
         });
 
-        return await tasteProfileService.updateUsersTasteProfiles(
-            users.map(user => user.id),
-            calendarYear
+        const selectionUsers = await prisma.selections.findMany({
+            where: { createdFor: { not: null } },
+            select: { createdFor: true },
+            distinct: ["createdFor"]
+        });
+
+        const allUserIds = Array.from(
+            new Set([
+                ...users.map(u => u.id),
+                ...selectionUsers.map(s => s.createdFor).filter((id): id is number => id !== null)
+            ])
         );
+
+        return await tasteProfileService.updateUsersTasteProfiles(allUserIds, calendarYear);
     },
-    
 }

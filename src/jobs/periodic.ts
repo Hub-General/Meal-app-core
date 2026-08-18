@@ -1,6 +1,8 @@
 import { prisma } from "../db/prisma";
 import { digiHRService } from "../services/digiHRService";
 import { weekMenuScheduleService } from "../services/weekMenuScheduleService";
+import { getISOWeekInfo } from "../helpers/dateFunctions";
+import { tasteProfileService } from "../services/tasteProfileService";
 
 export async function syncDigiHRUsers() {
     await digiHRService.syncUsersWithDatabase();
@@ -58,4 +60,15 @@ export async function activateWeeklyMenu(targetWeek: { week: number; year: numbe
     await weekMenuScheduleService.switchActiveWeekMenuSchedule(correctWeekMenu.id);
 
     return `Week menu for ${targetWeek.week}/${targetWeek.year} successfully activated`;
+}
+
+export async function updateBiWeeklyTasteProfiles() {
+    const currentWeekInfo = getISOWeekInfo(new Date());
+
+    if (currentWeekInfo.week % 2 !== 0) {
+        return `Skipped: Taste profile updates run on even ISO weeks only (current week: ${currentWeekInfo.week})`;
+    }
+
+    const updatedProfiles = await tasteProfileService.updateActiveUsersTasteProfiles(currentWeekInfo.year);
+    return `Updated ${updatedProfiles.length} active user taste profiles for week ${currentWeekInfo.week}/${currentWeekInfo.year}`;
 }
