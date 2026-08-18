@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { createPresetItemDataRequestSchema, createPresetRequestSchema, GetUserPresetsRequestSchema } from "../schema/preset";
+import { createPresetItemDataRequestSchema, createPresetRequestSchema, GetUserPresetsRequestSchema, presetSchema } from "../schema/preset";
 import { presetService } from "../services/presetService";
 
 export const presetController ={
@@ -103,6 +103,22 @@ export const presetController ={
             res.status(500).json({
                 message: "Failed to retrieve presets",
                 error,
+            })
+        }
+    },
+
+    setDefaultPresetController: async(res: Response, req: Request)=>{
+        try{
+            const parsed = presetSchema.safeParse(req.body)
+           if(!parsed.success){
+                return res.status(400).json({ error: "Invalid preset payload", details: parsed.error.flatten() });
+            }
+            const response = await presetService.setDefaultPreset(req.body,Number(req.user?.id))
+            res.status(200).json(response)
+        }catch(error){
+            res.status(500).json({
+                message: "Failed to set default Preset",
+                error
             })
         }
     },
