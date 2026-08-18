@@ -18,29 +18,66 @@ export const presetService = {
             where: { userId, menuId },
         });
     },
-    createPreset: async (presetData: CreatePresetRequest) => {
+    createPreset: async (presetData: CreatePresetRequest, userId?: number) => {
         const { presetItems, ...presetDetails } = presetData;
-        return await prisma.presets.create({
-            data: {
-                ...presetDetails,
-                ...(presetItems && presetItems.length > 0
-                    ? {
-                        presetItems: {
-                            create: presetItems,
-                        },
-                    }
-                    : {}),
-            },
-            include: {
-                presetItems: true,
-            },
+        const effectiveUserId = userId ?? presetDetails.userId;
+        if (!effectiveUserId) {
+            throw new Error("User ID is required to create a preset");
+        }
+
+        return await prisma.$transaction(async (tx) => {
+            if (presetDetails.isDefault) {
+                await tx.presets.updateMany({
+                    where: { userId: effectiveUserId, menuId: presetDetails.menuId, isDefault: true },
+                    data: { isDefault: false },
+                });
+            }
+
+            return await tx.presets.create({
+                data: {
+                    ...presetDetails,
+                    userId: effectiveUserId,
+                    ...(presetItems && presetItems.length > 0
+                        ? {
+                            presetItems: {
+                                create: presetItems,
+                            },
+                        }
+                        : {}),
+                },
+                include: {
+                    presetItems: true,
+                },
+            });
         });
     },
-    updatePreset: async (presetId: number, presetData: CreatePresetRequest) => {
+    updatePreset: async (presetId: number, presetData: CreatePresetRequest, userId?: number) => {
         const { presetItems, ...presetDetails } = presetData;
-        return await prisma.presets.update({
-            where: { id: presetId },
-            data: presetDetails,
+        const existingPreset = await prisma.presets.findUnique({ where: { id: presetId } });
+        if (!existingPreset) {
+            throw new Error("Preset not found");
+        }
+
+        const effectiveUserId = userId ?? presetDetails.userId ?? existingPreset.userId;
+
+        return await prisma.$transaction(async (tx) => {
+            if (presetDetails.isDefault) {
+                await tx.presets.updateMany({
+                    where: { userId: effectiveUserId, menuId: presetDetails.menuId ?? existingPreset.menuId, isDefault: true },
+                    data: { isDefault: false },
+                });
+            }
+
+            return await tx.presets.update({
+                where: { id: presetId },
+                data: {
+                    ...presetDetails,
+                    userId: effectiveUserId,
+                },
+                include: {
+                    presetItems: true,
+                },
+            });
         });
     },
 
