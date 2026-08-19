@@ -94,15 +94,127 @@ export const authService = {
 
     },
 
+    onBoardingBatch: async(email: string[])=>{
+            const users = await prisma.users.findMany({
+                where: { referenceEmail: { in: email }, status:"ACTIVE" },
+                select: { id: true, referenceEmail: true, name: true, isActivated: true },
+            });
+
+
+            const knownEmails = new Set(users.map(u => u.referenceEmail));
+            const unknown = email.filter(e => !knownEmails.has(e));
+            
+            if (unknown.length) {
+                throw new Error(`These email(s) are not registered or are inactive: ${unknown.join(', ')}`);
+            }
+
+
+            const alreadyActive = users.filter(u => u.isActivated).map(u => u.referenceEmail);
+            
+            if (alreadyActive.length) {
+                throw new Error(`These accounts are already activated: ${alreadyActive.join(', ')}`);
+            }
+
+
+            const workItems = await Promise.all(
+                users.map(async user => {
+                    const token = crypto.randomBytes(4).toString('hex').toUpperCase();
+                    const tokenHash = await argon2.hash(token);
+                    return { user, token, tokenHash };
+                })
+            );
+
+            await prisma.$transaction(
+            workItems.map(item =>
+                prisma.userTokens.upsert({
+                where: {
+                    userId_type: {
+                    userId: item.user.id,
+                    type: 'USER_ONBOARDING',
+                    },
+                },
+                update: {
+                    token: item.tokenHash,
+                    expiresAt: new Date(Date.now() + 8 * 60 * 60 * 1000),
+                    usedAt: null,
+                },
+                create: {
+                    userId: item.user.id,
+                    type: 'USER_ONBOARDING',
+                    token: item.tokenHash,
+                    expiresAt: new Date(Date.now() + 8 * 60 * 60 * 1000),
+                },
+                })
+            )
+            );
+
+            workItems.forEach(item => {
+            mailService.sendOnboardingEmail(
+                item.user.referenceEmail,
+                item.user.name,
+                item.token
+            );
+            });
+            return {
+            message: 'Batch onboarding processed',
+            processed: workItems.length,
+            emails: workItems.map(i => i.user.referenceEmail),
+            };
+    },
+
+    onBoardingBroadcast: async()=>{
+        const activeUsers = await prisma.users.findMany({where:{status: "ACTIVE", isActivated: false}, select:{referenceEmail:true, name:true, id: true}})
+        const workItems = await Promise.all(
+                activeUsers.map(async user => {
+                    const token = crypto.randomBytes(4).toString('hex').toUpperCase();
+                    const tokenHash = await argon2.hash(token);
+                    return { user, token, tokenHash };
+                })
+            );
+
+            await prisma.$transaction(
+            workItems.map(item =>
+                prisma.userTokens.upsert({
+                where: {
+                    userId_type: {
+                    userId: item.user.id,
+                    type: 'USER_ONBOARDING',
+                    },
+                },
+                update: {
+                    token: item.tokenHash,
+                    expiresAt: new Date(Date.now() + 8 * 60 * 60 * 1000),
+                    usedAt: null,
+                },
+                create: {
+                    userId: item.user.id,
+                    type: 'USER_ONBOARDING',
+                    token: item.tokenHash,
+                    expiresAt: new Date(Date.now() + 8 * 60 * 60 * 1000),
+                },
+                })
+            )
+            );
+
+            workItems.forEach(item => {
+            mailService.sendOnboardingEmail(
+                item.user.referenceEmail,
+                item.user.name,
+                item.token
+            );
+            });
+            return {
+            message: 'Batch onboarding processed',
+            processed: workItems.length,
+            emails: workItems.map(i => i.user.referenceEmail),
+            };
+    },
+
     generateforgetPasswordToken: async({email}:{email:string})=>{
-        const user = await prisma.users.findFirst({where:{referenceEmail:email}})
+        const user = await prisma.users.findFirst({where:{OR:[{referenceEmail:email, status:"ACTIVE", isActivated:true}, {email:email, status:"ACTIVE", isActivated:true}]}})
 
         if(!user){
-            throw new Error("Invalid Email")
-        }
-
-        if(user.passwordHash == null || user.status !== "ACTIVE"){
-            throw new Error("User Inactive")
+            throw new Error("Invalid Email or User is Inactive")
         }
         
         const token = crypto.randomBytes(4).toString("hex").toUpperCase();
@@ -132,21 +244,13 @@ export const authService = {
     },
 
     resetPassword: async(resetPasswordRequest: ResetPasswordRequest)=>{
-        const existing = await prisma.users.findFirst({where:{referenceEmail:resetPasswordRequest.email}})
+        const existing = await prisma.users.findFirst({where:{OR:[{referenceEmail:resetPasswordRequest.email, status:"ACTIVE", isActivated:true}, {email:resetPasswordRequest.email, status:"ACTIVE", isActivated:true}]}})
         
         if(!existing){
-            throw new Error("Invalid email")
+            throw new Error("Invalid email or User is Inactive")
         }
         
         const resetToken = await prisma.userTokens.findFirst({where:{userId: existing.id, type:"PASSWORD_RESET"}})
-
-        if(existing.status !== "ACTIVE"){
-            throw new Error("User is inactive")
-        }
-
-        if(!existing.isActivated || existing.passwordHash == null){
-            throw new Error("User Inactive")
-        }
 
         if(!resetToken || resetToken.token == null){
             throw new Error("Invalid Token")
@@ -174,18 +278,10 @@ export const authService = {
     },
 
     login: async (loginRequest: LoginRequest) => {
-        const user = await prisma.users.findFirst({ where: { OR : [{email: loginRequest.email}, {referenceEmail: loginRequest.email}]}, include:{role:{select:{id: true, name: true}}}})
+        const user = await prisma.users.findFirst({ where: { OR : [{email: loginRequest.email, status:"ACTIVE", isActivated:true}, {referenceEmail: loginRequest.email, status:"ACTIVE", isActivated:true}]}, include:{role:{select:{id: true, name: true}}}})
         
         if(!user) {
-            throw new Error("Invalid email or password");
-        }
-        
-        if(user.status !== "ACTIVE"){
-            throw new Error("Access Denied. User is not active");
-        }
-
-        if(!user.isActivated || user.passwordHash == null){
-            throw new Error("User has not been activated");
+            throw new Error("Invalid email or password or user is inactive");
         }
 
         const isValid = await argon2.verify( user.passwordHash!, loginRequest.password);
@@ -266,10 +362,10 @@ export const authService = {
     },
 
     verifyResetPasswordOTP: async({email, token}:VerifyResetPasswordOTPSchema)=> {
-        const user = await prisma.users.findFirst({where:{referenceEmail: email}})
+        const user = await prisma.users.findFirst({where:{OR:[{referenceEmail: email, status:"ACTIVE", isActivated:true}, {email:email, status:"ACTIVE", isActivated:true}]}})
 
         if (!user){
-            throw new Error("Invalid User")
+            throw new Error("Invalid User or User is Inactive")
         }
 
         const passwordToken = await prisma.userTokens.findFirst({where:{userId:user.id , type:"PASSWORD_RESET"}})

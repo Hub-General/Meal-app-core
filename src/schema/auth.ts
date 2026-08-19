@@ -20,6 +20,12 @@ export const OnboardingRequestSchema = z.object({
     email: z.string().trim().email()
 });
 
+export const OnboardingBatchRequestSchema = z.object({
+    emails: z.array(
+        z.string().trim().email()
+    )
+})
+
 export const VerifyOTPSchema = z.object({
     email: z.email(),
     token: z.string()
