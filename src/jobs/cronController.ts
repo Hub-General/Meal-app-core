@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import { getNextISOWeekInfo } from "../helpers/dateFunctions";
 import { syncDigiHRUsers, scheduleWeeklyMenu, activateWeeklyMenu, updateBiWeeklyTasteProfiles } from "./periodic";
-import { cleanUpExpiredTokens, updateUserTasteProfiles } from "./maintenance";
+import { cleanUpExpiredTokens } from "./maintenance";
 
 type JobResult = { job: string; status: "success" | "failed"; message: string };
 
@@ -39,7 +39,6 @@ export const cronController = {
         const results: JobResult[] = [];
 
         results.push(await runJob("cleanUpExpiredTokens", cleanUpExpiredTokens));
-        results.push(await runJob("updateUserTasteProfiles", updateUserTasteProfiles));
 
         const failed = results.filter((r) => r.status === "failed").length;
 
