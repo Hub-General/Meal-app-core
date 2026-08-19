@@ -6,7 +6,9 @@ const router = Router();
 
 router.post("/login", authController.loginController);
 router.post("/register", authController.signUpController);
-router.post("/onboarding", authController.onBoardingController)
+router.post("/onboarding", authController.onBoardingController);
+router.post("/onboarding-batch", authController.onBoardingBatchController);
+router.post("/onboarding-broadcast", authController.onBoardingBroadcastController);
 router.post("/logout", authController.logOutController);
 router.post("/refresh", authController.refreshController);
 router.post("/sync", authController.syncUserController);

@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import {authService} from "../services/authService";
 import { digiHRService } from "../services/digiHRService";
-import { GeneratePasswordTokenSchema, LoginRequestSchema, LogoutRequestSchema, OnboardingRequestSchema, RefreshRequestSchema, RegisterRequestSchema, ResetPasswordSchema, VerifyOTPSchema } from "../schema/auth";
+import { GeneratePasswordTokenSchema, LoginRequestSchema, LogoutRequestSchema, OnboardingBatchRequestSchema, OnboardingRequestSchema, RefreshRequestSchema, RegisterRequestSchema, ResetPasswordSchema, VerifyOTPSchema } from "../schema/auth";
 
 export const authController = {
     loginController : async (req : Request, res : Response) => {
@@ -37,7 +37,26 @@ export const authController = {
             });
         }
     },
+    onBoardingBroadcastController: async (req: Request, res: Response)=>{
 
+    },
+
+    onBoardingBatchController: async(req: Request, res: Response)=>{
+    try{
+        const parsed = OnboardingBatchRequestSchema.safeParse(req.body);
+        if(!parsed.success){
+            return res.status(400).json({ message: "Invalid batch onboarding data", errors: parsed.error.flatten() });
+        }
+        const result = await authService.onBoardingBatch(parsed.data.emails);
+        res.status(200).json(result)
+    }catch(error){
+        res.status(400).json({
+            messages: error instanceof Error
+                ? error.message
+                : "Onboarding failed",
+        });
+    }
+},
     signUpController : async (req: Request, res: Response) => {
         try{
             const request = RegisterRequestSchema.safeParse(req.body);
