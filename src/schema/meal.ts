@@ -12,11 +12,11 @@ export const CreateMealRequestSchema = z.object({
 
 export const UpdateMealRequestSchema = z.object({
   name: z.string().min(1).max(100).optional(),
-  imagePath: z.string().optional().nullable().transform(v => v ?? null),
+  imagePath: z.string().nullable().optional(),
   isActive: z.boolean().optional(),
   foodCode: z.string().min(1).max(20).optional(),
-  calories: z.number().min(0).optional(),
-  description: z.string().optional().nullable().transform(v => v ?? null)
+  calories: z.number().min(0).nullable().optional(),
+  description: z.string().nullable().optional(),
 });
 
 

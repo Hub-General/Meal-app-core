@@ -1,8 +1,12 @@
-const SUPABASE_PROJECT_URL = "https://rqjzrmhpyhuzbgcxeuhc.supabase.co";
+const SUPABASE_PROJECT_URL = process.env.SUPABASE_URL ?? "https://rqjzrmhpyhuzbgcxeuhc.supabase.co";
 const BUCKET = process.env.SUPABASE_BUCKET ?? "MealAppImages";
 
 function getServiceRoleKey(): string {
-    const key = process.env.SUPABASE_SR_KEY;
+    const key =
+        process.env.SUPABASE_SR_KEY ??
+        process.env.SUPABASE_SERVICE_ROLE_KEY ??
+        process.env.SUPABASE_KEY ??
+        process.env.SUPABASE_SERVICE_KEY;
     if (!key) {
         throw new Error("Missing SUPABASE_SR_KEY environment variable");
     }
