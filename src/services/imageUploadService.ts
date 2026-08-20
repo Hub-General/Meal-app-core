@@ -7,7 +7,7 @@ export const imageUploadService = {
         folder: string,
         filename?: string
     ) => {
-        const extension = file.originalname.split(".").pop();
+        const extension = file.originalname ? file.originalname.split(".").pop() : "jpg";
         const imageName = filename ?? `${crypto.randomUUID()}.${extension}`;
         const path = `${folder}/${imageName}`;
 

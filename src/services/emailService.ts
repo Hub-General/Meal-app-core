@@ -23,7 +23,7 @@ export const mailService = {
         const firstName = name.split(' ')[0];
         
             await mailTransporter.sendMail({
-                from: `"Meal App"`,
+                from: `"Meal App" <${process.env.MAIL_FROM}>`,
                 to,
                 subject: "Join the Meal App!",
                 html: `
@@ -92,6 +92,7 @@ export const mailService = {
                     </div>
                 `
             });
+            console.log("===== SEND EMAIL FINISHED =====");
         }catch(error){
             console.error("Failed to send mail:", error)
         }

@@ -19,7 +19,7 @@ const normalizeMealBody = (body: Record<string, unknown>) => {
 export const mealController = {
     createMealController: async(req: Request, res: Response)=>{
         try{
-            const request = CreateMealRequestSchema.safeParse(normalizeMealBody(req.body))
+            const request = CreateMealRequestSchema.safeParse(normalizeMealBody(req.body || {}));
             if(!request.success){
                 return res.status(400).json({
                     message:"Invalid request body", 
@@ -33,10 +33,11 @@ export const mealController = {
             }
             const meal = await mealService.createMeal(data);
             res.status(201).json({message: "Meal created successfully", meal});
-        } catch(error) {
+        } catch(error: any) {
+            console.error("Failed to create meal:", error);
             res.status(500).json({
                 message: "Failed to create meal",
-                error,
+                error: error?.message || String(error),
             })
         }
     },
@@ -48,11 +49,11 @@ export const mealController = {
             }
             const meal = await mealService.createMealBatch(parsed.data);
             res.status(201).json({message: "Meals created successfully", meal});
-        } catch(error:any ) {
-            console.log(error.message)
+        } catch(error: any ) {
+            console.error("Failed to create meal batch:", error);
             res.status(500).json({
                 message: "Failed to create meals",
-                error,
+                error: error?.message || String(error),
             })
         }
     },
@@ -60,10 +61,11 @@ export const mealController = {
         try{
             const meals = await mealService.getAllMeals();
             res.status(200).json({message: "Meals retrieved successfully", meals});
-        } catch(error) {
+        } catch(error: any) {
+            console.error("Failed to retrieve meals:", error);
             res.status(500).json({
                 message: "Failed to retrieve meals",
-                error,
+                error: error?.message || String(error),
             })
         }
     },
@@ -71,16 +73,17 @@ export const mealController = {
         try{
             const meal = await mealService.getMealById(Number(req.params.id));
             res.status(200).json({message: "Meal retrieved successfully", meal});
-        } catch(error) {
+        } catch(error: any) {
+            console.error("Failed to retrieve meal by ID:", error);
             res.status(500).json({
                 message: "Failed to retrieve meal",
-                error,
+                error: error?.message || String(error),
             })
         }
     },
     updateMealController: async(req: Request, res: Response)=>{
         try{
-            const request = UpdateMealRequestSchema.safeParse(normalizeMealBody(req.body));
+            const request = UpdateMealRequestSchema.safeParse(normalizeMealBody(req.body || {}));
             if(!request.success){
                 return res.status(400).json({
                     message:"Invalid request body",
@@ -94,10 +97,11 @@ export const mealController = {
             }
             const meal = await mealService.updateMeal(Number(req.params.id), data);
             res.status(200).json({message: "Meal updated successfully", meal});
-        } catch(error) {
+        } catch(error: any) {
+            console.error("Failed to update meal:", error);
             res.status(500).json({
                 message: "Failed to update meal",
-                error,
+                error: error?.message || String(error),
             })
         }
     },
@@ -105,10 +109,11 @@ export const mealController = {
         try{
             const meal = await mealService.deleteMeal(Number(req.params.id));
             res.status(200).json({message: "Meal deleted successfully", meal});
-        } catch(error) {
+        } catch(error: any) {
+            console.error("Failed to delete meal:", error);
             res.status(500).json({
                 message: "Failed to delete meal",
-                error,
+                error: error?.message || String(error),
             })
         }
     }
