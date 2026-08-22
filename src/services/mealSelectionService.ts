@@ -1,6 +1,6 @@
 import { prisma } from "../db/prisma";
 import { SelectionStatus } from "../generated/prisma";
-import { getISOWeekInfo } from "../helpers/dateFunctions";
+import { getISOWeekInfo, getISOWeekRange } from "../helpers/dateFunctions";
 import { selectionHelper } from "../helpers/mealSelectionHelpers";
 import { SelectionValidationError, validateSelectionUpdates } from "../helpers/validateSelectionUpdate";
 import { CreateMealSelectionRequest, MealSelectionFilter, ReplaceWeeklyMealRequest, ReplaceWeeklyMealsBatchRequest, UpdateMealSelectionRequest } from "../schema/mealSelection";
@@ -101,17 +101,13 @@ export const mealSelectionService = {
 
     //GET Weekly Selections
 
-    getUsersWithoutSelections: async(date: Date)=>{
+    getUsersWithoutSelections: async(date: Date, maxCount: number = 5)=>{
         const weekInfo = getISOWeekInfo(date);
         const weekMenuSchedule = await weekMenuScheduleService.getWeekMenuScheduleByWeekAndYear({week: weekInfo.week, year: weekInfo.year});
         
         if(!weekMenuSchedule) return [];
 
-        const requiredSelectionCount = await prisma.menuDays.count({
-            where: { menuId: weekMenuSchedule.menu.id }
-        });
-
-        if (requiredSelectionCount === 0) return [];
+        const { weekStart, weekEnd } = getISOWeekRange(date);
 
         const activeUsers = await prisma.users.findMany({
             where: { status: "ACTIVE" },
@@ -129,8 +125,36 @@ export const mealSelectionService = {
             }
         });
 
+        if (!activeUsers.length) return [];
+
+        const userIds = activeUsers.map(user => user.id);
+
+        const availabilityRecords = await prisma.userAvailability.findMany({
+            where: {
+                userId: { in: userIds },
+                startDate: { lte: weekEnd },
+                endDate: { gte: weekStart }
+            }
+        });
+
+        const availabilityMap = new Map<number, number>();
+        for (const record of availabilityRecords) {
+            let days = record.daysCount;
+            if (!days) {
+                const start = record.startDate < weekStart ? weekStart : record.startDate;
+                const end = record.endDate > weekEnd ? weekEnd : record.endDate;
+                const diffTime = Math.max(0, end.getTime() - start.getTime());
+                days = Math.floor(diffTime / (1000 * 60 * 60 * 24)) + 1;
+            }
+            availabilityMap.set(record.userId, (availabilityMap.get(record.userId) || 0) + days);
+        }
+
         return activeUsers
-            .filter(user => user._count.createdForSelections < requiredSelectionCount)
+            .filter(user => {
+                const selectionCount = user._count.createdForSelections;
+                const availabilityCount = availabilityMap.get(user.id) || 0;
+                return (selectionCount + availabilityCount) < maxCount;
+            })
             .map(({ _count, ...user }) => user);
     },
 

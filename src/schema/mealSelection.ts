@@ -28,6 +28,12 @@ export const createMealSelectionRequestSchema = z.object({
     }
 });
 
+
+export const getUsersWithoutSelectionsRequestSchema = z.object({
+    date: z.coerce.date(),
+    maxSelections: z.coerce.number().int().positive().default(5)
+});
+
 export const mealSelectionFilterSchema = z.object({
     createdBy: z.coerce.number().optional(),
     createdFor: z.coerce.number().optional(),
