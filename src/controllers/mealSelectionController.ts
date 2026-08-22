@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import { mealSelectionService, SelectionConflictError } from "../services/mealSelectionService";
-import { createMealSelectionBatchRequestSchema, mealSelectionFilterSchema, replaceWeeklyMealRequestSchema, replaceWeeklyMealsBatchRequestSchema, submitWeeklySelectionsRequestSchema, updateMealSelectionsBatchRequestSchema } from "../schema/mealSelection";
+import { createMealSelectionBatchRequestSchema, getUsersWithoutSelectionsRequestSchema, mealSelectionFilterSchema, replaceWeeklyMealRequestSchema, replaceWeeklyMealsBatchRequestSchema, submitWeeklySelectionsRequestSchema, updateMealSelectionsBatchRequestSchema } from "../schema/mealSelection";
 import { SelectionValidationError } from "../helpers/validateSelectionUpdate";
 
 export const mealSelectionController = {
@@ -138,13 +138,11 @@ export const mealSelectionController = {
 
     getUsersWithoutSelectionsController: async( req: Request, res: Response)=>{
         try{
-            const { date: dateQuery } = req.query;
-            if (!dateQuery) {
-                return res.status(400).json({ error: "Date parameter is required" });
+            const parsed = getUsersWithoutSelectionsRequestSchema.safeParse(req.query);
+            if (!parsed.success) {
+                return res.status(400).json({ error: "Invalid query parameters", details: parsed.error.flatten() });
             }
-            const date = new Date(String(dateQuery));
-    
-            const results = await mealSelectionService.getUsersWithoutSelections(date);
+            const results = await mealSelectionService.getUsersWithoutSelections(parsed.data.date, parsed.data.maxSelections);
             res.status(200).json(results);
         } catch (error) {
             res.status(500).json({ message: "Failed to fetch users without selections", error });

@@ -31,3 +31,19 @@ export function getNextISOWeekInfo(date = new Date()) {
 
     return getISOWeekInfo(nextDate);
 }
+
+export function getISOWeekRange(date = new Date()) {
+    const d = new Date(date);
+    d.setUTCHours(0, 0, 0, 0);
+    const day = d.getUTCDay() || 7;
+
+    const weekStart = new Date(d);
+    weekStart.setUTCDate(d.getUTCDate() - (day - 1));
+
+    const weekEnd = new Date(weekStart);
+    weekEnd.setUTCDate(weekStart.getUTCDate() + 6);
+    weekEnd.setUTCHours(23, 59, 59, 999);
+
+    return { weekStart, weekEnd };
+}
+
