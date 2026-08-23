@@ -4,11 +4,21 @@ export function getISOWeekInfo(date = new Date()) {
     // normalize to UTC midnight (prevents timezone bugs)
     d.setUTCHours(0, 0, 0, 0);
 
+    // Day of week: 0 = Sun, 1 = Mon, ..., 6 = Sat
+    const day = d.getUTCDay();
+
+    // Right from Saturday, selections are for the following week
+    if (day === 6) {
+        d.setUTCDate(d.getUTCDate() + 2);
+    } else if (day === 0) {
+        d.setUTCDate(d.getUTCDate() + 1);
+    }
+
     // ISO week starts Monday (Mon=1 ... Sun=7)
-    const day = d.getUTCDay() || 7;
+    const isoDay = d.getUTCDay() || 7;
 
     // shift to Thursday of this week (ISO anchor)
-    d.setUTCDate(d.getUTCDate() + 4 - day);
+    d.setUTCDate(d.getUTCDate() + 4 - isoDay);
 
     // ISO year is based on this Thursday
     const year = d.getUTCFullYear();
@@ -22,7 +32,7 @@ export function getISOWeekInfo(date = new Date()) {
     // week number (1-based)
     const week = Math.floor(dayDiff / 7) + 1;
 
-    return { day, week, year, dayName: d.toLocaleDateString('en-US', { weekday: 'long' }).toUpperCase() };
+    return { day: isoDay, week, year, dayName: d.toLocaleDateString('en-US', { weekday: 'long' }).toUpperCase() };
 }
 
 export function getNextISOWeekInfo(date = new Date()) {
@@ -35,10 +45,18 @@ export function getNextISOWeekInfo(date = new Date()) {
 export function getISOWeekRange(date = new Date()) {
     const d = new Date(date);
     d.setUTCHours(0, 0, 0, 0);
-    const day = d.getUTCDay() || 7;
+
+    const day = d.getUTCDay();
+    if (day === 6) {
+        d.setUTCDate(d.getUTCDate() + 2);
+    } else if (day === 0) {
+        d.setUTCDate(d.getUTCDate() + 1);
+    }
+
+    const isoDay = d.getUTCDay() || 7;
 
     const weekStart = new Date(d);
-    weekStart.setUTCDate(d.getUTCDate() - (day - 1));
+    weekStart.setUTCDate(d.getUTCDate() - (isoDay - 1));
 
     const weekEnd = new Date(weekStart);
     weekEnd.setUTCDate(weekStart.getUTCDate() + 6);
