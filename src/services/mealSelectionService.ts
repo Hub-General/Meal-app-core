@@ -3,7 +3,17 @@ import { SelectionStatus } from "../generated/prisma";
 import { getISOWeekInfo, getISOWeekRange } from "../helpers/dateFunctions";
 import { selectionHelper } from "../helpers/mealSelectionHelpers";
 import { SelectionValidationError, validateSelectionUpdates } from "../helpers/validateSelectionUpdate";
-import { CreateMealSelectionRequest, MealSelectionFilter, ReplaceWeeklyMealRequest, ReplaceWeeklyMealsBatchRequest, UpdateMealSelectionRequest } from "../schema/mealSelection";
+import {
+    CreateMealSelectionRequest,
+    MealSelection,
+    MealSelectionFilter,
+    ReplaceWeeklyMealRequest,
+    ReplaceWeeklyMealsBatchRequest,
+    UpdateMealSelectionRequest,
+    UserWeeklyHistoryResponse,
+    WeeklyHistoryFilter,
+    WeeklyHistoryReportResponse
+} from "../schema/mealSelection";
 import { weekMenuScheduleService } from "./weekMenuScheduleService";
 import { mailService } from "./emailService";
 
@@ -139,13 +149,10 @@ export const mealSelectionService = {
 
         const availabilityMap = new Map<number, number>();
         for (const record of availabilityRecords) {
-            let days = record.daysCount;
-            if (!days) {
-                const start = record.startDate < weekStart ? weekStart : record.startDate;
-                const end = record.endDate > weekEnd ? weekEnd : record.endDate;
-                const diffTime = Math.max(0, end.getTime() - start.getTime());
-                days = Math.floor(diffTime / (1000 * 60 * 60 * 24)) + 1;
-            }
+            const start = record.startDate < weekStart ? weekStart : record.startDate;
+            const end = record.endDate > weekEnd ? weekEnd : record.endDate;
+            const diffTime = Math.max(0, end.getTime() - start.getTime());
+            const days = Math.floor(diffTime / (1000 * 60 * 60 * 24)) + 1;
             availabilityMap.set(record.userId, (availabilityMap.get(record.userId) || 0) + days);
         }
 
@@ -192,11 +199,12 @@ export const mealSelectionService = {
             selectionData: CreateMealSelectionRequest,
             requesterId: number
         ) => {
-            const { id, ...data } = selectionData;
+            const { id, selectionType, ...data } = selectionData;
 
             return await prisma.selections.create({
                 data: {
                     ...data,
+                    dayMealId: data.dayMealId!,
                     createdBy: requesterId,
                     selectionStatus: "PENDING",
                 },
@@ -307,7 +315,7 @@ export const mealSelectionService = {
 
                     await tx.selections.create({
                         data: {
-                            dayMealId: selection.dayMealId,
+                            dayMealId: selection.dayMealId!,
                             createdBy: requesterId,
                             createdFor: selection.createdFor,
                             guestCount: selection.guestCount ?? 1,
@@ -344,7 +352,7 @@ export const mealSelectionService = {
                 * untouched.
                 */
                 const updateData = {
-                    dayMealId: request.dayMealId,
+                    dayMealId: request.dayMealId!,
                     weekMenuScheduleId:
                         request.weekMenuScheduleId,
                     menuDayId: request.menuDayId,
@@ -435,9 +443,17 @@ export const mealSelectionService = {
     // UPDATE Selections
     
     updateSelectionsBatch: async(selectionsData: {id: number, data: CreateMealSelectionRequest}[])=>{
-        const updateSelections = selectionsData.map(selection => 
-            prisma.selections.update({where: {id: selection.id}, data: selection.data, select: selectionSelectShape})
-        );
+        const updateSelections = selectionsData.map(selection => {
+            const { id, selectionType, ...data } = selection.data;
+            return prisma.selections.update({
+                where: { id: selection.id },
+                data: {
+                    ...data,
+                    dayMealId: data.dayMealId!
+                },
+                select: selectionSelectShape
+            });
+        });
         return await Promise.all(updateSelections);
     },
 
@@ -591,7 +607,7 @@ export const mealSelectionService = {
                 await tx.selections.update({
                     where: { id: selection.id },
                     data: {
-                        dayMealId: selection.dayMealId,
+                        dayMealId: selection.dayMealId!,
                         menuDayId: selection.menuDayId,
                         weekMenuScheduleId: selection.weekMenuScheduleId,
                         createdBy: requesterId
@@ -614,5 +630,253 @@ export const mealSelectionService = {
         }
 
         return { updated: result.updated };
+    },
+
+    // HISTORY Services
+
+    getWeeklySelectionsHistory: async (filter: WeeklyHistoryFilter = { page: 1, limit: 20, order: "desc" }): Promise<WeeklyHistoryReportResponse> => {
+        const page = filter.page || 1;
+        const limit = filter.limit || 20;
+        const order = filter.order || "desc";
+        const where = buildWeekMenuScheduleFilter(filter);
+
+        const totalWeeks = await prisma.weekMenuSchedule.count({ where });
+        const totalPages = Math.ceil(totalWeeks / limit) || 1;
+
+        const schedules = await prisma.weekMenuSchedule.findMany({
+            where,
+            orderBy: [
+                { year: order },
+                { week: order }
+            ],
+            skip: (page - 1) * limit,
+            take: limit,
+            select: {
+                id: true,
+                week: true,
+                year: true,
+                status: true,
+                menu: {
+                    select: {
+                        id: true,
+                        title: true
+                    }
+                }
+            }
+        });
+
+        if (!schedules.length) {
+            return {
+                pagination: {
+                    page,
+                    limit,
+                    totalWeeks,
+                    totalPages,
+                    hasNextPage: page < totalPages,
+                    hasPrevPage: page > 1
+                },
+                data: []
+            };
+        }
+
+        const scheduleIds = schedules.map(s => s.id);
+        const allSelections = await prisma.selections.findMany({
+            where: {
+                weekMenuScheduleId: { in: scheduleIds }
+            },
+            select: selectionSelectShape
+        });
+
+        const selectionsByScheduleId = new Map<number, MealSelection[]>();
+        for (const selection of allSelections) {
+            const list = selectionsByScheduleId.get(selection.weekMenuScheduleId) ?? [];
+            list.push(selection);
+            selectionsByScheduleId.set(selection.weekMenuScheduleId, list);
+        }
+
+        const data = schedules.map(schedule => {
+            const weekSelections = selectionsByScheduleId.get(schedule.id) ?? [];
+            const formatted = selectionHelper.formatSelectionResponse(weekSelections);
+            const totalResponses = weekSelections.reduce((sum, sel) => sum + (sel.guestCount || 1), 0);
+            return {
+                weekMenuScheduleId: schedule.id,
+                week: schedule.week,
+                year: schedule.year,
+                menu: schedule.menu,
+                status: schedule.status,
+                totalResponses,
+                selections: formatted
+            };
+        });
+
+        return {
+            pagination: {
+                page,
+                limit,
+                totalWeeks,
+                totalPages,
+                hasNextPage: page < totalPages,
+                hasPrevPage: page > 1
+            },
+            data
+        };
+    },
+
+    getUserWeeklySelectionsHistory: async (userId: number, filter: WeeklyHistoryFilter = { page: 1, limit: 20, order: "desc" }): Promise<UserWeeklyHistoryResponse> => {
+        const page = filter.page || 1;
+        const limit = filter.limit || 20;
+        const order = filter.order || "desc";
+        const where = buildWeekMenuScheduleFilter(filter);
+
+        const totalWeeks = await prisma.weekMenuSchedule.count({ where });
+        const totalPages = Math.ceil(totalWeeks / limit) || 1;
+
+        const schedules = await prisma.weekMenuSchedule.findMany({
+            where,
+            orderBy: [
+                { year: order },
+                { week: order }
+            ],
+            skip: (page - 1) * limit,
+            take: limit,
+            select: {
+                id: true,
+                week: true,
+                year: true,
+                status: true,
+                menu: {
+                    select: {
+                        id: true,
+                        title: true
+                    }
+                }
+            }
+        });
+
+        if (!schedules.length) {
+            return {
+                pagination: {
+                    page,
+                    limit,
+                    totalWeeks,
+                    totalPages,
+                    hasNextPage: page < totalPages,
+                    hasPrevPage: page > 1
+                },
+                data: []
+            };
+        }
+
+        const scheduleIds = schedules.map(s => s.id);
+        const allSelections = await prisma.selections.findMany({
+            where: {
+                weekMenuScheduleId: { in: scheduleIds },
+                createdFor: userId
+            },
+            select: selectionSelectShape
+        });
+
+        const selectionsByScheduleId = new Map<number, MealSelection[]>();
+        for (const selection of allSelections) {
+            const list = selectionsByScheduleId.get(selection.weekMenuScheduleId) ?? [];
+            list.push(selection);
+            selectionsByScheduleId.set(selection.weekMenuScheduleId, list);
+        }
+
+        const data = schedules.map(schedule => {
+            const weekSelections = selectionsByScheduleId.get(schedule.id) ?? [];
+            const formatted = selectionHelper.formatUserSelectionsResponse(weekSelections);
+            return {
+                weekMenuScheduleId: schedule.id,
+                week: schedule.week,
+                year: schedule.year,
+                menu: schedule.menu,
+                status: schedule.status,
+                selection: formatted
+            };
+        });
+
+        return {
+            pagination: {
+                page,
+                limit,
+                totalWeeks,
+                totalPages,
+                hasNextPage: page < totalPages,
+                hasPrevPage: page > 1
+            },
+            data
+        };
     }
+}
+
+function buildWeekMenuScheduleFilter(filter: WeeklyHistoryFilter) {
+    const startWeek = filter.startWeek ?? filter.fromWeek;
+    const startYear = filter.startYear ?? filter.fromYear ?? (filter.year && startWeek !== undefined ? filter.year : undefined);
+    const endWeek = filter.endWeek ?? filter.toWeek;
+    const endYear = filter.endYear ?? filter.toYear ?? (filter.year && endWeek !== undefined ? filter.year : undefined);
+    const singleYear = filter.year && !filter.startYear && !filter.fromYear && !filter.endYear && !filter.toYear ? filter.year : undefined;
+
+    // Single year only, no week range specified
+    if (singleYear && startWeek === undefined && endWeek === undefined) {
+        return { year: singleYear };
+    }
+
+    // If both start and end boundaries are provided
+    if (startYear !== undefined && endYear !== undefined) {
+        const sWeek = startWeek ?? 1;
+        const eWeek = endWeek ?? 53;
+
+        if (startYear === endYear) {
+            return {
+                year: startYear,
+                week: { gte: sWeek, lte: eWeek }
+            };
+        }
+
+        if (startYear < endYear) {
+            return {
+                OR: [
+                    { year: startYear, week: { gte: sWeek } },
+                    { year: { gt: startYear, lt: endYear } },
+                    { year: endYear, week: { lte: eWeek } }
+                ]
+            };
+        }
+    }
+
+    // Only start boundary provided
+    if (startYear !== undefined) {
+        const sWeek = startWeek ?? 1;
+        return {
+            OR: [
+                { year: startYear, week: { gte: sWeek } },
+                { year: { gt: startYear } }
+            ]
+        };
+    }
+
+    // Only end boundary provided
+    if (endYear !== undefined) {
+        const eWeek = endWeek ?? 53;
+        return {
+            OR: [
+                { year: endYear, week: { lte: eWeek } },
+                { year: { lt: endYear } }
+            ]
+        };
+    }
+
+    // If only weeks are provided with a single year
+    if (singleYear !== undefined) {
+        const weekFilter: { gte?: number; lte?: number } = {};
+        if (startWeek !== undefined) weekFilter.gte = startWeek;
+        if (endWeek !== undefined) weekFilter.lte = endWeek;
+        return {
+            year: singleYear,
+            ...(Object.keys(weekFilter).length > 0 ? { week: weekFilter } : {})
+        };
+    }
+
+    return {};
 }

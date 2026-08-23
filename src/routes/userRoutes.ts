@@ -9,6 +9,8 @@ router.get("/preferences", authenticate, userController.getUserPreferencesContro
 router.put("/preferences", authenticate, userController.updateUserPreferencesController);
 
 //User Routes
+router.get("/profile", authenticate, userController.getUserProfileController);
+router.get("/me", authenticate, userController.getUserProfileController);
 router.get("/", authenticate, userController.getAllUsersController);
 router.get("/:id", authenticate, userController.getUserByIdController);
 router.put("/:id", authenticate, userController.updateUserDetailsController);

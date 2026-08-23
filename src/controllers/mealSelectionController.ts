@@ -1,7 +1,8 @@
 import { Request, Response } from "express";
 import { mealSelectionService, SelectionConflictError } from "../services/mealSelectionService";
-import { createMealSelectionBatchRequestSchema, getUsersWithoutSelectionsRequestSchema, mealSelectionFilterSchema, replaceWeeklyMealRequestSchema, replaceWeeklyMealsBatchRequestSchema, submitWeeklySelectionsRequestSchema, updateMealSelectionsBatchRequestSchema } from "../schema/mealSelection";
+import { createMealSelectionBatchRequestSchema, getUsersWithoutSelectionsRequestSchema, mealSelectionFilterSchema, replaceWeeklyMealRequestSchema, replaceWeeklyMealsBatchRequestSchema, submitWeeklySelectionsRequestSchema, updateMealSelectionsBatchRequestSchema, weeklyHistoryFilterSchema } from "../schema/mealSelection";
 import { SelectionValidationError } from "../helpers/validateSelectionUpdate";
+import { Roles } from "../enums/ERoles";
 
 export const mealSelectionController = {
     getAllSelectionsController: async(req: Request, res: Response)=>{
@@ -213,4 +214,50 @@ export const mealSelectionController = {
             res.status(500).json({error:"Failed to submit weekly selections"})
         }
     },
+
+    // HISTORY CONTROLLERS
+
+    getWeeklySelectionsHistoryController: async (req: Request, res: Response) => {
+        try {
+            const parsed = weeklyHistoryFilterSchema.safeParse(req.query);
+            if (!parsed.success) {
+                return res.status(400).json({ error: "Invalid history query parameters", details: parsed.error.flatten() });
+            }
+
+            const history = await mealSelectionService.getWeeklySelectionsHistory(parsed.data);
+            res.status(200).json(history);
+        } catch (error) {
+            res.status(500).json({ message: "Failed to fetch weekly selections history", error });
+        }
+    },
+
+    getUserWeeklySelectionsHistoryController: async (req: Request, res: Response) => {
+        try {
+            const parsed = weeklyHistoryFilterSchema.safeParse(req.query);
+            if (!parsed.success) {
+                return res.status(400).json({ error: "Invalid history query parameters", details: parsed.error.flatten() });
+            }
+
+            const paramUserId = req.params.id ? Number(req.params.id) : undefined;
+            const queryUserId = parsed.data.userId;
+            const authenticatedUserId = req.user?.id;
+
+            const targetUserId = paramUserId || queryUserId || authenticatedUserId;
+
+            if (!targetUserId || isNaN(targetUserId)) {
+                return res.status(400).json({ error: "User ID is required" });
+            }
+
+            const isAdminOrHr = req.user?.roleId === Roles.admin || req.user?.roleId === Roles.hr;
+
+            if (authenticatedUserId && targetUserId !== authenticatedUserId && !isAdminOrHr) {
+                return res.status(403).json({ error: "Unauthorized to view other users' selection history" });
+            }
+
+            const history = await mealSelectionService.getUserWeeklySelectionsHistory(targetUserId, parsed.data);
+            res.status(200).json(history);
+        } catch (error) {
+            res.status(500).json({ message: "Failed to fetch user weekly selections history", error });
+        }
+    }
 }

@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import {authService} from "../services/authService";
 import { digiHRService } from "../services/digiHRService";
-import { GeneratePasswordTokenSchema, LoginRequestSchema, LogoutRequestSchema, OnboardingBatchRequestSchema, OnboardingRequestSchema, RefreshRequestSchema, RegisterRequestSchema, ResetPasswordSchema, VerifyOTPSchema } from "../schema/auth";
+import { ChangePasswordSchema, GeneratePasswordTokenSchema, LoginRequestSchema, LogoutRequestSchema, OnboardingBatchRequestSchema, OnboardingRequestSchema, RefreshRequestSchema, RegisterRequestSchema, ResetPasswordSchema, VerifyOTPSchema } from "../schema/auth";
 
 export const authController = {
     loginController : async (req : Request, res : Response) => {
@@ -166,6 +166,34 @@ export const authController = {
             res.status(500).json({
                 message:'Failed to sync users availability',error
             })
+        }
+    },
+    changePasswordController: async (req: Request, res: Response) => {
+        try {
+            const parsed = ChangePasswordSchema.safeParse(req.body);
+            if (!parsed.success) {
+                return res.status(400).json({
+                    message: "Invalid password payload",
+                    errors: parsed.error.flatten()
+                });
+            }
+
+            const userId = req.user?.id;
+            if (!userId) {
+                return res.status(401).json({ message: "Unauthorized" });
+            }
+
+            const result = await authService.changePassword(
+                userId,
+                parsed.data.currentPassword,
+                parsed.data.newPassword
+            );
+
+            return res.status(200).json(result);
+        } catch (error) {
+            return res.status(400).json({
+                message: error instanceof Error ? error.message : "Failed to change password"
+            });
         }
     }
 }

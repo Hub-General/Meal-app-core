@@ -1,16 +1,27 @@
 import z from "zod";
 import { Days, SelectionStatus } from "../generated/prisma";
 
+export const SelectionType = ["MEAL", "UNAVAILABLE", "HOLIDAY"] as const;
+export type SelectionType = (typeof SelectionType)[number];
 
 // Export zod schemas
 export const createMealSelectionRequestSchema = z.object({
     id: z.number().optional(), 
-    dayMealId: z.number(),
+    dayMealId: z.number().nullable().optional(),
+    selectionType: z.enum(SelectionType).optional().default("MEAL"),
     createdFor: z.number().int().positive().nullable(),
     guestCount: z.number().int().positive().optional(),
     weekMenuScheduleId: z.number(),
     menuDayId: z.number()
 }).superRefine((selection, context) => {
+    if (selection.selectionType === "MEAL" && (!selection.dayMealId || selection.dayMealId <= 0)) {
+        context.addIssue({
+            code: "custom",
+            path: ["dayMealId"],
+            message: "A meal selection requires a valid dayMealId"
+        });
+    }
+
     if (selection.createdFor === null && selection.guestCount === undefined) {
         context.addIssue({
             code: "custom",
@@ -86,6 +97,22 @@ export const replaceWeeklyMealsBatchRequestSchema = z.object({
     )).min(1)
 });
 
+export const weeklyHistoryFilterSchema = z.object({
+    page: z.coerce.number().int().positive().default(1),
+    limit: z.coerce.number().int().positive().default(20),
+    startWeek: z.coerce.number().int().min(1).max(53).optional(),
+    fromWeek: z.coerce.number().int().min(1).max(53).optional(),
+    startYear: z.coerce.number().int().min(2000).max(2100).optional(),
+    fromYear: z.coerce.number().int().min(2000).max(2100).optional(),
+    endWeek: z.coerce.number().int().min(1).max(53).optional(),
+    toWeek: z.coerce.number().int().min(1).max(53).optional(),
+    endYear: z.coerce.number().int().min(2000).max(2100).optional(),
+    toYear: z.coerce.number().int().min(2000).max(2100).optional(),
+    year: z.coerce.number().int().min(2000).max(2100).optional(),
+    order: z.enum(["asc", "desc"]).default("desc"),
+    userId: z.coerce.number().int().positive().optional()
+});
+
 
 // Export interfaces / types
 export interface MealSelection {
@@ -103,7 +130,7 @@ export interface MealSelection {
             calories: number | null;
             foodCode: string;
         }
-    };
+    } | null;
     createdByUser: {
         id: number;
         name: string;
@@ -113,8 +140,8 @@ export interface MealSelection {
         name: string | null;
     } | null;
     guestCount: number;
-    selectionStatus: SelectionStatus
-
+    selectionStatus: SelectionStatus;
+    selectionType?: SelectionType;
 }
 
 export interface WeekMealSelectionResponse {
@@ -138,6 +165,69 @@ export interface DayMealSelections {
     }[]
 }
 
+export interface HistoryPagination {
+    page: number;
+    limit: number;
+    totalWeeks: number;
+    totalPages: number;
+    hasNextPage: boolean;
+    hasPrevPage: boolean;
+}
+
+export interface WeeklyHistoryReportItem {
+    weekMenuScheduleId: number;
+    week: number;
+    year: number;
+    menu: {
+        id: number;
+        title: string;
+    };
+    status: string;
+    totalResponses: number;
+    selections: WeekMealSelectionResponse;
+}
+
+export interface WeeklyHistoryReportResponse {
+    pagination: HistoryPagination;
+    data: WeeklyHistoryReportItem[];
+}
+
+export interface UserWeeklyMealSelectionItem {
+    id: number;
+    selectionType: SelectionType | string;
+    mealName: string;
+    mealID: number | null;
+    mealImagePath: string | null;
+    foodCode: string | null;
+    calories: number | null;
+}
+
+export interface UserWeeklySelectionDetails {
+    createdById: number | null;
+    createdBy: string | null;
+    createdForId: number | null;
+    createdFor: string | null;
+    selectionStatus: SelectionStatus | string | null;
+    mealSelections: Record<string, unknown>;
+}
+
+export interface UserWeeklyHistoryItem {
+    weekMenuScheduleId: number;
+    week: number;
+    year: number;
+    menu: {
+        id: number;
+        title: string;
+    };
+    status: string;
+    selection: UserWeeklySelectionDetails;
+}
+
+export interface UserWeeklyHistoryResponse {
+    pagination: HistoryPagination;
+    data: UserWeeklyHistoryItem[];
+}
+
 export type CreateMealSelectionRequest = z.infer<typeof createMealSelectionRequestSchema>;
 export type MealSelectionFilter = z.infer<typeof mealSelectionFilterSchema>;
 export type CreateMealSelectionBatchRequest = z.infer<typeof createMealSelectionBatchRequestSchema>;
@@ -147,3 +237,4 @@ export type SubmitWeeklySelectionsRequest = z.infer<typeof submitWeeklySelection
 export type SubmitSelectionsRequest = z.infer<typeof submitSelectionsRequestSchema>;
 export type ReplaceWeeklyMealRequest = z.infer<typeof replaceWeeklyMealRequestSchema>;
 export type ReplaceWeeklyMealsBatchRequest = z.infer<typeof replaceWeeklyMealsBatchRequestSchema>;
+export type WeeklyHistoryFilter = z.infer<typeof weeklyHistoryFilterSchema>;

@@ -21,6 +21,24 @@ export const userController = {
             })
         }
     },
+    getUserProfileController: async (req: Request, res: Response) => {
+        try {
+            const userId = req.user?.id;
+            if (!userId) {
+                return res.status(401).json({ message: "Unauthorized" });
+            }
+            const profile = await userService.getUserProfile(userId);
+            if (!profile) {
+                return res.status(404).json({ message: "User profile not found" });
+            }
+            res.status(200).json(profile);
+        } catch (error) {
+            res.status(500).json({
+                message: "Failed to retrieve user profile",
+                error: error instanceof Error ? error.message : error
+            });
+        }
+    },
     getUserByIdController: async (req: Request, res: Response) => {
         try{
             const users = await userService.getUserById(Number(req.params.id));

@@ -309,3 +309,32 @@ model TasteProfile {
   @@index([totalMealsSelected], name: "idx_total_meals")
   @@map("taste_profiles")
 }
+
+model CompanyHolidays {
+  id          Int       @id @default(autoincrement())
+  title       String
+  description String?
+  year        Int
+  startDate   DateTime
+  endDate     DateTime?
+  isCompany   Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([year])
+}
+
+model HolidayOverrides {
+  id              Int       @id @default(autoincrement())
+  originalDate    String    @unique
+  title           String
+  year            Int
+  isIgnored       Boolean   @default(false)
+  adjustedDate    String?
+  adjustedDayName String?
+  notes           String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([year])
+}
