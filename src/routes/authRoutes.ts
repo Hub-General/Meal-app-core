@@ -17,5 +17,6 @@ router.post("/sync-availability", authController.syncAvailabilityController);
 router.post("/generate-password-token", authenticate, authController.getResetPasswordTokenController )
 router.post("/reset-password", authenticate, authController.resetPasswordController)
 router.post("/verify-otp", authenticate, authController.verifyPasswordResetOTPController)
+router.post("/change-password", authenticate, authController.changePasswordController)
 
 export default router;

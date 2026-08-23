@@ -122,6 +122,12 @@ enum SelectionStatus {
   SUBMITTED
 }
 
+enum SelectionType {
+  MEAL
+  UNAVAILABLE
+  HOLIDAY
+}
+
 enum FoodGroup {
   SUPERGROUP
   BASE
@@ -229,8 +235,8 @@ model Selections{
   menuDayId Int
   menuDay MenuDays @relation(fields: [menuDayId], references: [id])
 
-  dayMealId Int
-  dayMeal MenuDayMeals @relation(fields: [dayMealId], references: [id])
+  dayMealId Int?
+  dayMeal MenuDayMeals? @relation(fields: [dayMealId], references: [id])
 
   weekMenuScheduleId Int
   weekMenuSchedule WeekMenuSchedule @relation(fields: [weekMenuScheduleId], references: [id])
@@ -245,6 +251,7 @@ model Selections{
   updatedAt DateTime @updatedAt
 
   selectionStatus SelectionStatus
+  selectionType SelectionType @default(MEAL)
 
   @@unique([createdFor, weekMenuScheduleId, menuDayId])
 
@@ -308,4 +315,33 @@ model TasteProfile {
   @@index([calendarYear, personalityType, favoriteProtein], name: "idx_taste_profiles_filters")
   @@index([totalMealsSelected], name: "idx_total_meals")
   @@map("taste_profiles")
+}
+
+model CompanyHolidays {
+  id          Int       @id @default(autoincrement())
+  title       String
+  description String?
+  year        Int
+  startDate   DateTime
+  endDate     DateTime?
+  isCompany   Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([year])
+}
+
+model HolidayOverrides {
+  id              Int       @id @default(autoincrement())
+  originalDate    String    @unique
+  title           String
+  year            Int
+  isIgnored       Boolean   @default(false)
+  adjustedDate    String?
+  adjustedDayName String?
+  notes           String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([year])
 }

@@ -78,4 +78,75 @@ export const userService = {
         });
         return count > 0;
     },
+
+    getUserProfile: async (userId: number) => {
+        const user = await prisma.users.findUnique({
+            where: { id: userId },
+            select: {
+                id: true,
+                name: true,
+                email: true,
+                referenceEmail: true,
+                referenceId: true,
+                status: true,
+                roleId: true,
+                role: {
+                    select: {
+                        id: true,
+                        name: true,
+                        description: true
+                    }
+                },
+                createdAt: true,
+                isActivated: true,
+                preferences: true,
+                userAvailability: {
+                    orderBy: {
+                        startDate: "desc"
+                    }
+                },
+                _count: {
+                    select: {
+                        selections: true,
+                        presets: true
+                    }
+                }
+            }
+        });
+
+        if (!user) {
+            return null;
+        }
+
+        const now = new Date();
+        const upcomingOrActiveLeaves = user.userAvailability.filter(
+            (leave) => new Date(leave.endDate) >= now
+        );
+        const totalLeaveDays = user.userAvailability.reduce(
+            (acc, curr) => acc + (curr.daysCount || 0),
+            0
+        );
+
+        return {
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            referenceEmail: user.referenceEmail,
+            referenceId: user.referenceId,
+            status: user.status,
+            roleId: user.roleId,
+            roleName: user.role?.name ?? "User",
+            role: user.role,
+            createdAt: user.createdAt,
+            isActivated: user.isActivated,
+            preferences: user.preferences,
+            leaves: user.userAvailability,
+            upcomingOrActiveLeaves,
+            totalLeaveDays,
+            stats: {
+                totalSelections: user._count.selections,
+                totalPresets: user._count.presets
+            }
+        };
+    },
 }

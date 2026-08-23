@@ -378,5 +378,32 @@ export const authService = {
         }
 
         return await argon2.verify(passwordToken.token, token)
+    },
+
+    changePassword: async (userId: number, currentPassword: string, newPassword: string) => {
+        const user = await prisma.users.findUnique({
+            where: { id: userId }
+        });
+
+        if (!user || !user.isActivated || user.status !== "ACTIVE") {
+            throw new Error("User not found or inactive");
+        }
+
+        if (!user.passwordHash) {
+            throw new Error("No existing password found for account");
+        }
+
+        const isValid = await argon2.verify(user.passwordHash, currentPassword);
+        if (!isValid) {
+            throw new Error("Current password is incorrect");
+        }
+
+        const newHash = await argon2.hash(newPassword);
+        await prisma.users.update({
+            where: { id: userId },
+            data: { passwordHash: newHash }
+        });
+
+        return { message: "Password updated successfully" };
     }
 }

@@ -15,6 +15,14 @@ router.get("/by-meal/:id", mealSelectionController.getSelectionsByMealIdControll
 router.get("/weekly", authenticate, authorize([Roles.admin, Roles.hr]), mealSelectionController.getWeeklySelectionsController);
 router.get("/weekly/by-user/:id", authenticate, mealSelectionController.getWeeklySelectionsByUserController);
 router.get("/weekly/no-selections", authenticate, authorize([Roles.admin, Roles.hr]), mealSelectionController.getUsersWithoutSelectionsController);
+
+//GET history routes (paginated)
+router.get("/history", authenticate, authorize([Roles.admin, Roles.hr]), mealSelectionController.getWeeklySelectionsHistoryController);
+router.get("/weekly/history", authenticate, authorize([Roles.admin, Roles.hr]), mealSelectionController.getWeeklySelectionsHistoryController);
+router.get("/history/user", authenticate, mealSelectionController.getUserWeeklySelectionsHistoryController);
+router.get("/history/by-user/:id", authenticate, mealSelectionController.getUserWeeklySelectionsHistoryController);
+router.get("/weekly/history/by-user/:id", authenticate, mealSelectionController.getUserWeeklySelectionsHistoryController);
+
 router.get("/:id",mealSelectionController.getSelectionByIdController);
 
 //CREATE selections routes

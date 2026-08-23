@@ -59,6 +59,35 @@ export const selectionHelper = {
 
             const meals = mealMaps.get(day)!;
 
+            if (!selection.dayMeal) {
+                const dummyId = selection.selectionType === "UNAVAILABLE" ? -1 : -2;
+                const typeName = selection.selectionType === "UNAVAILABLE" ? "Unavailable" : "Holiday";
+                let nonMeal = meals.get(dummyId);
+                if (!nonMeal) {
+                    nonMeal = {
+                        id: dummyId,
+                        foodCode: selection.selectionType ?? "HOLIDAY",
+                        name: typeName,
+                        imagePath: "",
+                        calories: 0,
+                        count: 0,
+                        users: []
+                    };
+                    meals.set(dummyId, nonMeal);
+                    response[day].response.push(nonMeal);
+                }
+                nonMeal.count += selection.guestCount;
+                const nonMealUserName = selection.createdForUser?.name 
+                    ?? (selection.createdByUser?.name ? `${selection.createdByUser.name} (Guest)` : "Guest");
+                nonMeal.users.push({
+                    id: selection.createdForUser?.id ?? selection.createdByUser?.id ?? null,
+                    name: nonMealUserName,
+                    quantity: selection.guestCount
+                });
+                response[day].total += selection.guestCount;
+                continue;
+            }
+
             let meal = meals.get(selection.dayMeal.id);
 
             if (!meal) {
@@ -67,7 +96,7 @@ export const selectionHelper = {
                     foodCode: selection.dayMeal.meal.foodCode,
                     name: selection.dayMeal.meal.name,
                     imagePath: selection.dayMeal.meal.imagePath ?? "",
-                    calories: selection.dayMeal.meal.id,
+                    calories: selection.dayMeal.meal.calories ?? 0,
                     count: 0,
                     users: []
                 };
@@ -78,9 +107,11 @@ export const selectionHelper = {
 
             meal.count += selection.guestCount;
 
+            const userName = selection.createdForUser?.name 
+                ?? (selection.createdByUser?.name ? `${selection.createdByUser.name} (Guest)` : "Guest");
             meal.users.push({
-                id: selection.createdForUser?.id ?? null,
-                name: selection.createdForUser?.name ?? "Guest",
+                id: selection.createdForUser?.id ?? selection.createdByUser?.id ?? null,
+                name: userName,
                 quantity: selection.guestCount
             });
 
@@ -93,7 +124,9 @@ export const selectionHelper = {
     formatUserSelectionsResponse:(selections: MealSelection[])=>{
         if(!selections?.length){
             return {
+                createdById: null,
                 createdBy: null,
+                createdForId: null,
                 createdFor: null,
                 selectionStatus: null,
                 mealSelections: {}
@@ -106,13 +139,17 @@ export const selectionHelper = {
             const selectionDay = selection.menuDay.day;
 
             if(!mealSelections[selectionDay]){
+                const isMeal = selection.selectionType === "MEAL" && selection.dayMeal;
                 mealSelections[selectionDay] = {
                     id: selection.id,
-                    mealName: selection.dayMeal.meal.name,
-                    mealID: selection.dayMeal.meal.id,
-                    mealImagePath: selection.dayMeal.meal.imagePath,
-                    foodCode: selection.dayMeal.meal.foodCode,
-                    calories: selection.dayMeal.meal.calories
+                    selectionType: selection.selectionType ?? "MEAL",
+                    mealName: isMeal
+                        ? selection.dayMeal!.meal.name
+                        : (selection.selectionType === "UNAVAILABLE" ? "Unavailable" : "Holiday"),
+                    mealID: isMeal ? selection.dayMeal!.meal.id : null,
+                    mealImagePath: isMeal ? selection.dayMeal!.meal.imagePath : null,
+                    foodCode: isMeal ? selection.dayMeal!.meal.foodCode : selection.selectionType,
+                    calories: isMeal ? selection.dayMeal!.meal.calories : null
                 };
             }
         }
@@ -131,6 +168,33 @@ export const selectionHelper = {
         const foodMaps = new Map<number, DayMealSelections>()
 
         for (const selection of selections) {
+            if (!selection.dayMeal) {
+                const dummyId = selection.selectionType === "UNAVAILABLE" ? -1 : -2;
+                const typeName = selection.selectionType === "UNAVAILABLE" ? "Unavailable" : "Holiday";
+                let nonMeal = foodMaps.get(dummyId);
+                if (!nonMeal) {
+                    nonMeal = {
+                        id: dummyId,
+                        foodCode: selection.selectionType ?? "HOLIDAY",
+                        name: typeName,
+                        imagePath: "",
+                        calories: 0,
+                        count: 0,
+                        users: []
+                    };
+                    foodMaps.set(dummyId, nonMeal);
+                }
+                nonMeal.count += selection.guestCount;
+                const nonMealUserName = selection.createdForUser?.name 
+                    ?? (selection.createdByUser?.name ? `${selection.createdByUser.name} (Guest)` : "Guest");
+                nonMeal.users.push({
+                    id: selection.createdForUser?.id ?? selection.createdByUser?.id ?? null,
+                    name: nonMealUserName,
+                    quantity: selection.guestCount
+                });
+                continue;
+            }
+
             const mealId = selection.dayMeal.id;
 
             let meal = foodMaps.get(mealId)
@@ -151,9 +215,11 @@ export const selectionHelper = {
 
             meal.count += selection.guestCount;
 
+            const userName = selection.createdForUser?.name 
+                ?? (selection.createdByUser?.name ? `${selection.createdByUser.name} (Guest)` : "Guest");
             meal.users.push({
-                id: selection.createdForUser?.id ?? null,
-                name: selection.createdForUser?.name ?? "Guest",
+                id: selection.createdForUser?.id ?? selection.createdByUser?.id ?? null,
+                name: userName,
                 quantity: selection.guestCount
             })
         }

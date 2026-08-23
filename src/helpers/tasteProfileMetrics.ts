@@ -8,7 +8,7 @@ interface TasteProfileSelection {
             calories: number | null;
             foodCode: string;
         }
-    }
+    } | null;
 }
 
 export interface TasteProfileMetrics {
@@ -107,6 +107,7 @@ export const tasteProfileHelper = {
         let totalCalories = 0;
 
         for (const selection of selections) {
+            if (!selection.dayMeal) continue;
             const mealObj = selection.dayMeal.meal;
             const parts = mealObj.foodCode.split("-");
             const supergroup = parts[0] ?? "";
