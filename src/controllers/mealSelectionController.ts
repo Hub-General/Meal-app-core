@@ -152,9 +152,9 @@ export const mealSelectionController = {
 
     adminOverrideSelectionsController: async ( req: Request, res: Response)=>{
         try{
-            const parsed = updateMealSelectionsBatchRequestSchema.safeParse(req.body);
+            const parsed = createMealSelectionBatchRequestSchema.safeParse(req.body);
             if (!parsed.success) {
-                return res.status(400).json({ error: "Invalid selection batch update payload", details: parsed.error.flatten() });
+                return res.status(400).json({ error: "Invalid selection batch payload", details: parsed.error.flatten() });
             }
             const response = await mealSelectionService.adminOverrideSelections(parsed.data, req.user!.id)
             res.status(200).json(response)

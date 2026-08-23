@@ -16,6 +16,7 @@ import {
 } from "../schema/mealSelection";
 import { weekMenuScheduleService } from "./weekMenuScheduleService";
 import { mailService } from "./emailService";
+import { holidayService } from "./holidayService";
 
 export class SelectionConflictError extends Error {
     constructor(message: string) {
@@ -29,6 +30,7 @@ const selectionSelectShape = {
     guestCount: true,
     weekMenuScheduleId: true,
     selectionStatus: true,
+    selectionType: true,
     createdByUser:{
         select: {
             id: true,
@@ -118,6 +120,9 @@ export const mealSelectionService = {
         if(!weekMenuSchedule) return [];
 
         const { weekStart, weekEnd } = getISOWeekRange(date);
+        const weekHolidays = await holidayService.getHolidaysForWeek(weekInfo.week, weekInfo.year);
+        const holidayCount = weekHolidays.length;
+        const effectiveRequiredCount = Math.max(0, maxCount - holidayCount);
 
         const activeUsers = await prisma.users.findMany({
             where: { status: "ACTIVE" },
@@ -160,7 +165,7 @@ export const mealSelectionService = {
             .filter(user => {
                 const selectionCount = user._count.createdForSelections;
                 const availabilityCount = availabilityMap.get(user.id) || 0;
-                return (selectionCount + availabilityCount) < maxCount;
+                return (selectionCount + availabilityCount) < effectiveRequiredCount;
             })
             .map(({ _count, ...user }) => user);
     },
@@ -204,7 +209,8 @@ export const mealSelectionService = {
             return await prisma.selections.create({
                 data: {
                     ...data,
-                    dayMealId: data.dayMealId!,
+                    dayMealId: data.dayMealId ?? null,
+                    selectionType: selectionType ?? "MEAL",
                     createdBy: requesterId,
                     selectionStatus: "PENDING",
                 },
@@ -315,7 +321,8 @@ export const mealSelectionService = {
 
                     await tx.selections.create({
                         data: {
-                            dayMealId: selection.dayMealId!,
+                            dayMealId: selection.dayMealId ?? null,
+                            selectionType: selection.selectionType ?? "MEAL",
                             createdBy: requesterId,
                             createdFor: selection.createdFor,
                             guestCount: selection.guestCount ?? 1,
@@ -352,7 +359,8 @@ export const mealSelectionService = {
                 * untouched.
                 */
                 const updateData = {
-                    dayMealId: request.dayMealId!,
+                    dayMealId: request.dayMealId ?? null,
+                    selectionType: request.selectionType ?? "MEAL",
                     weekMenuScheduleId:
                         request.weekMenuScheduleId,
                     menuDayId: request.menuDayId,
@@ -449,7 +457,8 @@ export const mealSelectionService = {
                 where: { id: selection.id },
                 data: {
                     ...data,
-                    dayMealId: data.dayMealId!
+                    dayMealId: data.dayMealId ?? null,
+                    selectionType: selectionType ?? "MEAL"
                 },
                 select: selectionSelectShape
             });
@@ -589,38 +598,100 @@ export const mealSelectionService = {
     },
 
     //ADMIN Services
-    adminOverrideSelections: async(selections: UpdateMealSelectionRequest[], requesterId: number)=>{
+    adminOverrideSelections: async(selections: CreateMealSelectionRequest[], requesterId: number)=>{
         const result = await prisma.$transaction(async (tx) => {
-            const existingSelections = await tx.selections.findMany({
-                where: { id: { in: selections.map(selection => selection.id!) } },
-                select: {
-                    id: true,
-                    createdForUser: { select: { name: true, email: true, referenceEmail: true } }
-                }
-            });
-
-            if (existingSelections.length !== selections.length) {
-                throw new SelectionConflictError("One or more selections no longer exist");
-            }
+            const updatedUsersToNotify = new Set<number>();
+            let updatedCount = 0;
 
             for (const selection of selections) {
-                await tx.selections.update({
-                    where: { id: selection.id },
-                    data: {
-                        dayMealId: selection.dayMealId!,
-                        menuDayId: selection.menuDayId,
-                        weekMenuScheduleId: selection.weekMenuScheduleId,
-                        createdBy: requesterId
+                const dayMealId = selection.dayMealId ?? null;
+                const selectionType = selection.selectionType ?? (dayMealId ? "MEAL" : "UNAVAILABLE");
+                const guestCount = selection.guestCount ?? 1;
+
+                if (selection.id) {
+                    const updated = await tx.selections.update({
+                        where: { id: selection.id },
+                        data: {
+                            dayMealId,
+                            selectionType,
+                            menuDayId: selection.menuDayId,
+                            weekMenuScheduleId: selection.weekMenuScheduleId,
+                            createdBy: requesterId,
+                            guestCount,
+                        },
+                        select: { createdFor: true }
+                    });
+                    if (updated.createdFor && updated.createdFor !== requesterId) {
+                        updatedUsersToNotify.add(updated.createdFor);
                     }
-                });
+                    updatedCount++;
+                } else if (selection.createdFor) {
+                    const existing = await tx.selections.findFirst({
+                        where: {
+                            createdFor: selection.createdFor,
+                            weekMenuScheduleId: selection.weekMenuScheduleId,
+                            menuDayId: selection.menuDayId,
+                        },
+                        select: { id: true }
+                    });
+
+                    if (existing) {
+                        await tx.selections.update({
+                            where: { id: existing.id },
+                            data: {
+                                dayMealId,
+                                selectionType,
+                                createdBy: requesterId,
+                                guestCount,
+                            }
+                        });
+                    } else {
+                        await tx.selections.create({
+                            data: {
+                                dayMealId,
+                                selectionType,
+                                createdBy: requesterId,
+                                createdFor: selection.createdFor,
+                                guestCount,
+                                weekMenuScheduleId: selection.weekMenuScheduleId,
+                                menuDayId: selection.menuDayId,
+                                selectionStatus: "SUBMITTED"
+                            }
+                        });
+                    }
+                    if (selection.createdFor !== requesterId) {
+                        updatedUsersToNotify.add(selection.createdFor);
+                    }
+                    updatedCount++;
+                } else {
+                    // Guest selection (createdFor is null)
+                    await tx.selections.create({
+                        data: {
+                            dayMealId,
+                            selectionType,
+                            createdBy: requesterId,
+                            createdFor: null,
+                            guestCount,
+                            weekMenuScheduleId: selection.weekMenuScheduleId,
+                            menuDayId: selection.menuDayId,
+                            selectionStatus: "SUBMITTED"
+                        }
+                    });
+                    updatedCount++;
+                }
             }
 
-            return { updated: selections.length, existingSelections };
+            const recipients = updatedUsersToNotify.size > 0
+                ? await tx.users.findMany({
+                    where: { id: { in: Array.from(updatedUsersToNotify) } },
+                    select: { name: true, email: true, referenceEmail: true }
+                })
+                : [];
+
+            return { updated: updatedCount, recipients };
         });
 
-        for (const selection of result.existingSelections) {
-            const recipient = selection.createdForUser;
-            if (!recipient) continue;
+        for (const recipient of result.recipients) {
             void mailService.sendSelectionNotification(
                 recipient.email ?? recipient.referenceEmail,
                 recipient.name,

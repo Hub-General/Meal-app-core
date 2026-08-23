@@ -396,11 +396,14 @@ export const holidayService = {
         const rawPublicHolidays = await holidayService.fetchLivePublicHolidays(year);
         const overrides = await holidayService.getOverrides(year);
 
-        return rawPublicHolidays.map((holiday) => {
+        const matchedOverrideOriginalDates = new Set<string>();
+
+        const resolved: HolidayItem[] = rawPublicHolidays.map((holiday) => {
             const override = overrides.find(o => o.originalDate === holiday.date);
             if (!override) {
                 return holiday;
             }
+            matchedOverrideOriginalDates.add(override.originalDate);
 
             const effectiveDate = override.adjustedDate || holiday.date;
             const effectiveDay = override.adjustedDayName || holiday.dayName;
@@ -416,6 +419,30 @@ export const holidayService = {
                 overrideId: override.id,
             };
         });
+
+        // Also include any standalone admin overrides for that year that weren't in raw public holidays
+        for (const override of overrides) {
+            if (!matchedOverrideOriginalDates.has(override.originalDate)) {
+                const effectiveDate = override.adjustedDate || override.originalDate;
+                const d = new Date(`${effectiveDate}T00:00:00.000Z`);
+                const dayName = override.adjustedDayName || dayNames[d.getUTCDay()]!;
+                resolved.push({
+                    id: override.id,
+                    title: override.title,
+                    description: override.notes || `Admin Override Holiday (${override.title})`,
+                    date: effectiveDate,
+                    dayName,
+                    isCompany: false,
+                    source: "EXTERNAL_API",
+                    isOverridden: true,
+                    isIgnored: override.isIgnored,
+                    adjustedDate: override.adjustedDate,
+                    overrideId: override.id,
+                });
+            }
+        }
+
+        return resolved;
     },
 
     /**

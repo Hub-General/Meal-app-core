@@ -168,7 +168,33 @@ export const selectionHelper = {
         const foodMaps = new Map<number, DayMealSelections>()
 
         for (const selection of selections) {
-            if (!selection.dayMeal) continue;
+            if (!selection.dayMeal) {
+                const dummyId = selection.selectionType === "UNAVAILABLE" ? -1 : -2;
+                const typeName = selection.selectionType === "UNAVAILABLE" ? "Unavailable" : "Holiday";
+                let nonMeal = foodMaps.get(dummyId);
+                if (!nonMeal) {
+                    nonMeal = {
+                        id: dummyId,
+                        foodCode: selection.selectionType ?? "HOLIDAY",
+                        name: typeName,
+                        imagePath: "",
+                        calories: 0,
+                        count: 0,
+                        users: []
+                    };
+                    foodMaps.set(dummyId, nonMeal);
+                }
+                nonMeal.count += selection.guestCount;
+                const nonMealUserName = selection.createdForUser?.name 
+                    ?? (selection.createdByUser?.name ? `${selection.createdByUser.name} (Guest)` : "Guest");
+                nonMeal.users.push({
+                    id: selection.createdForUser?.id ?? selection.createdByUser?.id ?? null,
+                    name: nonMealUserName,
+                    quantity: selection.guestCount
+                });
+                continue;
+            }
+
             const mealId = selection.dayMeal.id;
 
             let meal = foodMaps.get(mealId)
@@ -189,9 +215,11 @@ export const selectionHelper = {
 
             meal.count += selection.guestCount;
 
+            const userName = selection.createdForUser?.name 
+                ?? (selection.createdByUser?.name ? `${selection.createdByUser.name} (Guest)` : "Guest");
             meal.users.push({
-                id: selection.createdForUser?.id ?? null,
-                name: selection.createdForUser?.name ?? "Guest",
+                id: selection.createdForUser?.id ?? selection.createdByUser?.id ?? null,
+                name: userName,
                 quantity: selection.guestCount
             })
         }

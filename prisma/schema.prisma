@@ -122,6 +122,12 @@ enum SelectionStatus {
   SUBMITTED
 }
 
+enum SelectionType {
+  MEAL
+  UNAVAILABLE
+  HOLIDAY
+}
+
 enum FoodGroup {
   SUPERGROUP
   BASE
@@ -229,8 +235,8 @@ model Selections{
   menuDayId Int
   menuDay MenuDays @relation(fields: [menuDayId], references: [id])
 
-  dayMealId Int
-  dayMeal MenuDayMeals @relation(fields: [dayMealId], references: [id])
+  dayMealId Int?
+  dayMeal MenuDayMeals? @relation(fields: [dayMealId], references: [id])
 
   weekMenuScheduleId Int
   weekMenuSchedule WeekMenuSchedule @relation(fields: [weekMenuScheduleId], references: [id])
@@ -245,6 +251,7 @@ model Selections{
   updatedAt DateTime @updatedAt
 
   selectionStatus SelectionStatus
+  selectionType SelectionType @default(MEAL)
 
   @@unique([createdFor, weekMenuScheduleId, menuDayId])
 
