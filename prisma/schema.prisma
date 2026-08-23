@@ -147,8 +147,6 @@ enum TokenType {
   PASSWORD_RESET
 }
 
-
-
 model Menus{ 
   id Int @id @db.SmallInt @default(autoincrement())
   title String
