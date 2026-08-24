@@ -10,10 +10,10 @@ export const createMenuRequestSchema = z.object({
 });
 
 export const updateMenuRequestSchema = z.object({
-   title: z.string().min(1).max(100),
+   title: z.string().min(1).max(100).optional(),
    description: z.string().optional(),
    isActive: z.boolean().optional(),
-   order: z.int().optional()
+   order: z.number().int().optional()
 });
 
 export const createMenuDayMealsRequestSchema = z.object({

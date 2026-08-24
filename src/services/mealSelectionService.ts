@@ -797,7 +797,15 @@ export const mealSelectionService = {
         const page = filter.page || 1;
         const limit = filter.limit || 20;
         const order = filter.order || "desc";
-        const where = buildWeekMenuScheduleFilter(filter);
+        const baseWhere = buildWeekMenuScheduleFilter(filter);
+        const where = {
+            ...baseWhere,
+            selections: {
+                some: {
+                    createdFor: userId
+                }
+            }
+        };
 
         const totalWeeks = await prisma.weekMenuSchedule.count({ where });
         const totalPages = Math.ceil(totalWeeks / limit) || 1;

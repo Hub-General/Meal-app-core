@@ -9,6 +9,80 @@ export async function syncDigiHRUsers() {
     return "DigiHR users synced successfully";
 }
 
+export async function getNextCycleMenu(
+    activeMenus: Array<{ id: number; order: number | null }>,
+    targetWeek: { week: number; year: number }
+) {
+    if (activeMenus.length === 0) {
+        throw new Error("No active menus available to schedule");
+    }
+
+    if (activeMenus.length === 1) {
+        return activeMenus[0]!;
+    }
+
+    const targetWeekVal = targetWeek.year * 100 + targetWeek.week;
+
+    // Fetch prior week menu schedules to determine current cycle state
+    const priorSchedules = await prisma.weekMenuSchedule.findMany({
+        orderBy: [{ year: "desc" }, { week: "desc" }],
+        take: activeMenus.length * 2,
+        select: {
+            id: true,
+            week: true,
+            year: true,
+            menuId: true,
+        },
+    });
+
+    const validPrior = priorSchedules.filter(
+        (s) => s.year * 100 + s.week < targetWeekVal
+    );
+
+    const activeMenuMap = new Map(
+        activeMenus.map((m, idx) => [m.id, { menu: m, index: idx }])
+    );
+
+    // Track recently used active menus in continuous history without repeats
+    const recentUsedMenuIds: number[] = [];
+    for (const s of validPrior) {
+        if (recentUsedMenuIds.length >= activeMenus.length) break;
+        if (activeMenuMap.has(s.menuId)) {
+            if (recentUsedMenuIds.includes(s.menuId)) {
+                // Cycle boundary reached
+                break;
+            }
+            recentUsedMenuIds.push(s.menuId);
+        }
+    }
+
+    // Remaining unused menus in the current cycle
+    const unusedMenus = activeMenus.filter((m) => !recentUsedMenuIds.includes(m.id));
+
+    if (unusedMenus.length === 0) {
+        // All active menus have been exhausted in the current cycle!
+        // Start a brand new cycle from the first menu in the sequence
+        const lastScheduledId = validPrior.length > 0 ? validPrior[0]!.menuId : null;
+        if (lastScheduledId === activeMenus[0]!.id && activeMenus.length > 1) {
+            return activeMenus[1]!;
+        }
+        return activeMenus[0]!;
+    }
+
+    const lastScheduledId = validPrior.length > 0 ? validPrior[0]!.menuId : null;
+    const lastScheduledInfo = lastScheduledId ? activeMenuMap.get(lastScheduledId) : null;
+
+    if (lastScheduledInfo) {
+        const nextInSequence = unusedMenus.find((m) => {
+            const info = activeMenuMap.get(m.id);
+            return info && info.index > lastScheduledInfo.index;
+        });
+        return nextInSequence || unusedMenus[0]!;
+    }
+
+    return unusedMenus[0]!;
+}
+
 export async function scheduleWeeklyMenu(targetWeek: { week: number; year: number }) {
     const activeMenus = await prisma.menus.findMany({
         where: { isActive: true },
@@ -20,7 +94,7 @@ export async function scheduleWeeklyMenu(targetWeek: { week: number; year: numbe
         throw new Error("No active menus available to schedule");
     }
 
-    const assignedMenu = activeMenus[targetWeek.week % activeMenus.length];
+    const assignedMenu = await getNextCycleMenu(activeMenus, targetWeek);
 
     const existingSchedule = await weekMenuScheduleService.getWeekMenuScheduleByWeekAndYear({
         week: targetWeek.week,
@@ -32,7 +106,7 @@ export async function scheduleWeeklyMenu(targetWeek: { week: number; year: numbe
     }
 
     await weekMenuScheduleService.createWeekMenuSchedule({
-        menuId: assignedMenu!.id,
+        menuId: assignedMenu.id,
         week: targetWeek.week,
         year: targetWeek.year,
     });
