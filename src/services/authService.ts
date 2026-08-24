@@ -1,10 +1,10 @@
-import argon2, { verify } from "argon2";
+import argon2 from "argon2";
 import prisma from "../prisma/client";
-import crypto from "crypto"
 import jwt from "jsonwebtoken"
 import { generateAccessToken, generateRefreshToken } from "../utility/generateAccessToken";
 import { mailService } from "./emailService";
 import { LoginRequest, RegisterRequest, ResetPasswordRequest, VerifyResetPasswordOTPSchema } from "../schema/auth";
+import { generateOtp } from "../helpers/otpGenerator";
 
 export const authService = {
     register: async (registerRequest: RegisterRequest) => { 
@@ -66,7 +66,7 @@ export const authService = {
         }
 
         
-        const token = crypto.randomBytes(4).toString("hex").toUpperCase();
+        const token = generateOtp(6)
         const tokenHash = await argon2.hash(token);
 
         await prisma.userTokens.upsert({
@@ -78,14 +78,14 @@ export const authService = {
         },
         update: {
             token: tokenHash,
-            expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+            expiresAt: new Date(Date.now() + 1 * 60 * 60 * 1000),
             usedAt: null
         },
         create: {
             userId: existing.id,
             type: "USER_ONBOARDING",
             token: tokenHash,
-            expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000)
+            expiresAt: new Date(Date.now() + 1 * 60 * 60 * 1000)
         }
         });
 
@@ -118,7 +118,7 @@ export const authService = {
 
             const workItems = await Promise.all(
                 users.map(async user => {
-                    const token = crypto.randomBytes(4).toString('hex').toUpperCase();
+                    const token = generateOtp(6)
                     const tokenHash = await argon2.hash(token);
                     return { user, token, tokenHash };
                 })
@@ -135,14 +135,14 @@ export const authService = {
                 },
                 update: {
                     token: item.tokenHash,
-                    expiresAt: new Date(Date.now() + 8 * 60 * 60 * 1000),
+                    expiresAt: new Date(Date.now() + 1 * 60 * 60 * 1000),
                     usedAt: null,
                 },
                 create: {
                     userId: item.user.id,
                     type: 'USER_ONBOARDING',
                     token: item.tokenHash,
-                    expiresAt: new Date(Date.now() + 8 * 60 * 60 * 1000),
+                    expiresAt: new Date(Date.now() + 1 * 60 * 60 * 1000),
                 },
                 })
             )
@@ -166,7 +166,7 @@ export const authService = {
         const activeUsers = await prisma.users.findMany({where:{status: "ACTIVE", isActivated: false}, select:{referenceEmail:true, name:true, id: true}})
         const workItems = await Promise.all(
                 activeUsers.map(async user => {
-                    const token = crypto.randomBytes(4).toString('hex').toUpperCase();
+                    const token = generateOtp(6)
                     const tokenHash = await argon2.hash(token);
                     return { user, token, tokenHash };
                 })
@@ -183,14 +183,14 @@ export const authService = {
                 },
                 update: {
                     token: item.tokenHash,
-                    expiresAt: new Date(Date.now() + 8 * 60 * 60 * 1000),
+                    expiresAt: new Date(Date.now() + 1 * 60 * 60 * 1000),
                     usedAt: null,
                 },
                 create: {
                     userId: item.user.id,
                     type: 'USER_ONBOARDING',
                     token: item.tokenHash,
-                    expiresAt: new Date(Date.now() + 8 * 60 * 60 * 1000),
+                    expiresAt: new Date(Date.now() + 1 * 60 * 60 * 1000),
                 },
                 })
             )
@@ -217,7 +217,7 @@ export const authService = {
             throw new Error("Invalid Email or User is Inactive")
         }
         
-        const token = crypto.randomBytes(4).toString("hex").toUpperCase();
+        const token = generateOtp(6)
         const tokenHash = await argon2.hash(token);
 
         await prisma.userTokens.upsert({
@@ -229,14 +229,14 @@ export const authService = {
         },
         update: {
             token: tokenHash,
-            expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+            expiresAt: new Date(Date.now() + 2 * 60 * 60 * 1000),
             usedAt: null
         },
         create: {
             userId: user.id,
             type: "PASSWORD_RESET",
             token: tokenHash,
-            expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000)
+            expiresAt: new Date(Date.now() + 2 * 60 * 60 * 1000)
         }
         });
         mailService.sendPasswordResetMail(email, user.name, token)
