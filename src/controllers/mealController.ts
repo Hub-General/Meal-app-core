@@ -69,6 +69,19 @@ export const mealController = {
             })
         }
     },
+    getMealDetailsByIdController: async(req: Request, res: Response)=>{
+        try{
+            const foodCode = req.params.foodCode as string;
+            const mealDetails = await mealService.getMealDetails(foodCode);
+            res.status(200).json({message: "Meal details retrieved successfully", mealDetails});
+        } catch(error: any) {
+            console.error("Failed to retrieve meal details by ID:", error);
+            res.status(500).json({
+                message: "Failed to retrieve meal details",
+                error: error?.message || String(error),
+            })
+        }
+    },
     getMealByIdController: async(req: Request, res: Response)=>{
         try{
             const meal = await mealService.getMealById(Number(req.params.id));

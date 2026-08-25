@@ -9,22 +9,28 @@ export const synthesizeMeals = async (foodCode: string) => {
     const proteinCode = parts[2];
     const prepCode = parts[3];
 
-    const conditions = [];
-    if (supergroupCode) conditions.push({ foodCode: supergroupCode, foodGroup: FoodGroup.SUPERGROUP });
-    if (baseCode) conditions.push({ foodCode: baseCode, foodGroup: FoodGroup.BASE });
-    if (proteinCode) conditions.push({ foodCode: proteinCode, foodGroup: FoodGroup.PROTEIN });
-    if (prepCode) conditions.push({ foodCode: prepCode, foodGroup: FoodGroup.PREP });
+    const conditions: any[] = [];
+    
+    if (supergroupCode) {
+        supergroupCode.split("|").forEach(code => conditions.push({ foodCode: code, foodGroup: FoodGroup.SUPERGROUP }));
+    }
+    if (baseCode) {
+        baseCode.split("|").forEach(code => conditions.push({ foodCode: code, foodGroup: FoodGroup.BASE }));
+    }
+    if (proteinCode) {
+        proteinCode.split("|").forEach(code => conditions.push({ foodCode: code, foodGroup: FoodGroup.PROTEIN }));
+    }
+    if (prepCode) {
+        prepCode.split("|").forEach(code => conditions.push({ foodCode: code, foodGroup: FoodGroup.PREP }));
+    }
 
-    let ingredients: { id: number; name: string; foodCode: string; foodGroup: string }[] = [];
+    let ingredients: { name: string; foodGroup: string }[] = [];
     if (conditions.length > 0) {
         ingredients = await prisma.foodLibrary.findMany({
             where: { OR: conditions },
-            select: { id: true, name: true, foodCode: true, foodGroup: true },
+            select: { name: true, foodGroup: true },
         });
     }
 
-    return {
-        ingredients: ingredients.map(i => i.name),
-        ingredientDetails: ingredients,
-    };
+    return { ingredients };
 };
