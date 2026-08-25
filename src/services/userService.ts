@@ -2,7 +2,7 @@
 import { Status } from "../generated/prisma";
 import { SafeUser } from "../selection/selectionShapes";
 import { prisma } from "../prisma/client";
-import { RegisterUserDigiHRRequest, RegisterUserRequest, SyncUserDataRequest, UserLeaveRequest } from "../schema/user";
+import { RegisterUserDigiHRRequest, RegisterUserRequest, SyncUserDataRequest, UserLeaveRequest, UserProfileUpdateRequest } from "../schema/user";
 
 
 
@@ -16,7 +16,7 @@ export const userService = {
     getUserById: async(userId: number)=>{
         return await prisma.users.findUnique({where: {id: userId}, select: SafeUser});
     },
-    updateUserDetails: async(userId: number, userData: RegisterUserRequest)=>{
+    updateUserDetails: async(userId: number, userData: UserProfileUpdateRequest)=>{
         return await prisma.users.update({where: {id: userId}, data: userData});
     },
     getUsersByRole: async(roleId: number)=>{
