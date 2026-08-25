@@ -172,15 +172,16 @@ export const mealSelectionService = {
 
     getWeeklySelections: async(date: Date)=>{
         const weekInfo = getISOWeekInfo(date);
+        const weekHolidays = await holidayService.getHolidaysForWeek(weekInfo.week, weekInfo.year);
         const weekMenuSchedule = await weekMenuScheduleService.getWeekMenuScheduleByWeekAndYear({week: weekInfo.week, year: weekInfo.year});
-        if(!weekMenuSchedule) return [];
+        if(!weekMenuSchedule) return selectionHelper.formatSelectionResponse([], weekHolidays);
         const response =  await prisma.selections.findMany({
             where: {
                 weekMenuScheduleId: weekMenuSchedule.id
             },
             select: selectionSelectShape
         });
-        return selectionHelper.formatSelectionResponse(response)
+        return selectionHelper.formatSelectionResponse(response, weekHolidays);
     },
 
     getWeeklySelectionsByUser: async(date: Date, createdFor: number)=>{
@@ -765,9 +766,10 @@ export const mealSelectionService = {
             selectionsByScheduleId.set(selection.weekMenuScheduleId, list);
         }
 
-        const data = schedules.map(schedule => {
+        const data = await Promise.all(schedules.map(async schedule => {
             const weekSelections = selectionsByScheduleId.get(schedule.id) ?? [];
-            const formatted = selectionHelper.formatSelectionResponse(weekSelections);
+            const weekHolidays = await holidayService.getHolidaysForWeek(schedule.week, schedule.year);
+            const formatted = selectionHelper.formatSelectionResponse(weekSelections, weekHolidays);
             const totalResponses = weekSelections.reduce((sum, sel) => sum + (sel.guestCount || 1), 0);
             return {
                 weekMenuScheduleId: schedule.id,
@@ -778,7 +780,7 @@ export const mealSelectionService = {
                 totalResponses,
                 selections: formatted
             };
-        });
+        }));
 
         return {
             pagination: {

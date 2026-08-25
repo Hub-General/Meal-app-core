@@ -1,5 +1,6 @@
 import { prisma } from "../prisma/client";
 import { DayMealSelections, MealSelection, WeekMealSelectionResponse } from "../schema/mealSelection";
+import { HolidayItem } from "../schema/holiday";
 import { Preset, PresetItem } from "../schema/preset";
 import { weekMenuScheduleService } from "../services/weekMenuScheduleService";
 import { getISOWeekInfo } from "./dateFunctions";
@@ -41,16 +42,46 @@ export const selectionHelper = {
         );
     },
 
-    formatSelectionResponse: (selections: MealSelection[]) => {
+    formatSelectionResponse: (selections: MealSelection[], holidays: HolidayItem[] = []) => {
         const response: WeekMealSelectionResponse = {};
+        const defaultDays = ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY"];
         const mealMaps = new Map<string, Map<number, DayMealSelections>>();
+
+        // Pre-initialize response for default weekdays and populate holiday info
+        for (const day of defaultDays) {
+            const holiday = holidays.find(h => h.dayName?.toUpperCase() === day);
+            response[day] = {
+                total: 0,
+                isHoliday: Boolean(holiday),
+                holidayTitle: holiday ? holiday.title : null,
+                holiday: holiday ? {
+                    id: holiday.id,
+                    title: holiday.title,
+                    description: holiday.description,
+                    isCompany: holiday.isCompany,
+                    source: holiday.source
+                } : null,
+                response: []
+            };
+            mealMaps.set(day, new Map());
+        }
 
         for (const selection of selections) {
             const day = selection.menuDay.day;
 
             if (!response[day]) {
+                const holiday = holidays.find(h => h.dayName?.toUpperCase() === day.toUpperCase());
                 response[day] = {
                     total: 0,
+                    isHoliday: Boolean(holiday),
+                    holidayTitle: holiday ? holiday.title : null,
+                    holiday: holiday ? {
+                        id: holiday.id,
+                        title: holiday.title,
+                        description: holiday.description,
+                        isCompany: holiday.isCompany,
+                        source: holiday.source
+                    } : null,
                     response: []
                 };
 
