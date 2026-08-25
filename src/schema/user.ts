@@ -1,5 +1,5 @@
 import { Status } from "../generated/prisma";
-import z from "zod";
+import z, { email } from "zod";
 
 //Export zod schemas
 export const GetUsersQueryRequestSchema = z.object({
@@ -10,6 +10,10 @@ export const userRegisterRequestSchema = z.object({
     password: z.string().min(6).max(100),
     name: z.string().min(2).max(100)
 });
+
+export const userUpdateSchema = z.object({
+    email: z.email().optional(),
+})
 
 export const userLeaveRequestSchema = z.object({
     userId: z.number(),
@@ -46,6 +50,7 @@ export interface User {
     roleId?: number;
 }
 
+export type UserProfileUpdateRequest = z.infer<typeof userUpdateSchema>;
 export type RegisterUserRequest = z.infer<typeof userRegisterRequestSchema>;
 export type UserLeaveRequest = z.infer<typeof userLeaveRequestSchema>;
 export type SyncUserDataRequest = z.infer<typeof syncUserDataRequestSchema>;
