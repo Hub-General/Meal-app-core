@@ -1,6 +1,7 @@
 import { CreateMealRequest, UpdateMealRequest } from "../schema/meal";
 import prisma from "../prisma/client";
 import { userPreferenceService } from "./userPreferenceService";
+import { synthesizeMeals } from "../helpers/mealSynthesizer";
 
 export const mealService = {
 
@@ -22,6 +23,20 @@ export const mealService = {
     },
     getMealByFoodCode: async(foodCode: string)=>{
         return await prisma.meals.findUnique({where:{foodCode:foodCode}})
+    },
+    getMealDetails: async(foodCode: string)=>{
+            const response =  await prisma.meals.findUnique({
+                where:{foodCode: foodCode},
+                select:{name:true, description:true, imagePath:true, calories:true, }
+            });
+            if (!response) throw new Error("No meal exists with this Code");
+            
+            const ingredients = await synthesizeMeals(foodCode);
+
+            return {
+                ...response,
+                ...ingredients,
+            };
     },
     updateMeal : async(mealId: number, mealData: UpdateMealRequest)=>{
         return await prisma.meals.update({where: {id: mealId}, data: mealData});
