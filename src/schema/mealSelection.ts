@@ -161,6 +161,9 @@ export interface DayMealSelections {
     users:{
         id: number | null
         name:string
+        createdForName: string | null
+        createdByName: string | null
+        isGuest: boolean
         quantity: number
     }[]
 }

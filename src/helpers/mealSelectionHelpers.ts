@@ -82,6 +82,9 @@ export const selectionHelper = {
                 nonMeal.users.push({
                     id: selection.createdForUser?.id ?? selection.createdByUser?.id ?? null,
                     name: nonMealUserName,
+                    createdForName: selection.createdForUser?.name ?? null,
+                    createdByName: selection.createdByUser?.name ?? null,
+                    isGuest: selection.createdForUser == null,
                     quantity: selection.guestCount
                 });
                 response[day].total += selection.guestCount;
@@ -112,6 +115,9 @@ export const selectionHelper = {
             meal.users.push({
                 id: selection.createdForUser?.id ?? selection.createdByUser?.id ?? null,
                 name: userName,
+                createdForName: selection.createdForUser?.name ?? null,
+                createdByName: selection.createdByUser?.name ?? null,
+                isGuest: selection.createdForUser == null,
                 quantity: selection.guestCount
             });
 
@@ -190,6 +196,9 @@ export const selectionHelper = {
                 nonMeal.users.push({
                     id: selection.createdForUser?.id ?? selection.createdByUser?.id ?? null,
                     name: nonMealUserName,
+                    createdForName: selection.createdForUser?.name ?? null,
+                    createdByName: selection.createdByUser?.name ?? null,
+                    isGuest: selection.createdForUser == null,
                     quantity: selection.guestCount
                 });
                 continue;
@@ -220,6 +229,9 @@ export const selectionHelper = {
             meal.users.push({
                 id: selection.createdForUser?.id ?? selection.createdByUser?.id ?? null,
                 name: userName,
+                createdForName: selection.createdForUser?.name ?? null,
+                createdByName: selection.createdByUser?.name ?? null,
+                isGuest: selection.createdForUser == null,
                 quantity: selection.guestCount
             })
         }
