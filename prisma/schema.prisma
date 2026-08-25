@@ -142,6 +142,11 @@ enum WeekMenuStatus {
   CLOSED
 }
 
+enum HolidayType {
+  COMPANY
+  OVERRIDE
+}
+
 enum TokenType {
   USER_ONBOARDING
   PASSWORD_RESET
@@ -315,31 +320,25 @@ model TasteProfile {
   @@map("taste_profiles")
 }
 
-model CompanyHolidays {
-  id          Int       @id @default(autoincrement())
-  title       String
-  description String?
-  year        Int
-  startDate   DateTime
-  endDate     DateTime?
-  isCompany   Boolean   @default(true)
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-
-  @@index([year])
-}
-
-model HolidayOverrides {
-  id              Int       @id @default(autoincrement())
-  originalDate    String    @unique
+model Holidays {
+  id              Int         @id @default(autoincrement())
+  type            HolidayType
   title           String
+  description     String?
   year            Int
-  isIgnored       Boolean   @default(false)
+  startDate       String      // YYYY-MM-DD
+  endDate         String?     // YYYY-MM-DD, multi-day range for COMPANY type
+  notes           String?
+
+  // OVERRIDE-only fields (null for COMPANY rows)
+  originalDate    String?     @unique // The statutory date being patched
+  isIgnored       Boolean     @default(false)
   adjustedDate    String?
   adjustedDayName String?
-  notes           String?
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
 
   @@index([year])
+  @@index([year, type])
 }

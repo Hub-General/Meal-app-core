@@ -1,7 +1,7 @@
 import {
     CreateHolidayRequest,
     HolidayItem,
-    HolidayOverrideItem,
+    HolidayRecord,
     HolidayOverrideRequest,
     UpdateHolidayRequest,
     AllHolidaysResponse,
@@ -336,18 +336,18 @@ export const holidayService = {
      * Admin Override Management:
      * Retrieves all admin holiday overrides (ignoring a public holiday, adjusting date, etc.)
      */
-    getOverrides: async (year?: number): Promise<HolidayOverrideItem[]> => {
-        const records = await prisma.holidayOverrides.findMany({
-            where: year ? { year } : undefined,
+    getOverrides: async (year?: number): Promise<HolidayRecord[]> => {
+        const records = await prisma.holidays.findMany({
+            where: { type: "OVERRIDE", ...(year ? { year } : {}) },
             orderBy: { originalDate: "asc" },
         });
-        return records;
+        return records as HolidayRecord[];
     },
 
     /**
      * Admin Override: Creates or updates an override for a public holiday
      */
-    createOrUpdateOverride: async (data: HolidayOverrideRequest): Promise<HolidayOverrideItem> => {
+    createOrUpdateOverride: async (data: HolidayOverrideRequest): Promise<HolidayRecord> => {
         const year = data.year || new Date(data.originalDate).getFullYear();
         let dayName: string | null = null;
         if (data.adjustedDate) {
@@ -355,10 +355,12 @@ export const holidayService = {
             dayName = dayNames[adj.getUTCDay()] ?? null;
         }
 
-        const override = await prisma.holidayOverrides.upsert({
+        const override = await prisma.holidays.upsert({
             where: { originalDate: data.originalDate },
             create: {
+                type: "OVERRIDE",
                 originalDate: data.originalDate,
+                startDate: data.originalDate,
                 title: data.title,
                 year,
                 isIgnored: data.isIgnored ?? false,
@@ -376,14 +378,14 @@ export const holidayService = {
             },
         });
 
-        return override;
+        return override as HolidayRecord;
     },
 
     /**
      * Admin Override: Removes an override (reverting public holiday to default)
      */
     deleteOverride: async (id: number): Promise<{ message: string }> => {
-        await prisma.holidayOverrides.delete({
+        await prisma.holidays.delete({
             where: { id },
         });
         return { message: "Holiday override removed successfully" };
@@ -451,16 +453,19 @@ export const holidayService = {
     getCompanyHolidays: async (year?: number): Promise<HolidayItem[]> => {
         const results: HolidayItem[] = [];
 
-        const records = await prisma.companyHolidays.findMany({
-            where: year ? { year } : undefined,
+        const records = await prisma.holidays.findMany({
+            where: { type: "COMPANY", ...(year ? { year } : {}) },
             orderBy: { startDate: "asc" },
         });
 
         for (const item of records) {
-            const start = new Date(item.startDate);
-            const end = item.endDate ? new Date(item.endDate) : start;
+            // Expand date range for multi-day company holidays
+            const startParts = item.startDate.split("-").map(Number);
+            const start = new Date(Date.UTC(startParts[0]!, startParts[1]! - 1, startParts[2]!));
+            const endDateStr = item.endDate ?? item.startDate;
+            const endParts = endDateStr.split("-").map(Number);
+            const end = new Date(Date.UTC(endParts[0]!, endParts[1]! - 1, endParts[2]!));
 
-            // Expand range of dates if multi-day
             const current = new Date(start);
             while (current <= end) {
                 const dateStr = current.toISOString().split("T")[0]!;
@@ -469,9 +474,9 @@ export const holidayService = {
                     title: item.title,
                     description: item.description,
                     date: dateStr,
-                    endDate: item.endDate ? item.endDate.toISOString().split("T")[0] : null,
+                    endDate: item.endDate ?? null,
                     dayName: dayNames[current.getUTCDay()]!,
-                    isCompany: item.isCompany,
+                    isCompany: true,
                     source: "COMPANY",
                 });
                 current.setUTCDate(current.getUTCDate() + 1);
@@ -530,18 +535,21 @@ export const holidayService = {
      * Admin CRUD: Create a new company holiday
      */
     createCompanyHoliday: async (data: CreateHolidayRequest) => {
-        const start = new Date(data.startDate);
-        const end = data.endDate ? new Date(data.endDate) : null;
-        const year = data.year || start.getUTCFullYear();
+        const startDate = typeof data.startDate === "string" ? data.startDate : data.startDate.toISOString().split("T")[0]!;
+        const endDate = data.endDate
+            ? (typeof data.endDate === "string" ? data.endDate : (data.endDate as Date).toISOString().split("T")[0])
+            : null;
+        const year = data.year || parseInt(startDate.substring(0, 4), 10);
 
-        const record = await prisma.companyHolidays.create({
+        const record = await prisma.holidays.create({
             data: {
+                type: "COMPANY",
                 title: data.title,
                 description: data.description,
                 year,
-                startDate: start,
-                endDate: end,
-                isCompany: data.isCompany ?? true,
+                startDate,
+                endDate,
+                notes: data.notes ?? null,
             },
         });
         return record;
@@ -554,26 +562,29 @@ export const holidayService = {
         const updateData: {
             title?: string;
             description?: string;
-            startDate?: Date;
-            endDate?: Date | null;
+            startDate?: string;
+            endDate?: string | null;
             year?: number;
-            isCompany?: boolean;
+            notes?: string | null;
         } = {};
 
         if (data.title !== undefined) updateData.title = data.title;
         if (data.description !== undefined) updateData.description = data.description;
+        if (data.notes !== undefined) updateData.notes = data.notes;
         if (data.startDate !== undefined) {
-            updateData.startDate = new Date(data.startDate);
-            updateData.year = data.year || updateData.startDate.getUTCFullYear();
+            const startDate = typeof data.startDate === "string" ? data.startDate : (data.startDate as Date).toISOString().split("T")[0]!;
+            updateData.startDate = startDate;
+            updateData.year = data.year || parseInt(startDate.substring(0, 4), 10);
         } else if (data.year !== undefined) {
             updateData.year = data.year;
         }
         if (data.endDate !== undefined) {
-            updateData.endDate = data.endDate ? new Date(data.endDate) : null;
+            updateData.endDate = data.endDate
+                ? (typeof data.endDate === "string" ? data.endDate : (data.endDate as Date).toISOString().split("T")[0])
+                : null;
         }
-        if (data.isCompany !== undefined) updateData.isCompany = data.isCompany;
 
-        const record = await prisma.companyHolidays.update({
+        const record = await prisma.holidays.update({
             where: { id },
             data: updateData,
         });
@@ -585,7 +596,7 @@ export const holidayService = {
      * Admin CRUD: Delete a company holiday
      */
     deleteCompanyHoliday: async (id: number) => {
-        await prisma.companyHolidays.delete({
+        await prisma.holidays.delete({
             where: { id },
         });
         return { id };
