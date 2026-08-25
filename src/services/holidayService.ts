@@ -405,7 +405,7 @@ export const holidayService = {
             if (!override) {
                 return holiday;
             }
-            matchedOverrideOriginalDates.add(override.originalDate);
+            matchedOverrideOriginalDates.add(override.originalDate!);
 
             const effectiveDate = override.adjustedDate || holiday.date;
             const effectiveDay = override.adjustedDayName || holiday.dayName;
@@ -424,8 +424,8 @@ export const holidayService = {
 
         // Also include any standalone admin overrides for that year that weren't in raw public holidays
         for (const override of overrides) {
-            if (!matchedOverrideOriginalDates.has(override.originalDate)) {
-                const effectiveDate = override.adjustedDate || override.originalDate;
+            if (!matchedOverrideOriginalDates.has(override.originalDate!)) {
+                const effectiveDate = override.adjustedDate || override.originalDate!;
                 const d = new Date(`${effectiveDate}T00:00:00.000Z`);
                 const dayName = override.adjustedDayName || dayNames[d.getUTCDay()]!;
                 resolved.push({
@@ -535,10 +535,8 @@ export const holidayService = {
      * Admin CRUD: Create a new company holiday
      */
     createCompanyHoliday: async (data: CreateHolidayRequest) => {
-        const startDate = typeof data.startDate === "string" ? data.startDate : data.startDate.toISOString().split("T")[0]!;
-        const endDate = data.endDate
-            ? (typeof data.endDate === "string" ? data.endDate : (data.endDate as Date).toISOString().split("T")[0])
-            : null;
+        const startDate = data.startDate;
+        const endDate = data.endDate ?? null;
         const year = data.year || parseInt(startDate.substring(0, 4), 10);
 
         const record = await prisma.holidays.create({
@@ -572,16 +570,13 @@ export const holidayService = {
         if (data.description !== undefined) updateData.description = data.description;
         if (data.notes !== undefined) updateData.notes = data.notes;
         if (data.startDate !== undefined) {
-            const startDate = typeof data.startDate === "string" ? data.startDate : (data.startDate as Date).toISOString().split("T")[0]!;
-            updateData.startDate = startDate;
-            updateData.year = data.year || parseInt(startDate.substring(0, 4), 10);
+            updateData.startDate = data.startDate;
+            updateData.year = data.year || parseInt(data.startDate.substring(0, 4), 10);
         } else if (data.year !== undefined) {
             updateData.year = data.year;
         }
         if (data.endDate !== undefined) {
-            updateData.endDate = data.endDate
-                ? (typeof data.endDate === "string" ? data.endDate : (data.endDate as Date).toISOString().split("T")[0])
-                : null;
+            updateData.endDate = data.endDate ?? null;
         }
 
         const record = await prisma.holidays.update({
