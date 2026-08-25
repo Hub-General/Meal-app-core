@@ -144,11 +144,24 @@ export interface MealSelection {
     selectionType?: SelectionType;
 }
 
+export interface HolidayInfo {
+    id?: number;
+    title: string;
+    description?: string | null;
+    isCompany?: boolean;
+    source?: string;
+}
+
+export interface DayMealSelectionReport {
+    total: number;
+    isHoliday?: boolean;
+    holidayTitle?: string | null;
+    holiday?: HolidayInfo | null;
+    response: DayMealSelections[];
+}
+
 export interface WeekMealSelectionResponse {
-    [day: string]: {
-        total: number;
-        response: DayMealSelections[];
-    };
+    [day: string]: DayMealSelectionReport;
 }
 
 export interface DayMealSelections {
