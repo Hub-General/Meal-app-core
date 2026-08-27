@@ -145,7 +145,7 @@ export const authController = {
             await authService.resetPassword(parsed.data)
             res.status(200).json({message:"Successfully reset Password"})
         }catch(error){
-            res.status(500).json({message:"Failed to reset Password", error:`${error}`})
+            res.status(500).json({message:"Failed to reset Password", error})
         }
     },
     syncUserController: async(req: Request, res: Response)=>{

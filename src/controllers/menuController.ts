@@ -15,7 +15,7 @@ export const menuController = {
             const newMenu = await menuServices.createMenu(parsed.data);
             res.status(201).json(newMenu);
         } catch (error) {
-            res.status(500).json({ error: `Failed to create menu. Error:${error}` });
+            res.status(500).json({ message: `Failed to create menu.`, error });
         }
     },
     getAllMenusController : async (req: Request, res: Response) => {
@@ -23,7 +23,7 @@ export const menuController = {
             const menus = await menuServices.getAllMenus();
             res.status(200).json(menus);
         } catch (error) {
-            res.status(500).json({ error: "Failed to retrieve menus" });
+            res.status(500).json({ message: "Failed to retrieve menus", error });
         }
     },
     getMenuByIdController : async (req: Request, res: Response) => {
@@ -33,10 +33,10 @@ export const menuController = {
             if (menu) {
                 res.status(200).json(menu);
             } else {
-                res.status(404).json({ error: "Menu not found" });
+                res.status(404).json({ message: "Menu not found", });
             }
         } catch (error) {
-            res.status(500).json({ error: "Failed to retrieve menu" });
+            res.status(500).json({ message: "Failed to retrieve menu", error });
         }
     },
     updateMenuController : async (req: Request, res: Response) => {
@@ -49,7 +49,7 @@ export const menuController = {
             const updatedMenu = await menuServices.updateMenu(menuId, parsed.data);
             res.status(200).json(updatedMenu);
         } catch (error) {
-            res.status(500).json({ error: "Failed to update menu" });
+            res.status(500).json({ message: "Failed to update menu", error });
         }
     },
     deleteMenuController : async (req: Request, res: Response) => {
@@ -58,7 +58,7 @@ export const menuController = {
             const deletedMenu = await menuServices.deleteMenu(menuId);
             res.status(200).json(deletedMenu);
         } catch (error) {
-            res.status(500).json({ error: "Failed to delete menu" });
+            res.status(500).json({ message: "Failed to delete menu", error });
         }
     },
 
@@ -78,14 +78,14 @@ export const menuController = {
                 });
             }
 
-            const { id: menuId, personalized } = parsed.data;
+            const { id: menuId, userId } = parsed.data;
             const meals = await menuServices.getMenuMeals(
             menuId,
-            personalized ? req.user!.id : undefined
+            userId
             );
             res.status(200).json(meals);
         } catch (error) {
-            res.status(500).json({ error: "Failed to retrieve menu meals" });
+            res.status(500).json({ message: "Failed to retrieve menu meals", error });
         }
     },
     getMenuDaysByMenuIdController : async (req: Request, res: Response) => {
@@ -97,7 +97,7 @@ export const menuController = {
             const menuDays = await menuServices.getMenuDaysbyMenuId(menuId);
             res.status(200).json(menuDays);
         } catch (error) {
-            res.status(500).json({ error: "Failed to retrieve menus" });
+            res.status(500).json({ message: "Failed to retrieve menus", error });
         }
     },
     createMenuMealsController : async (req: Request, res: Response) => {
@@ -109,7 +109,7 @@ export const menuController = {
             const result = await menuServices.createMenuDayMeals(parsed.data);
             res.status(200).json(result);
         } catch (error) {
-            res.status(500).json({ error: "Failed to create menu meals" });
+            res.status(500).json({ message: "Failed to create menu meals", error });
         }
     },
     updateMenuMealsController: async(req:Request, res: Response)=>{
@@ -123,7 +123,7 @@ export const menuController = {
             res.status(200).json({message : "Successfully updated meal status"})
         
         }catch (error){
-            res.status(500).json({error:"Failed to update menu meal"})
+            res.status(500).json({message:"Failed to update menu meal", error})
         }
     }
     

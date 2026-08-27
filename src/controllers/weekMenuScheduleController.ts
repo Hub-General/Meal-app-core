@@ -8,7 +8,7 @@ export const weekMenuScheduleController ={
             const weekMenuSchedules = await weekMenuScheduleService.getAllWeekMenuSchedules();
             res.json(weekMenuSchedules);
         } catch (error) {
-            res.status(500).json({ error: `Failed to fetch week menu schedules ${console.error(error)}`, });
+            res.status(500).json({ message: `Failed to fetch week menu schedules ${error}`, });
         }
     },
     getWeekMenuScheduleByIdController: async(req: Request, res: Response) => {
@@ -23,7 +23,7 @@ export const weekMenuScheduleController ={
             }
             res.json(weekMenuSchedule);
         } catch (error) {
-            res.status(500).json({ error: "Failed to fetch week menu schedule" });
+            res.status(500).json({ message: "Failed to fetch week menu schedule", error});
         }
     },
     getWeekMenuScheduleByWeekAndYearController: async(req: Request, res: Response) => {
@@ -39,7 +39,7 @@ export const weekMenuScheduleController ={
             }
             res.json(weekMenuSchedule);
         } catch (error) {
-            res.status(500).json({ error: "Failed to fetch week menu schedule" });
+            res.status(500).json({ message: "Failed to fetch week menu schedule", error });
         }
     },
     getWeekMenuSchedulesByMenuController: async(req: Request, res: Response) => {
@@ -51,7 +51,7 @@ export const weekMenuScheduleController ={
             const weekMenuSchedules = await weekMenuScheduleService.getWeekMenuSchedulesByMenu(menuId);
             res.json(weekMenuSchedules);
         } catch (error) {
-            res.status(500).json({ error: "Failed to fetch week menu schedules" });
+            res.status(500).json({ message: "Failed to fetch week menu schedules", error });
         }
     },
     createWeekMenuScheduleController: async(req: Request, res: Response) => {
@@ -72,7 +72,7 @@ export const weekMenuScheduleController ={
             const newWeekMenuSchedule = await weekMenuScheduleService.createWeekMenuSchedule({week, year, menuId});
             res.status(201).json(newWeekMenuSchedule);
         } catch (error) {
-            res.status(500).json({ error: "Failed to create week menu schedule" });
+            res.status(500).json({ message: "Failed to create week menu schedule", error });
         }
     },
     updateWeekMenuScheduleController: async(req: Request, res: Response) => {
@@ -91,7 +91,7 @@ export const weekMenuScheduleController ={
             }
             res.json(updatedWeekMenuSchedule);
         } catch (error) {
-            res.status(500).json({ error: "Failed to update week menu schedule" });
+            res.status(500).json({ message: "Failed to update week menu schedule", error });
         }
     },
 }
