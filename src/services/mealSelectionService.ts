@@ -231,6 +231,17 @@ export const mealSelectionService = {
 
         const result = await prisma.$transaction(async (tx) => {
 
+            const scheduleIds = [...new Set(selectionRequests.map(s => s.weekMenuScheduleId))];
+            const schedules = await tx.weekMenuSchedule.findMany({
+                where: { id: { in: scheduleIds } },
+                select: { id: true, status: true }
+            });
+
+            const hasInactiveSchedule = schedules.some(s => s.status !== "ACTIVE") || schedules.length !== scheduleIds.length;
+            if (hasInactiveSchedule) {
+                throw new SelectionConflictError("Meal selection for this week is closed.");
+            }
+
             const newSelections: CreateMealSelectionRequest[] = [];
             const updateSelections: CreateMealSelectionRequest[] = [];
 
@@ -298,7 +309,7 @@ export const mealSelectionService = {
                             id: { in: recipientIds },
                             status: "ACTIVE"
                         },
-                        select: { id: true }
+                        select: { id: true, name: true }
                     })
                     : [];
 
@@ -317,7 +328,13 @@ export const mealSelectionService = {
                     });
 
                     if (existingSelection) {
-                        throw new SelectionConflictError("The recipient already has a selection for this day");
+                        const recipient = selection.createdFor ? recipients.find(r => r.id === selection.createdFor) : null;
+                        const recipientName = recipient?.name || (selection.createdFor === requesterId ? "You" : "The recipient");
+                        if (selection.createdFor === requesterId) {
+                            throw new SelectionConflictError("You already have a meal selection for this day.");
+                        } else {
+                            throw new SelectionConflictError(`${recipientName} has already made meal selections for this week.`);
+                        }
                     }
 
                     await tx.selections.create({
@@ -598,11 +615,27 @@ export const mealSelectionService = {
         });
     },
 
-    //ADMIN Services
     adminOverrideSelections: async(selections: CreateMealSelectionRequest[], requesterId: number)=>{
         const result = await prisma.$transaction(async (tx) => {
             const updatedUsersToNotify = new Set<number>();
             let updatedCount = 0;
+
+            // If there are guest selections without an explicit id, clear prior guest selections for the affected days
+            const guestDays = selections
+                .filter(s => !s.id && (s.createdFor === null || s.createdFor === undefined))
+                .map(s => ({ weekMenuScheduleId: s.weekMenuScheduleId, menuDayId: s.menuDayId }));
+
+            if (guestDays.length > 0) {
+                const weekScheduleIds = [...new Set(guestDays.map(g => g.weekMenuScheduleId))];
+                const menuDayIds = [...new Set(guestDays.map(g => g.menuDayId))];
+                await tx.selections.deleteMany({
+                    where: {
+                        createdFor: null,
+                        weekMenuScheduleId: { in: weekScheduleIds },
+                        menuDayId: { in: menuDayIds }
+                    }
+                });
+            }
 
             for (const selection of selections) {
                 const dayMealId = selection.dayMealId ?? null;

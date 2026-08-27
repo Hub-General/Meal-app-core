@@ -21,22 +21,6 @@ export const createMealSelectionRequestSchema = z.object({
             message: "A meal selection requires a valid dayMealId"
         });
     }
-
-    if (selection.createdFor === null && selection.guestCount === undefined) {
-        context.addIssue({
-            code: "custom",
-            path: ["guestCount"],
-            message: "Guest selections require a guest count"
-        });
-    }
-
-    if (selection.createdFor !== null && selection.guestCount !== undefined) {
-        context.addIssue({
-            code: "custom",
-            path: ["guestCount"],
-            message: "Guest count is only valid for guest selections"
-        });
-    }
 });
 
 

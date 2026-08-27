@@ -47,6 +47,20 @@ const dayNames = ["SUNDAY", "MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDA
 const publicHolidaysCache = new Map<number, { holidays: HolidayItem[]; timestamp: number }>();
 const CACHE_TTL_MS = 12 * 60 * 60 * 1000;
 
+/**
+ * Normalizes holiday title to deduplicate identical holiday names across data sources
+ * (e.g. "Founders' Day" vs "Founders Day", "Farmers' Day" vs "Farmer's Day", "Eid al-Fitr" vs "Eid ul-Fitr").
+ */
+export function normalizeHolidayTitle(title: string): string {
+    return title
+        .toLowerCase()
+        .replace(/['’`"]/g, "")
+        .replace(/\b(ul|el)\b/g, "al")
+        .replace(/[^a-z0-9]/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+}
+
 export const holidayService = {
     /**
      * Calculates all statutory public holidays for Ghana for a given year,
@@ -268,18 +282,24 @@ export const holidayService = {
 
         const holidayMap = new Map<string, HolidayItem>();
 
+        const addHolidayIfUnique = (h: HolidayItem) => {
+            const key = `${h.date}|${normalizeHolidayTitle(h.title)}`;
+            if (!holidayMap.has(key)) {
+                holidayMap.set(key, h);
+            }
+        };
+
         // 1. Start with local statutory algorithmic baseline (guarantees zero missing statutory dates)
         const statutory = holidayService.getGhanaStatutoryHolidays(year);
         for (const h of statutory) {
-            holidayMap.set(`${h.date}-${h.title.toLowerCase()}`, h);
+            addHolidayIfUnique(h);
         }
 
         // 2. Fetch Google Calendar Live Ghana Feed
         try {
             const gCalHolidays = await holidayService.fetchGoogleCalendarFeed(year);
             for (const h of gCalHolidays) {
-                // Key by date to capture officially observed dates
-                holidayMap.set(`${h.date}-${h.title.toLowerCase()}`, h);
+                addHolidayIfUnique(h);
             }
         } catch {
             // Ignore failure
@@ -289,7 +309,7 @@ export const holidayService = {
         try {
             const islamicHolidays = await holidayService.fetchAladhanIslamicHolidays(year);
             for (const h of islamicHolidays) {
-                holidayMap.set(`${h.date}-${h.title.toLowerCase()}`, h);
+                addHolidayIfUnique(h);
             }
         } catch {
             // Ignore failure
@@ -306,17 +326,14 @@ export const holidayService = {
                         const dateStr = item.date;
                         const d = new Date(`${dateStr}T00:00:00.000Z`);
                         const title = item.localName || item.name || "Public Holiday";
-                        const key = `${dateStr}-${title.toLowerCase()}`;
-                        if (!holidayMap.has(key)) {
-                            holidayMap.set(key, {
-                                title,
-                                description: `Official Ghana Public Holiday (${title})`,
-                                date: dateStr,
-                                dayName: dayNames[d.getUTCDay()]!,
-                                isCompany: false,
-                                source: "EXTERNAL_API",
-                            });
-                        }
+                        addHolidayIfUnique({
+                            title,
+                            description: `Official Ghana Public Holiday (${title})`,
+                            date: dateStr,
+                            dayName: dayNames[d.getUTCDay()]!,
+                            isCompany: false,
+                            source: "EXTERNAL_API",
+                        });
                     }
                 }
             }
@@ -444,7 +461,16 @@ export const holidayService = {
             }
         }
 
-        return resolved;
+        // Final safety deduplication: remove duplicate holidays with same name on same date
+        const finalMap = new Map<string, HolidayItem>();
+        for (const item of resolved) {
+            const key = `${item.date}|${normalizeHolidayTitle(item.title)}`;
+            if (!finalMap.has(key)) {
+                finalMap.set(key, item);
+            }
+        }
+
+        return Array.from(finalMap.values()).sort((a, b) => a.date.localeCompare(b.date));
     },
 
     /**
@@ -516,7 +542,16 @@ export const holidayService = {
         const activePublicHolidays = publicHolidays.filter(h => !h.isIgnored);
 
         const allHolidays = [...activePublicHolidays, ...companyHolidays];
-        return allHolidays.filter(h => weekDates.includes(h.date));
+        const weekHolidaysMap = new Map<string, HolidayItem>();
+        for (const h of allHolidays) {
+            if (weekDates.includes(h.date)) {
+                const key = `${h.date}|${normalizeHolidayTitle(h.title)}`;
+                if (!weekHolidaysMap.has(key)) {
+                    weekHolidaysMap.set(key, h);
+                }
+            }
+        }
+        return Array.from(weekHolidaysMap.values()).sort((a, b) => a.date.localeCompare(b.date));
     },
 
     /**

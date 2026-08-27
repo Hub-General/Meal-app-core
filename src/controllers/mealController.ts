@@ -3,15 +3,31 @@ import { mealService } from "../services/mealService";
 import { imageUploadService } from "../services/imageUploadService";
 import { CreateMealRequestSchema, UpdateMealRequestSchema } from "../schema/meal";
 
-// Multipart form-data delivers every field as a string. Coerce the numeric and
-// boolean meal fields so the zod schemas validate the same way they do for JSON.
+// Multipart form-data delivers every field as a string. Coerce the numeric,
+// boolean, and nullable meal fields so the zod schemas validate the same way they do for JSON.
 const normalizeMealBody = (body: Record<string, unknown>) => {
     const normalized: Record<string, unknown> = { ...body };
     if (typeof normalized.calories === "string") {
-        normalized.calories = normalized.calories.trim() === "" ? undefined : Number(normalized.calories);
+        const trimmed = normalized.calories.trim();
+        normalized.calories =
+            trimmed === "" || trimmed === "null" || trimmed === "undefined"
+                ? undefined
+                : Number(trimmed);
     }
     if (typeof normalized.isActive === "string") {
         normalized.isActive = normalized.isActive === "true";
+    }
+    if (
+        typeof normalized.description === "string" &&
+        (normalized.description.trim() === "null" || normalized.description.trim() === "undefined")
+    ) {
+        normalized.description = null;
+    }
+    if (
+        typeof normalized.imagePath === "string" &&
+        (normalized.imagePath.trim() === "null" || normalized.imagePath.trim() === "undefined")
+    ) {
+        normalized.imagePath = null;
     }
     return normalized;
 };
