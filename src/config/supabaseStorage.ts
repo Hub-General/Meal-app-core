@@ -10,7 +10,7 @@ function getServiceRoleKey(): string {
     if (!key) {
         throw new Error("Missing SUPABASE_SR_KEY environment variable");
     }
-    return key;
+    return key.trim();
 }
 
 /**
@@ -32,11 +32,13 @@ export async function uploadFile(
     contentType: string
 ): Promise<string> {
     const url = `${SUPABASE_PROJECT_URL}/storage/v1/object/${BUCKET}/${path}`;
+    const key = getServiceRoleKey();
 
     const response = await fetch(url, {
         method: "POST",
         headers: {
-            Authorization: `Bearer ${getServiceRoleKey()}`,
+            apikey: key,
+            Authorization: `Bearer ${key}`,
             "Content-Type": contentType,
             "x-upsert": "true",
         },
@@ -57,11 +59,13 @@ export async function uploadFile(
  */
 export async function deleteFile(path: string): Promise<void> {
     const url = `${SUPABASE_PROJECT_URL}/storage/v1/object/${BUCKET}`;
+    const key = getServiceRoleKey();
 
     const response = await fetch(url, {
         method: "DELETE",
         headers: {
-            Authorization: `Bearer ${getServiceRoleKey()}`,
+            apikey: key,
+            Authorization: `Bearer ${key}`,
             "Content-Type": "application/json",
         },
         body: JSON.stringify({ prefixes: [path] }),
