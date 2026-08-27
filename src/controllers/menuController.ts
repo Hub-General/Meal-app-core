@@ -78,10 +78,10 @@ export const menuController = {
                 });
             }
 
-            const { id: menuId, personalized } = parsed.data;
+            const { id: menuId, userId } = parsed.data;
             const meals = await menuServices.getMenuMeals(
             menuId,
-            personalized ? req.user!.id : undefined
+            userId
             );
             res.status(200).json(meals);
         } catch (error) {
