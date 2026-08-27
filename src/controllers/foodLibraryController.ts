@@ -25,7 +25,7 @@ export const foodLibraryController = {
             const items = await foodLibraryService.getFoodByGroup(foodGroup)
             res.status(200).json(items)
         }catch (error){
-            res.status(500).json({error: 'Failed to fetch food groups'})
+            res.status(500).json({message: 'Failed to fetch food groups', error})
         }
     },
     getFoodItemByCode: async(req: Request, res: Response)=>{
@@ -34,7 +34,7 @@ export const foodLibraryController = {
             const items = await foodLibraryService.getFoodByFoodCode(foodCode)
             res.status(200).json(items)
         }catch(error){
-            res.status(500).json({error:'Failed to get food items by Code'})
+            res.status(500).json({message:'Failed to get food items by Code', error})
         }
     },
     createFoodItemsBatch: async(req:Request, res: Response)=>{
@@ -49,7 +49,7 @@ export const foodLibraryController = {
             const items = await foodLibraryService.createFoodItemBatch(parsed.data)
             res.status(200).json(items)
         }catch (error){
-            res.status(500).json({error: 'Failed to create food items'})
+            res.status(500).json({message: 'Failed to create food items', error})
         }
     },
     createFoodItem: async(req: Request, res: Response)=>{
@@ -64,7 +64,7 @@ export const foodLibraryController = {
             const foodItem = await foodLibraryService.createFoodItem(parsed.data)
             res.status(200).json("Successfully created food item")
         }catch(error){
-            res.status(500).json({error:'Failed to create food item'})
+            res.status(500).json({message:'Failed to create food item', error})
         }
     },
 }

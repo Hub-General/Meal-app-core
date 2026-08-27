@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import { mealSelectionService, SelectionConflictError } from "../services/mealSelectionService";
-import { createMealSelectionBatchRequestSchema, getUsersWithoutSelectionsRequestSchema, mealSelectionFilterSchema, replaceWeeklyMealRequestSchema, replaceWeeklyMealsBatchRequestSchema, submitWeeklySelectionsRequestSchema, updateMealSelectionsBatchRequestSchema, weeklyHistoryFilterSchema } from "../schema/mealSelection";
+import { createMealSelectionBatchRequestSchema, getUsersWithoutSelectionsRequestSchema, mealSelectionFilterSchema, replaceWeeklyMealRequestSchema, replaceWeeklyMealsBatchRequestSchema, submitWeeklySelectionsRequestSchema, weeklyHistoryFilterSchema } from "../schema/mealSelection";
 import { SelectionValidationError } from "../helpers/validateSelectionUpdate";
 import { Roles } from "../enums/ERoles";
 
@@ -30,7 +30,7 @@ export const mealSelectionController = {
             const selections = await mealSelectionService.getSelectionsByDateRange(new Date(String(startDate)), new Date(String(endDate)));
             res.json(selections);
         } catch (error) {
-            res.status(500).json({ error: "Failed to fetch selections by date range" });
+            res.status(500).json({ message: "Failed to fetch selections by date range" , error});
         }
     },
     getSelectionByIdController: async(req: Request, res: Response)=>{
@@ -45,7 +45,7 @@ export const mealSelectionController = {
             }
             res.json(selection);
         } catch (error) {
-            res.status(500).json({ error: "Failed to fetch selection by ID" });
+            res.status(500).json({ message: "Failed to fetch selection by ID" , error});
         }
     },
 
@@ -85,7 +85,7 @@ export const mealSelectionController = {
             const selections = await mealSelectionService.getWeeklySelections(date);
             res.json(selections);
         } catch (error) {
-            res.status(500).json({ error: "Failed to fetch selections by date" });
+            res.status(500).json({ message: "Failed to fetch selections by date" , error});
         }
     },
 
@@ -211,7 +211,7 @@ export const mealSelectionController = {
             await mealSelectionService.changeWeeklySelectionsStatus(weekNumber, year, status);
             res.status(200).json({ message: "Weekly selections submitted successfully" });
         }catch(error){
-            res.status(500).json({error:"Failed to submit weekly selections"})
+            res.status(500).json({message:"Failed to submit weekly selections", error})
         }
     },
 
