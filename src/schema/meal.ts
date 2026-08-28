@@ -19,6 +19,18 @@ export const UpdateMealRequestSchema = z.object({
   description: z.string().nullable().optional(),
 });
 
+export const UpdateMealBatchRequestSchema = z.array(
+  z.object({
+    id: z.number(),
+    name: z.string().optional(),
+    imagePath: z.string().nullable().optional(),
+    isActive: z.boolean().optional(),
+    foodCode: z.string().optional(),
+    calories: z.number().min(0).nullable().optional(),
+    description: z.string().nullable().optional(),
+  })
+);
+export type UpdateMealBatchRequest = z.infer<typeof UpdateMealBatchRequestSchema>;
 
 //Export interfaces / types
 

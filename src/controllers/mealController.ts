@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import { mealService } from "../services/mealService";
 import { imageUploadService } from "../services/imageUploadService";
-import { CreateMealRequestSchema, UpdateMealRequestSchema } from "../schema/meal";
+import { CreateMealRequestSchema, UpdateMealBatchRequestSchema, UpdateMealRequestSchema } from "../schema/meal";
 
 // Multipart form-data delivers every field as a string. Coerce the numeric,
 // boolean, and nullable meal fields so the zod schemas validate the same way they do for JSON.
@@ -130,6 +130,23 @@ export const mealController = {
             console.error("Failed to update meal:", error);
             res.status(500).json({
                 message: "Failed to update meal",
+                error: error?.message || String(error),
+            })
+        }
+    },
+
+    updateMealBatchController: async(req: Request, res: Response)=>{
+        try{
+            const parsed = UpdateMealBatchRequestSchema.safeParse(req.body);
+            if(!parsed.success){
+                return res.status(400).json({error:'Request body must be an array of objects', details: parsed.error.flatten()})
+            }
+            const meal = await mealService.updateMealBatch(parsed.data);
+            res.status(201).json({message: "Meals updated successfully", meal});
+        } catch(error: any ) {
+            console.error("Failed to update meal batch:", error);
+            res.status(500).json({
+                message: "Failed to update meals",
                 error: error?.message || String(error),
             })
         }
