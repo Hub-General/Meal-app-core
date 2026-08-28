@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { authController } from "../controllers/authController";
-import { authenticate } from "../middleware/authMiddleware";
+import { authenticate, authorize } from "../middleware/authMiddleware";
+import { Roles } from "../enums/ERoles";
 
 const router = Router();
 
@@ -8,6 +9,7 @@ router.post("/login", authController.loginController);
 router.post("/register", authController.signUpController);
 router.post("/onboarding", authController.onBoardingController);
 router.post("/onboarding-batch", authController.onBoardingBatchController);
+router.post("/override-token", authenticate, authorize([Roles.admin]),authController.overrideOnboardingTokenController);
 router.post("/onboarding-broadcast", authController.onBoardingBroadcastController);
 router.post("/logout", authController.logOutController);
 router.post("/refresh", authController.refreshController);
