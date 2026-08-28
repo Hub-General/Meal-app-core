@@ -1,4 +1,4 @@
-import { CreateMealRequest, UpdateMealRequest } from "../schema/meal";
+import { CreateMealRequest, UpdateMealBatchRequest, UpdateMealRequest } from "../schema/meal";
 import prisma from "../prisma/client";
 import { userPreferenceService } from "./userPreferenceService";
 import { synthesizeMeals } from "../helpers/mealSynthesizer";
@@ -41,6 +41,20 @@ export const mealService = {
     updateMeal : async(mealId: number, mealData: UpdateMealRequest)=>{
         return await prisma.meals.update({where: {id: mealId}, data: mealData});
     },
+    
+updateMealBatch: async (mealData: UpdateMealBatchRequest) => {
+  return await prisma.$transaction(
+    mealData.map(({ id, ...data }) =>
+      prisma.meals.update({
+        where: { id },
+        data,
+      })
+    ),
+    {
+      timeout: 30000,
+    }
+  );
+},
     deleteMeal: async(mealId: number)=>{
         return await prisma.meals.update({where: {id: mealId}, data: {isActive: false}});
     },
