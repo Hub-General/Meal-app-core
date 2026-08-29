@@ -170,6 +170,43 @@ export const mealSelectionService = {
             .map(({ _count, ...user }) => user);
     },
 
+    getUsersWithSelections: async(date: Date) => {
+        const weekInfo = getISOWeekInfo(date);
+        const weekMenuSchedule = await weekMenuScheduleService.getWeekMenuScheduleByWeekAndYear({week: weekInfo.week, year: weekInfo.year});
+        
+        if(!weekMenuSchedule) return [];
+
+        const usersWithSelections = await prisma.users.findMany({
+            where: {
+                status: "ACTIVE",
+                createdForSelections: {
+                    some: {
+                        weekMenuScheduleId: weekMenuSchedule.id
+                    }
+                }
+            },
+            select: {
+                id: true,
+                name: true,
+                email: true,
+                referenceEmail: true,
+                status: true,
+                roleId: true,
+                referenceId: true,
+                role: {
+                    select: {
+                        name: true
+                    }
+                }
+            },
+            orderBy: {
+                name: "asc"
+            }
+        });
+
+        return usersWithSelections;
+    },
+
     getWeeklySelections: async(date: Date)=>{
         const weekInfo = getISOWeekInfo(date);
         const weekHolidays = await holidayService.getHolidaysForWeek(weekInfo.week, weekInfo.year);
@@ -196,6 +233,95 @@ export const mealSelectionService = {
             select: selectionSelectShape
         });
         return selectionHelper.formatUserSelectionsResponse(response)
+    },
+
+    getWeeklyGuestSelections: async(date: Date)=>{
+        const weekInfo = getISOWeekInfo(date);
+        const weekMenuSchedule = await weekMenuScheduleService.getWeekMenuScheduleByWeekAndYear({week: weekInfo.week, year: weekInfo.year});
+        if(!weekMenuSchedule) return [];
+        const response = await prisma.selections.findMany({
+            where: {
+                weekMenuScheduleId: weekMenuSchedule.id,
+                createdFor: null
+            },
+            select: selectionSelectShape,
+            orderBy: [
+                { menuDay: { day: 'asc' } },
+                { id: 'asc' }
+            ]
+        });
+        return response;
+    },
+
+    deleteGuestSelection: async(selectionId: number, count?: number)=>{
+        const selection = await prisma.selections.findUnique({
+            where: { id: selectionId },
+            include: {
+                menuDay: true,
+                dayMeal: { include: { meal: true } }
+            }
+        });
+
+        if (!selection) {
+            throw new Error("Selection not found");
+        }
+
+        if (selection.createdFor !== null) {
+            throw new Error("Only guest selections can be deleted using this endpoint");
+        }
+
+        // If count is specified and less than current guestCount, decrement
+        if (count && count > 0 && count < selection.guestCount) {
+            const updated = await prisma.selections.update({
+                where: { id: selectionId },
+                data: {
+                    guestCount: selection.guestCount - count
+                },
+                select: selectionSelectShape
+            });
+            return {
+                deleted: false,
+                remainingCount: updated.guestCount,
+                message: `Reduced guest selection count by ${count}. Remaining: ${updated.guestCount}`
+            };
+        }
+
+        // Otherwise delete the record entirely
+        await prisma.selections.delete({
+            where: { id: selectionId }
+        });
+
+        return {
+            deleted: true,
+            remainingCount: 0,
+            message: "Guest selection deleted successfully"
+        };
+    },
+
+    bulkDeleteGuestSelections: async (selectionIds: number[]) => {
+        const selections = await prisma.selections.findMany({
+            where: {
+                id: { in: selectionIds },
+                createdFor: null
+            }
+        });
+
+        if (selections.length === 0) {
+            throw new Error("No matching guest selections found to delete");
+        }
+
+        const validIds = selections.map(s => s.id);
+
+        const result = await prisma.selections.deleteMany({
+            where: {
+                id: { in: validIds }
+            }
+        });
+
+        return {
+            deletedCount: result.count,
+            message: `Successfully deleted ${result.count} guest selection(s)`
+        };
     },
 
 
@@ -317,6 +443,14 @@ export const mealSelectionService = {
                     throw new SelectionConflictError("One or more recipients are inactive or unavailable");
                 }
 
+                const requesterUser = await tx.users.findUnique({
+                    where: { id: requesterId },
+                    include: { role: { select: { name: true } } }
+                });
+                const isRequesterAdminOrHr =
+                    requesterUser?.role?.name?.toUpperCase() === "ADMIN" ||
+                    requesterUser?.role?.name?.toUpperCase() === "HR";
+
                 for (const selection of newSelections) {
                     const existingSelection = await tx.selections.findFirst({
                         where: {
@@ -324,15 +458,28 @@ export const mealSelectionService = {
                             weekMenuScheduleId: selection.weekMenuScheduleId,
                             menuDayId: selection.menuDayId
                         },
-                        select: { id: true }
+                        include: {
+                            createdByUser: { include: { role: { select: { name: true } } } },
+                            createdForUser: { select: { id: true, name: true } }
+                        }
                     });
 
                     if (existingSelection) {
                         const recipient = selection.createdFor ? recipients.find(r => r.id === selection.createdFor) : null;
-                        const recipientName = recipient?.name || (selection.createdFor === requesterId ? "You" : "The recipient");
+                        const recipientName = recipient?.name || existingSelection.createdForUser?.name || (selection.createdFor === requesterId ? "You" : "The recipient");
+
                         if (selection.createdFor === requesterId) {
                             throw new SelectionConflictError("You already have a meal selection for this day.");
+                        } else if (existingSelection.createdFor === existingSelection.createdBy) {
+                            throw new SelectionConflictError(`${recipientName} has already selected meals for themselves.`);
                         } else {
+                            const creatorRole = existingSelection.createdByUser?.role?.name?.toUpperCase();
+                            const isCreatorAdmin = creatorRole === "ADMIN" || creatorRole === "HR";
+                            if (isCreatorAdmin && !isRequesterAdminOrHr) {
+                                throw new SelectionConflictError(
+                                    `${recipientName}'s meal selections were chosen by an administrator and cannot be modified.`
+                                );
+                            }
                             throw new SelectionConflictError(`${recipientName} has already made meal selections for this week.`);
                         }
                     }
@@ -637,12 +784,60 @@ export const mealSelectionService = {
                 });
             }
 
+            // Validate that we do not override users who selected for themselves
+            const targetUserIds = [
+                ...new Set(
+                    selections
+                        .map(s => s.createdFor)
+                        .filter((id): id is number => id !== null && id !== undefined)
+                )
+            ];
+
+            const weekScheduleIds = [
+                ...new Set(selections.map(s => s.weekMenuScheduleId))
+            ];
+
+            if (targetUserIds.length > 0) {
+                const existingUserSelections = await tx.selections.findMany({
+                    where: {
+                        createdFor: { in: targetUserIds },
+                        weekMenuScheduleId: { in: weekScheduleIds },
+                    },
+                    include: {
+                        createdForUser: { select: { id: true, name: true } },
+                    }
+                });
+
+                for (const sel of existingUserSelections) {
+                    if (sel.createdFor && sel.createdFor === sel.createdBy && sel.createdFor !== requesterId) {
+                        const userName = sel.createdForUser?.name || "The user";
+                        throw new SelectionConflictError(
+                            `${userName} has already selected meals for themselves and cannot be modified.`
+                        );
+                    }
+                }
+            }
+
             for (const selection of selections) {
                 const dayMealId = selection.dayMealId ?? null;
                 const selectionType = selection.selectionType ?? (dayMealId ? "MEAL" : "UNAVAILABLE");
                 const guestCount = selection.guestCount ?? 1;
 
                 if (selection.id) {
+                    const existing = await tx.selections.findUnique({
+                        where: { id: selection.id },
+                        include: {
+                            createdForUser: { select: { id: true, name: true } },
+                        }
+                    });
+
+                    if (existing && existing.createdFor && existing.createdFor === existing.createdBy && existing.createdFor !== requesterId) {
+                        const userName = existing.createdForUser?.name || "The user";
+                        throw new SelectionConflictError(
+                            `${userName} has already selected meals for themselves and cannot be modified.`
+                        );
+                    }
+
                     const updated = await tx.selections.update({
                         where: { id: selection.id },
                         data: {

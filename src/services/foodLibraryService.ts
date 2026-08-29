@@ -4,13 +4,21 @@ import { CreateFoodItemRequest } from "../schema/foodLibrary";
 
 export const foodLibraryService = {
     getAllFoodItems: async()=>{
-        return await prisma.foodLibrary.findMany()
+        return await prisma.foodLibrary.findMany({
+            orderBy: { name: 'asc' }
+        })
     },
     getFoodByGroup: async(foodGroup: FoodGroup)=>{
-        return await prisma.foodLibrary.findMany({where:{foodGroup}})
+        return await prisma.foodLibrary.findMany({
+            where: { foodGroup },
+            orderBy: { name: 'asc' }
+        })
     },
     getFoodByFoodCode: async(foodCode: string)=>{
-        return await prisma.foodLibrary.findMany({where:{foodCode}})
+        return await prisma.foodLibrary.findMany({
+            where: { foodCode },
+            orderBy: { name: 'asc' }
+        })
     },
     createFoodItem: async(data : CreateFoodItemRequest)=>{
         return await prisma.foodLibrary.create({data: data})

@@ -155,6 +155,10 @@ export const selectionHelper = {
             response[day].total += selection.guestCount;
         }
 
+        for (const dayData of Object.values(response)) {
+            dayData.response.sort((a, b) => a.name.localeCompare(b.name));
+        }
+
         return response;
     },
 
@@ -267,7 +271,7 @@ export const selectionHelper = {
             })
         }
 
-        return Array.from(foodMaps.values());
+        return Array.from(foodMaps.values()).sort((a, b) => a.name.localeCompare(b.name));
 
     },
 

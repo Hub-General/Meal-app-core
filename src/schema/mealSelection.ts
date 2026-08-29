@@ -29,6 +29,10 @@ export const getUsersWithoutSelectionsRequestSchema = z.object({
     maxSelections: z.coerce.number().int().positive().default(5)
 });
 
+export const getUsersWithSelectionsRequestSchema = z.object({
+    date: z.coerce.date()
+});
+
 export const mealSelectionFilterSchema = z.object({
     createdBy: z.coerce.number().optional(),
     createdFor: z.coerce.number().optional(),
@@ -79,6 +83,10 @@ export const replaceWeeklyMealsBatchRequestSchema = z.object({
         replacement => replacement.unavailableDayMealId !== replacement.replacementDayMealId,
         { message: "The replacement meal must be different from the unavailable meal" }
     )).min(1)
+});
+
+export const bulkDeleteGuestSelectionsRequestSchema = z.object({
+    ids: z.array(z.number().int().positive()).min(1, { message: "At least one selection ID is required" })
 });
 
 export const weeklyHistoryFilterSchema = z.object({

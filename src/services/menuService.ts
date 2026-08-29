@@ -59,6 +59,10 @@ export const menuServices = {
     getAllMenus: async () => {
         return await prisma.menus.findMany({
             select: menuSelectionShape,
+            orderBy: [
+                { order: 'asc' },
+                { id: 'asc' },
+            ],
         });
     },
     getMenuById: async (menuId: number) => {
@@ -96,8 +100,14 @@ export const menuServices = {
         return await prisma.menuDayMeals.findMany({
             where:{
                 menuDay:{menuId},
-                meal:{id:{notIn:excludedMealIds}
-        }}, select:{
+                meal:{id:{notIn:excludedMealIds}}
+            },
+            orderBy: {
+                meal: {
+                    name: 'asc'
+                }
+            },
+            select:{
             id:true,
             createdAt: true,
             updatedAt: true,
