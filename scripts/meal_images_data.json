@@ -1,0 +1,296 @@
+[
+  {
+    "id": 38,
+    "name": "Jollof with Chicken",
+    "foodCode": "R-JO-CH-F",
+    "imageUrl": "https://rqjzrmhpyhuzbgcxeuhc.supabase.co/storage/v1/object/public/MealAppImages/meals/b41b6498-2d49-4bf6-a186-a2c6eb661ee0.webp"
+  },
+  {
+    "id": 39,
+    "name": "Jollof with Chicken Wings",
+    "foodCode": "R-JO-CW-F",
+    "imageUrl": "https://rqjzrmhpyhuzbgcxeuhc.supabase.co/storage/v1/object/public/MealAppImages/meals/d3340515-7874-419d-b9e8-145288d2c80d.webp"
+  },
+  {
+    "id": 40,
+    "name": "Jollof with Pork",
+    "foodCode": "R-JO-PK-F",
+    "imageUrl": "https://rqjzrmhpyhuzbgcxeuhc.supabase.co/storage/v1/object/public/MealAppImages/meals/7d08ca87-0012-4802-b819-aabdcafae0dc.webp"
+  },
+  {
+    "id": 41,
+    "name": "Jollof with Fish",
+    "foodCode": "R-JO-FI-F",
+    "imageUrl": "https://rqjzrmhpyhuzbgcxeuhc.supabase.co/storage/v1/object/public/MealAppImages/meals/abbc411e-8336-4a3b-8fae-b0e0979d6549.webp"
+  },
+  {
+    "id": 42,
+    "name": "Jollof with Turkey",
+    "foodCode": "R-JO-TK-F",
+    "imageUrl": "https://rqjzrmhpyhuzbgcxeuhc.supabase.co/storage/v1/object/public/MealAppImages/meals/f9dd2064-3ace-49f2-9763-79cc995a7b98.webp"
+  },
+  {
+    "id": 43,
+    "name": "Jollof with Peppered Gizzard",
+    "foodCode": "R-JO-GZ-F",
+    "imageUrl": "https://rqjzrmhpyhuzbgcxeuhc.supabase.co/storage/v1/object/public/MealAppImages/meals/baa306b2-30e3-489e-a2e1-82e81299a5b6.webp"
+  },
+  {
+    "id": 44,
+    "name": "Jollof Check-Check with Chicken",
+    "foodCode": "R-JOCK-CH-F",
+    "imageUrl": "https://rqjzrmhpyhuzbgcxeuhc.supabase.co/storage/v1/object/public/MealAppImages/meals/a2234673-b97d-4f89-94b9-49ce5821f5bc.webp"
+  },
+  {
+    "id": 45,
+    "name": "Assorted Jollof with Chicken",
+    "foodCode": "R-JOAS-CH-F",
+    "imageUrl": "https://rqjzrmhpyhuzbgcxeuhc.supabase.co/storage/v1/object/public/MealAppImages/meals/0dede2a5-9ba5-4bf0-9bf2-05418f3aef0c.webp"
+  },
+  {
+    "id": 46,
+    "name": "Fried Rice with Chicken",
+    "foodCode": "R-FR-CH-F",
+    "imageUrl": "https://rqjzrmhpyhuzbgcxeuhc.supabase.co/storage/v1/object/public/MealAppImages/meals/d3005ed4-e149-40bb-8eb3-6d91bbbe47b9.webp"
+  },
+  {
+    "id": 47,
+    "name": "Fried Rice with Chicken Wings",
+    "foodCode": "R-FR-CW-F",
+    "imageUrl": "https://rqjzrmhpyhuzbgcxeuhc.supabase.co/storage/v1/object/public/MealAppImages/meals/45027920-85ed-4195-99e2-6a6553a43e6f.webp"
+  },
+  {
+    "id": 48,
+    "name": "Fried Rice with Pork",
+    "foodCode": "R-FR-PK-F",
+    "imageUrl": "https://rqjzrmhpyhuzbgcxeuhc.supabase.co/storage/v1/object/public/MealAppImages/meals/2f70656c-8f16-4425-8539-bbb4ea1f927f.webp"
+  },
+  {
+    "id": 49,
+    "name": "Fried Rice with Fish",
+    "foodCode": "R-FR-FI-F",
+    "imageUrl": "https://rqjzrmhpyhuzbgcxeuhc.supabase.co/storage/v1/object/public/MealAppImages/meals/34d9f939-6df9-4897-bfa5-f57348cd8585.webp"
+  },
+  {
+    "id": 50,
+    "name": "Fried Rice Check-Check with Gizzard",
+    "foodCode": "R-FRCK-GZ-F",
+    "imageUrl": "https://rqjzrmhpyhuzbgcxeuhc.supabase.co/storage/v1/object/public/MealAppImages/meals/1533df69-99b3-40e0-b660-c221cf69711b.webp"
+  },
+  {
+    "id": 51,
+    "name": "Plain Rice with Stew",
+    "foodCode": "R-PL-ST-F",
+    "imageUrl": "https://rqjzrmhpyhuzbgcxeuhc.supabase.co/storage/v1/object/public/MealAppImages/meals/4685c302-7c6b-48a4-a1da-7f46a6ad58df.webp"
+  },
+  {
+    "id": 52,
+    "name": "Plain Rice with Groundnut Soup",
+    "foodCode": "R-PL-GN-F",
+    "imageUrl": "https://rqjzrmhpyhuzbgcxeuhc.supabase.co/storage/v1/object/public/MealAppImages/meals/40628acd-aaad-4f42-bd39-838999bea4a0.webp"
+  },
+  {
+    "id": 53,
+    "name": "Plain Rice with Palmnut Soup",
+    "foodCode": "R-PL-PN-F",
+    "imageUrl": "https://rqjzrmhpyhuzbgcxeuhc.supabase.co/storage/v1/object/public/MealAppImages/meals/73d8a33d-c4b2-41c1-b30d-2956266b9f65.webp"
+  },
+  {
+    "id": 54,
+    "name": "Plain Rice with Light Soup",
+    "foodCode": "R-PL-LS-F",
+    "imageUrl": "https://rqjzrmhpyhuzbgcxeuhc.supabase.co/storage/v1/object/public/MealAppImages/meals/3c9c59f8-1053-4a20-b217-2742f4ff0abc.webp"
+  },
+  {
+    "id": 55,
+    "name": "Plain Rice with Palava Sauce",
+    "foodCode": "R-PL-PV-F",
+    "imageUrl": "https://rqjzrmhpyhuzbgcxeuhc.supabase.co/storage/v1/object/public/MealAppImages/meals/4552c427-88a5-4580-ae75-3444ce5a61fd.webp"
+  },
+  {
+    "id": 56,
+    "name": "Plain Rice with Garden Egg Stew",
+    "foodCode": "R-PL-GE-F",
+    "imageUrl": "https://rqjzrmhpyhuzbgcxeuhc.supabase.co/storage/v1/object/public/MealAppImages/meals/be85ff42-236e-4049-92e6-d24cbf046bdb.webp"
+  },
+  {
+    "id": 57,
+    "name": "Plain Rice with Egg Stew",
+    "foodCode": "R-PL-EG-F",
+    "imageUrl": "https://rqjzrmhpyhuzbgcxeuhc.supabase.co/storage/v1/object/public/MealAppImages/meals/a024567d-7cb5-44d1-95bb-27bab776f521.webp"
+  },
+  {
+    "id": 58,
+    "name": "Angwamo with Egg and Gizzard",
+    "foodCode": "R-AG-EG-GZ",
+    "imageUrl": "https://rqjzrmhpyhuzbgcxeuhc.supabase.co/storage/v1/object/public/MealAppImages/meals/33b1f8f4-1610-41f6-8037-46097f233c90.webp"
+  },
+  {
+    "id": 59,
+    "name": "Angwamo with Egg and Chicken",
+    "foodCode": "R-AG-EG-CH",
+    "imageUrl": "https://rqjzrmhpyhuzbgcxeuhc.supabase.co/storage/v1/object/public/MealAppImages/meals/39c0aa04-2e7e-4798-b691-4724d0742721.webp"
+  },
+  {
+    "id": 60,
+    "name": "Angwamo with Egg and Sardine",
+    "foodCode": "R-AG-EG-SD",
+    "imageUrl": "https://rqjzrmhpyhuzbgcxeuhc.supabase.co/storage/v1/object/public/MealAppImages/meals/b1def10a-bc43-4a61-bfda-42c6ac02266b.webp"
+  },
+  {
+    "id": 61,
+    "name": "Banku with Grilled Tilapia",
+    "foodCode": "B-TI-F",
+    "imageUrl": "https://rqjzrmhpyhuzbgcxeuhc.supabase.co/storage/v1/object/public/MealAppImages/meals/9228b11b-8392-4390-97a2-f39af33d97db.webp"
+  },
+  {
+    "id": 62,
+    "name": "Banku with Okro Stew",
+    "foodCode": "B-OK-F",
+    "imageUrl": "https://rqjzrmhpyhuzbgcxeuhc.supabase.co/storage/v1/object/public/MealAppImages/meals/39d44a04-52d5-4b8d-a36f-93c861b2b222.webp"
+  },
+  {
+    "id": 63,
+    "name": "Banku with Fante Fante",
+    "foodCode": "B-FF-F",
+    "imageUrl": "https://rqjzrmhpyhuzbgcxeuhc.supabase.co/storage/v1/object/public/MealAppImages/meals/13d0d954-e587-4460-ae31-9ca6bbaa3dfc.webp"
+  },
+  {
+    "id": 64,
+    "name": "Kenkey with Fish",
+    "foodCode": "K-FI-F",
+    "imageUrl": "https://rqjzrmhpyhuzbgcxeuhc.supabase.co/storage/v1/object/public/MealAppImages/meals/4ddc30c8-b0d2-4200-bb04-f22021d308d8.webp"
+  },
+  {
+    "id": 65,
+    "name": "Kenkey with Tilapia Fante Fante",
+    "foodCode": "K-FF-F",
+    "imageUrl": "https://rqjzrmhpyhuzbgcxeuhc.supabase.co/storage/v1/object/public/MealAppImages/meals/83170c77-8e78-4a6b-bf4c-dcc3ac3cd082.webp"
+  },
+  {
+    "id": 66,
+    "name": "Fufu with Palmnut Soup",
+    "foodCode": "F-PN-F",
+    "imageUrl": "https://rqjzrmhpyhuzbgcxeuhc.supabase.co/storage/v1/object/public/MealAppImages/meals/7088aad8-bacc-4105-bcf6-a7b8b3c62a58.webp"
+  },
+  {
+    "id": 67,
+    "name": "Fufu with Goat Light Soup",
+    "foodCode": "F-GT-LS-F",
+    "imageUrl": "https://rqjzrmhpyhuzbgcxeuhc.supabase.co/storage/v1/object/public/MealAppImages/meals/5d0e34a0-c0cc-4a4c-9737-feee45b15310.webp"
+  },
+  {
+    "id": 68,
+    "name": "Fufu with Groundnut Soup",
+    "foodCode": "F-GN-F",
+    "imageUrl": "https://rqjzrmhpyhuzbgcxeuhc.supabase.co/storage/v1/object/public/MealAppImages/meals/c8f7de1e-d583-4f9d-9296-2c7e5271278f.webp"
+  },
+  {
+    "id": 69,
+    "name": "Omotuo with Palmnut Soup",
+    "foodCode": "O-PN-F",
+    "imageUrl": "https://rqjzrmhpyhuzbgcxeuhc.supabase.co/storage/v1/object/public/MealAppImages/meals/218c1355-b560-4335-bb99-7bb612fa4a35.webp"
+  },
+  {
+    "id": 70,
+    "name": "Omotuo with Groundnut Soup",
+    "foodCode": "O-GN-F",
+    "imageUrl": "https://rqjzrmhpyhuzbgcxeuhc.supabase.co/storage/v1/object/public/MealAppImages/meals/1315b2f0-3b3f-44e8-b2ed-c76adb5bebda.webp"
+  },
+  {
+    "id": 71,
+    "name": "Omotuo with Goat Light Soup",
+    "foodCode": "O-GT-LS-F",
+    "imageUrl": "https://rqjzrmhpyhuzbgcxeuhc.supabase.co/storage/v1/object/public/MealAppImages/meals/5ebcb866-fdf5-4fd6-b40f-6db6d7890ec5.webp"
+  },
+  {
+    "id": 72,
+    "name": "Konkonte with Palmnut Soup",
+    "foodCode": "KK-PN-F",
+    "imageUrl": "https://rqjzrmhpyhuzbgcxeuhc.supabase.co/storage/v1/object/public/MealAppImages/meals/6dcb7f12-8f46-40b1-be5d-0d86ad7cbd63.webp"
+  },
+  {
+    "id": 73,
+    "name": "Konkonte with Groundnut Soup",
+    "foodCode": "KK-GN-F",
+    "imageUrl": "https://rqjzrmhpyhuzbgcxeuhc.supabase.co/storage/v1/object/public/MealAppImages/meals/b354d76c-ac87-49ba-af8b-dafca067b672.webp"
+  },
+  {
+    "id": 74,
+    "name": "Konkonte with Goat Light Soup",
+    "foodCode": "KK-GT-LS-F",
+    "imageUrl": "https://rqjzrmhpyhuzbgcxeuhc.supabase.co/storage/v1/object/public/MealAppImages/meals/c32554dd-d687-4709-bbd6-3d4e0902f9e3.webp"
+  },
+  {
+    "id": 75,
+    "name": "Yam with Palava Sauce",
+    "foodCode": "Y-PV-F",
+    "imageUrl": "https://rqjzrmhpyhuzbgcxeuhc.supabase.co/storage/v1/object/public/MealAppImages/meals/97896769-cc3b-4e39-8f37-038819ea5d1b.webp"
+  },
+  {
+    "id": 76,
+    "name": "Yam with Garden Egg Stew",
+    "foodCode": "Y-GE-F",
+    "imageUrl": "https://rqjzrmhpyhuzbgcxeuhc.supabase.co/storage/v1/object/public/MealAppImages/meals/1d8bf8f4-7792-4bb0-8fd5-27bc0594df30.webp"
+  },
+  {
+    "id": 77,
+    "name": "Yam with Egg Stew",
+    "foodCode": "Y-EG-F",
+    "imageUrl": "https://rqjzrmhpyhuzbgcxeuhc.supabase.co/storage/v1/object/public/MealAppImages/meals/0d6c52f4-c636-48af-87f2-00fb6c9cfd03.webp"
+  },
+  {
+    "id": 78,
+    "name": "Apim with Palava Sauce",
+    "foodCode": "AP-PV-F",
+    "imageUrl": "https://rqjzrmhpyhuzbgcxeuhc.supabase.co/storage/v1/object/public/MealAppImages/meals/026a61eb-ac96-4064-868d-7100c7915c4b.webp"
+  },
+  {
+    "id": 79,
+    "name": "Chicken Wrap with Fries",
+    "foodCode": "W-CH-F",
+    "imageUrl": "https://rqjzrmhpyhuzbgcxeuhc.supabase.co/storage/v1/object/public/MealAppImages/meals/b3034ef3-116f-4321-9d82-4467673ec221.webp"
+  },
+  {
+    "id": 80,
+    "name": "Chicken Burger with Fries",
+    "foodCode": "BG-CH-F",
+    "imageUrl": "https://rqjzrmhpyhuzbgcxeuhc.supabase.co/storage/v1/object/public/MealAppImages/meals/9756ea95-6a72-4469-9c87-2e7c97fa8f38.webp"
+  },
+  {
+    "id": 81,
+    "name": "Beef Burger with Fries",
+    "foodCode": "BG-BF-F",
+    "imageUrl": "https://rqjzrmhpyhuzbgcxeuhc.supabase.co/storage/v1/object/public/MealAppImages/meals/4ad4e496-5226-4997-9484-94904ef1f8f2.webp"
+  },
+  {
+    "id": 82,
+    "name": "Noodles with Chicken",
+    "foodCode": "N-CH-F",
+    "imageUrl": "https://rqjzrmhpyhuzbgcxeuhc.supabase.co/storage/v1/object/public/MealAppImages/meals/79100ba9-623d-4ccc-9989-f88cbe6abaf6.webp"
+  },
+  {
+    "id": 83,
+    "name": "Waakye",
+    "foodCode": "W-AS-F",
+    "imageUrl": "https://rqjzrmhpyhuzbgcxeuhc.supabase.co/storage/v1/object/public/MealAppImages/meals/e0d2592a-4c46-4913-87ef-df2736e721e5.webp"
+  },
+  {
+    "id": 84,
+    "name": "Tuna Salad",
+    "foodCode": "S-TN-F",
+    "imageUrl": "https://rqjzrmhpyhuzbgcxeuhc.supabase.co/storage/v1/object/public/MealAppImages/meals/f875ba79-677a-497a-8d5f-36a7f6b4c2fa.webp"
+  },
+  {
+    "id": 85,
+    "name": "Chicken Salad",
+    "foodCode": "S-CH-F",
+    "imageUrl": "https://rqjzrmhpyhuzbgcxeuhc.supabase.co/storage/v1/object/public/MealAppImages/meals/302505ab-766d-4fda-8748-af6bfc1c355a.webp"
+  },
+  {
+    "id": 87,
+    "name": "Banku with Fried Pork",
+    "foodCode": "B-PK-F",
+    "imageUrl": "https://rqjzrmhpyhuzbgcxeuhc.supabase.co/storage/v1/object/public/MealAppImages/meals/4d98f56a-486f-412d-b3bc-3519f922db72.webp"
+  }
+]

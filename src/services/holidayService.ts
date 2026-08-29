@@ -7,6 +7,7 @@ import {
     AllHolidaysResponse,
 } from "../schema/holiday";
 import { prisma } from "../db/prisma";
+import { getDateFromISOWeek } from "../helpers/dateFunctions";
 
 /**
  * Computes Gregorian Easter Sunday for a given year using Meeus/Jones/Butcher algorithm.
@@ -519,14 +520,7 @@ export const holidayService = {
      */
     getHolidaysForWeek: async (week: number, year: number): Promise<HolidayItem[]> => {
         // Calculate start of ISO week (Monday)
-        const simple = new Date(Date.UTC(year, 0, 1 + (week - 1) * 7));
-        const dow = simple.getUTCDay();
-        const ISOweekStart = new Date(simple);
-        if (dow <= 4) {
-            ISOweekStart.setUTCDate(simple.getUTCDate() - simple.getUTCDay() + 1);
-        } else {
-            ISOweekStart.setUTCDate(simple.getUTCDate() + 8 - simple.getUTCDay());
-        }
+        const ISOweekStart = getDateFromISOWeek(week, year);
 
         const weekDates: string[] = [];
         for (let i = 0; i < 7; i++) {
