@@ -14,7 +14,9 @@ router.get("/by-meal/:id", mealSelectionController.getSelectionsByMealIdControll
 //GET weekly selections routes
 router.get("/weekly", authenticate, authorize([Roles.admin, Roles.hr]), mealSelectionController.getWeeklySelectionsController);
 router.get("/weekly/by-user/:id", authenticate, mealSelectionController.getWeeklySelectionsByUserController);
+router.get("/weekly/guest", authenticate, authorize([Roles.admin, Roles.hr]), mealSelectionController.getWeeklyGuestSelectionsController);
 router.get("/weekly/no-selections", authenticate, authorize([Roles.admin, Roles.hr]), mealSelectionController.getUsersWithoutSelectionsController);
+router.get("/weekly/with-selections", authenticate, authorize([Roles.admin, Roles.hr]), mealSelectionController.getUsersWithSelectionsController);
 
 //GET history routes (paginated)
 router.get("/history", authenticate, authorize([Roles.admin, Roles.hr]), mealSelectionController.getWeeklySelectionsHistoryController);
@@ -43,5 +45,14 @@ router.patch("/replace-weekly-meal", authenticate,
 router.patch("/replace-weekly-meals", authenticate,
     authorize([Roles.admin, Roles.hr]),
     mealSelectionController.replaceWeeklyMealsController);
+router.delete("/guest/bulk", authenticate,
+    authorize([Roles.admin, Roles.hr]),
+    mealSelectionController.bulkDeleteGuestSelectionsController);
+router.delete("/guest", authenticate,
+    authorize([Roles.admin, Roles.hr]),
+    mealSelectionController.bulkDeleteGuestSelectionsController);
+router.delete("/guest/:id", authenticate,
+    authorize([Roles.admin, Roles.hr]),
+    mealSelectionController.deleteGuestSelectionController);
 
 export default router;

@@ -12,41 +12,81 @@ const menuSelectionShape = {
 
 export const menuServices = {
 
-    //Simple Menu DTO operations
-    createMenu: async (menuData: CreateMenuRequest)=>{
-        const menu = await prisma.menus.create({
-        data: {
-            ...menuData,
-            menuDays: {
-            create: [
-                { day: "MONDAY" },
-                { day: "TUESDAY" },
-                { day: "WEDNESDAY" },
-                { day: "THURSDAY" },
-                { day: "FRIDAY" },
-            ],
+    getMenuByTitle: async (title: string) => {
+        return await prisma.menus.findFirst({
+            where: {
+                title: { equals: title.trim(), mode: "insensitive" },
+                isActive: true,
             },
-        },
-        select:menuSelectionShape
+            select: menuSelectionShape,
         });
-        return await prisma.menus.update({
-            where:{id: menu.id},
-            data: {order: menu.id},
-            select:menuSelectionShape
-        })
     },
-    getAllMenus: async ()=>{
+    createMenu: async (menuData: CreateMenuRequest) => {
+        const title = menuData.title.trim();
+        return await prisma.$transaction(async (tx) => {
+            const existing = await tx.menus.findFirst({
+                where: {
+                    title: { equals: title, mode: "insensitive" },
+                    isActive: true,
+                },
+            });
+            if (existing) {
+                throw new Error(`A menu with the title "${title}" already exists`);
+            }
+            const menu = await tx.menus.create({
+                data: {
+                    ...menuData,
+                    title,
+                    menuDays: {
+                        create: [
+                            { day: "MONDAY" },
+                            { day: "TUESDAY" },
+                            { day: "WEDNESDAY" },
+                            { day: "THURSDAY" },
+                            { day: "FRIDAY" },
+                        ],
+                    },
+                },
+                select: menuSelectionShape,
+            });
+            return await tx.menus.update({
+                where: { id: menu.id },
+                data: { order: menu.id },
+                select: menuSelectionShape,
+            });
+        });
+    },
+    getAllMenus: async () => {
         return await prisma.menus.findMany({
-        select:menuSelectionShape});
+            select: menuSelectionShape,
+            orderBy: [
+                { order: 'asc' },
+                { id: 'asc' },
+            ],
+        });
     },
-    getMenuById: async (menuId: number)=>{
-        return await prisma.menus.findUnique({where: {id: menuId}, select: menuSelectionShape});
+    getMenuById: async (menuId: number) => {
+        return await prisma.menus.findUnique({ where: { id: menuId }, select: menuSelectionShape });
     },
-    updateMenu: async (menuId: number, menuData: UpdateMenuRequest)=>{
-        return await prisma.menus.update({where: {id: menuId}, data: menuData});
+    updateMenu: async (menuId: number, menuData: UpdateMenuRequest) => {
+        if (menuData.title) {
+            const title = menuData.title.trim();
+            const existing = await prisma.menus.findFirst({
+                where: {
+                    title: { equals: title, mode: "insensitive" },
+                    isActive: true,
+                    id: { not: menuId },
+                },
+            });
+            if (existing) {
+                throw new Error(`A menu with the title "${title}" already exists`);
+            }
+            menuData.title = title;
+        }
+        return await prisma.menus.update({ where: { id: menuId }, data: menuData, select: menuSelectionShape });
     },
-    deleteMenu: async (menuId: number)=>{
-        return await prisma.menus.update({where: {id: menuId}, data: {isActive: false}});
+    deleteMenu: async (menuId: number) => {
+        return await prisma.menus.update({ where: { id: menuId }, data: { isActive: false } });
     },
 
 
@@ -60,8 +100,14 @@ export const menuServices = {
         return await prisma.menuDayMeals.findMany({
             where:{
                 menuDay:{menuId},
-                meal:{id:{notIn:excludedMealIds}
-        }}, select:{
+                meal:{id:{notIn:excludedMealIds}}
+            },
+            orderBy: {
+                meal: {
+                    name: 'asc'
+                }
+            },
+            select:{
             id:true,
             createdAt: true,
             updatedAt: true,

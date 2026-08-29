@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { getNextISOWeekInfo } from "../helpers/dateFunctions";
+import { getISOWeekInfo } from "../helpers/dateFunctions";
 import { syncDigiHRUsers, scheduleWeeklyMenu, activateWeeklyMenu, updateBiWeeklyTasteProfiles } from "./periodic";
 import { cleanUpExpiredTokens } from "./maintenance";
 
@@ -18,7 +18,8 @@ async function runJob(name: string, fn: () => Promise<string>): Promise<JobResul
 
 export const cronController = {
     periodic: async (req: Request, res: Response) => {
-        const targetWeek = getNextISOWeekInfo(new Date());
+        // On Saturday (when cron runs at 6am), getISOWeekInfo already targets next week starting Monday
+        const targetWeek = getISOWeekInfo(new Date());
         const results: JobResult[] = [];
 
         results.push(await runJob("syncDigiHRUsers", syncDigiHRUsers));

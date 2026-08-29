@@ -1112,6 +1112,40 @@ Retrieve a single user by ID (safe projection).
 
 ---
 
+### GET `/users/:id/leaves`
+
+Retrieve leave and availability records for a specific user.
+
+**Path Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| id | number | User ID |
+
+**Success Response (200):**
+
+```json
+[
+  {
+    "id": 1,
+    "userId": 1,
+    "startDate": "2026-09-01T00:00:00.000Z",
+    "endDate": "2026-09-02T23:59:59.999Z",
+    "daysCount": 2,
+    "createdAt": "2026-08-20T10:00:00.000Z"
+  }
+]
+```
+
+**Error Responses:**
+
+| Status | Body |
+|--------|------|
+| 400 | `{ "message": "Invalid user ID" }` |
+| 500 | `{ "message": "Failed to retrieve user leaves" }` |
+
+---
+
 ### PUT `/users/:id`
 
 Update user details.
@@ -1691,8 +1725,8 @@ Retrieve users who have made fewer than 5 selections for the week (i.e., missing
 
 ```json
 [
-  { "id": 3 },
-  { "id": 7 }
+  { "id": 3, "name": "Alice Smith", "email": "alice@example.com" },
+  { "id": 7, "name": "Bob Johnson", "email": "bob@example.com" }
 ]
 ```
 
@@ -1701,7 +1735,43 @@ Retrieve users who have made fewer than 5 selections for the week (i.e., missing
 | Status | Body |
 |--------|------|
 | 400 | `{ "error": "Date parameter is required" }` |
-| 500 | `{ "error": "Failed to fetch users without selections" }` |
+| 500 | `{ "message": "Failed to fetch users without selections" }` |
+
+---
+
+### GET `/meal-selections/weekly/with-selections`
+
+Retrieve active users who have actually made meal selections for the specified week.
+
+**Query Parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| date | string (ISO date) | Yes | Any date within the target week |
+
+**Success Response (200):**
+
+```json
+[
+  {
+    "id": 1,
+    "name": "Calvin Debrah Ampadu",
+    "email": "cd@example.com",
+    "referenceEmail": "cd@example.com",
+    "status": "ACTIVE",
+    "roleId": 1,
+    "referenceId": 100,
+    "role": { "name": "Employee" }
+  }
+]
+```
+
+**Error Responses:**
+
+| Status | Body |
+|--------|------|
+| 400 | `{ "error": "Invalid query parameters" }` |
+| 500 | `{ "message": "Failed to fetch users with selections" }` |
 
 ---
 

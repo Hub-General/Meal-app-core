@@ -13,6 +13,7 @@ router.get("/profile", authenticate, userController.getUserProfileController);
 router.get("/me", authenticate, userController.getUserProfileController);
 router.get("/", authenticate, userController.getAllUsersController);
 router.get("/:id", authenticate, userController.getUserByIdController);
+router.get("/:id/leaves", authenticate, userController.getUserLeavesController);
 router.put("/:id", authenticate, userController.updateUserDetailsController);
 
 export default router;

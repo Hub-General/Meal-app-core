@@ -12,9 +12,17 @@ export const menuController = {
             if (!parsed.success) {
                 return res.status(400).json({ message: "Invalid menu payload", errors: parsed.error.flatten() });
             }
-            const newMenu = await menuServices.createMenu(parsed.data);
+            const trimmedTitle = parsed.data.title.trim();
+            const existing = await menuServices.getMenuByTitle(trimmedTitle);
+            if (existing) {
+                return res.status(409).json({ message: `A menu with the title "${trimmedTitle}" already exists` });
+            }
+            const newMenu = await menuServices.createMenu({ ...parsed.data, title: trimmedTitle });
             res.status(201).json(newMenu);
-        } catch (error) {
+        } catch (error: any) {
+            if (error?.message?.includes("already exists")) {
+                return res.status(409).json({ message: error.message });
+            }
             res.status(500).json({ message: `Failed to create menu.`, error });
         }
     },
@@ -42,13 +50,27 @@ export const menuController = {
     updateMenuController : async (req: Request, res: Response) => {
         try {
             const menuId = Number(req.params.id);
+            if (isNaN(menuId)) {
+                return res.status(400).json({ message: "Invalid menu ID" });
+            }
             const parsed = updateMenuRequestSchema.safeParse(req.body);
             if (!parsed.success) {
                 return res.status(400).json({ message: "Invalid menu payload", errors: parsed.error.flatten() });
             }
+            if (parsed.data.title) {
+                const trimmedTitle = parsed.data.title.trim();
+                const existing = await menuServices.getMenuByTitle(trimmedTitle);
+                if (existing && existing.id !== menuId) {
+                    return res.status(409).json({ message: `A menu with the title "${trimmedTitle}" already exists` });
+                }
+                parsed.data.title = trimmedTitle;
+            }
             const updatedMenu = await menuServices.updateMenu(menuId, parsed.data);
             res.status(200).json(updatedMenu);
-        } catch (error) {
+        } catch (error: any) {
+            if (error?.message?.includes("already exists")) {
+                return res.status(409).json({ message: error.message });
+            }
             res.status(500).json({ message: "Failed to update menu", error });
         }
     },

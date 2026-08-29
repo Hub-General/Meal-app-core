@@ -50,6 +50,21 @@ export const userController = {
             })
         }
     },
+    getUserLeavesController: async (req: Request, res: Response) => {
+        try {
+            const userId = Number(req.params.id);
+            if (!userId || isNaN(userId)) {
+                return res.status(400).json({ message: "Invalid user ID" });
+            }
+            const leaves = await userService.getUserLeaves(userId);
+            res.status(200).json(leaves);
+        } catch (error) {
+            res.status(500).json({
+                message: "Failed to retrieve user leaves",
+                error,
+            });
+        }
+    },
     updateUserDetailsController: async (req: Request, res: Response) => {
         try{
             const parsed = userUpdateSchema.safeParse(req.body);

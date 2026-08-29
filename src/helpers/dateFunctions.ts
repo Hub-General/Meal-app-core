@@ -1,3 +1,11 @@
+export function getDateFromISOWeek(week: number, year: number): Date {
+    const simple = new Date(Date.UTC(year, 0, 4));
+    const day = simple.getUTCDay() || 7;
+    simple.setUTCDate(simple.getUTCDate() - day + 1);
+    simple.setUTCDate(simple.getUTCDate() + (week - 1) * 7);
+    return simple;
+}
+
 export function getISOWeekInfo(date = new Date()) {
     const d = new Date(date);
 
@@ -16,52 +24,44 @@ export function getISOWeekInfo(date = new Date()) {
 
     // ISO week starts Monday (Mon=1 ... Sun=7)
     const isoDay = d.getUTCDay() || 7;
+    const dayNames = ["SUNDAY", "MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY"];
+    const dayName = dayNames[d.getUTCDay()]!;
 
-    // shift to Thursday of this week (ISO anchor)
-    d.setUTCDate(d.getUTCDate() + 4 - isoDay);
+    // shift to Thursday of this week on a copy (ISO anchor)
+    const anchor = new Date(d);
+    anchor.setUTCDate(anchor.getUTCDate() + 4 - isoDay);
 
     // ISO year is based on this Thursday
-    const year = d.getUTCFullYear();
+    const year = anchor.getUTCFullYear();
 
     // first day of ISO year (Jan 1)
     const yearStart = new Date(Date.UTC(year, 0, 1));
 
     // difference in days
-    const dayDiff = (Number(d) - Number(yearStart)) / 86400000;
+    const dayDiff = (Number(anchor) - Number(yearStart)) / 86400000;
 
     // week number (1-based)
     const week = Math.floor(dayDiff / 7) + 1;
 
-    return { day: isoDay, week, year, dayName: d.toLocaleDateString('en-US', { weekday: 'long' }).toUpperCase() };
+    return { day: isoDay, week, year, dayName };
 }
 
 export function getNextISOWeekInfo(date = new Date()) {
-    const nextDate = new Date(date);
-    nextDate.setUTCDate(nextDate.getUTCDate() + 7);
-
-    return getISOWeekInfo(nextDate);
+    const current = getISOWeekInfo(date);
+    const monday = getDateFromISOWeek(current.week, current.year);
+    const nextMonday = new Date(monday);
+    nextMonday.setUTCDate(nextMonday.getUTCDate() + 7);
+    return getISOWeekInfo(nextMonday);
 }
 
 export function getISOWeekRange(date = new Date()) {
-    const d = new Date(date);
-    d.setUTCHours(0, 0, 0, 0);
-
-    const day = d.getUTCDay();
-    if (day === 6) {
-        d.setUTCDate(d.getUTCDate() + 2);
-    } else if (day === 0) {
-        d.setUTCDate(d.getUTCDate() + 1);
-    }
-
-    const isoDay = d.getUTCDay() || 7;
-
-    const weekStart = new Date(d);
-    weekStart.setUTCDate(d.getUTCDate() - (isoDay - 1));
-
+    const weekInfo = getISOWeekInfo(date);
+    const weekStart = getDateFromISOWeek(weekInfo.week, weekInfo.year);
     const weekEnd = new Date(weekStart);
     weekEnd.setUTCDate(weekStart.getUTCDate() + 6);
     weekEnd.setUTCHours(23, 59, 59, 999);
 
     return { weekStart, weekEnd };
 }
+
 

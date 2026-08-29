@@ -10,6 +10,7 @@
     "migrate:deploy": "prisma migrate deploy",
     "prestart": "npm run generate && npm run migrate:deploy && node scripts/copyGeneratedPrismaClient.js",
     "start": "node dist/server.js",
+    "update:images": "ts-node scripts/updateMealImages.ts",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "prisma": {
@@ -28,6 +29,7 @@
     "@types/node": "^25.9.3",
     "@types/nodemailer": "^8.0.1",
     "@types/pg": "^8.20.0",
+    "@types/sharp": "^0.31.1",
     "dotenv": "^17.4.2",
     "nodemon": "^3.1.14",
     "pg": "^8.21.0",
@@ -44,6 +46,7 @@
     "jsonwebtoken": "^9.0.3",
     "multer": "^2.2.0",
     "nodemailer": "^9.0.1",
+    "sharp": "^0.35.4",
     "zod": "^4.4.3"
   }
 }

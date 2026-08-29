@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import { mealSelectionService, SelectionConflictError } from "../services/mealSelectionService";
-import { createMealSelectionBatchRequestSchema, getUsersWithoutSelectionsRequestSchema, mealSelectionFilterSchema, replaceWeeklyMealRequestSchema, replaceWeeklyMealsBatchRequestSchema, submitWeeklySelectionsRequestSchema, weeklyHistoryFilterSchema } from "../schema/mealSelection";
+import { bulkDeleteGuestSelectionsRequestSchema, createMealSelectionBatchRequestSchema, getUsersWithoutSelectionsRequestSchema, getUsersWithSelectionsRequestSchema, mealSelectionFilterSchema, replaceWeeklyMealRequestSchema, replaceWeeklyMealsBatchRequestSchema, submitWeeklySelectionsRequestSchema, weeklyHistoryFilterSchema } from "../schema/mealSelection";
 import { SelectionValidationError } from "../helpers/validateSelectionUpdate";
 import { Roles } from "../enums/ERoles";
 
@@ -107,6 +107,52 @@ export const mealSelectionController = {
         }
     },
 
+    getWeeklyGuestSelectionsController: async( req: Request, res: Response)=>{
+        try{
+            const { date: dateQuery } = req.query;
+            if (!dateQuery) {
+                return res.status(400).json({ error: "Date parameter is required" });
+            }
+            const date = new Date(String(dateQuery));
+            const selections = await mealSelectionService.getWeeklyGuestSelections(date);
+            res.json(selections);
+        } catch (error) {
+            res.status(500).json({ message: "Failed to fetch guest selections", error });
+        }
+    },
+
+    deleteGuestSelectionController: async( req: Request, res: Response)=>{
+        try{
+            const selectionId = Number(req.params.id);
+            if (!selectionId || isNaN(selectionId)) {
+                return res.status(400).json({ error: "Valid selection ID is required" });
+            }
+            const count = req.query.count ? Number(req.query.count) : (req.body?.count ? Number(req.body.count) : undefined);
+            const result = await mealSelectionService.deleteGuestSelection(selectionId, count);
+            res.json(result);
+        } catch (error) {
+            const message = error instanceof Error ? error.message : "Failed to delete guest selection";
+            res.status(400).json({ message });
+        }
+    },
+
+    bulkDeleteGuestSelectionsController: async (req: Request, res: Response) => {
+        try {
+            const parsed = bulkDeleteGuestSelectionsRequestSchema.safeParse(req.body);
+            if (!parsed.success) {
+                return res.status(400).json({
+                    error: "Invalid bulk delete payload",
+                    details: parsed.error.flatten()
+                });
+            }
+            const result = await mealSelectionService.bulkDeleteGuestSelections(parsed.data.ids);
+            res.json(result);
+        } catch (error) {
+            const message = error instanceof Error ? error.message : "Failed to bulk delete guest selections";
+            res.status(400).json({ message });
+        }
+    },
+
     //SUMBIT SELECTIONS
     submitSelectionsController: async( req: Request, res: Response) =>{
         try{
@@ -147,6 +193,19 @@ export const mealSelectionController = {
             res.status(200).json(results);
         } catch (error) {
             res.status(500).json({ message: "Failed to fetch users without selections", error });
+        }
+    },
+
+    getUsersWithSelectionsController: async( req: Request, res: Response)=>{
+        try{
+            const parsed = getUsersWithSelectionsRequestSchema.safeParse(req.query);
+            if (!parsed.success) {
+                return res.status(400).json({ error: "Invalid query parameters", details: parsed.error.flatten() });
+            }
+            const results = await mealSelectionService.getUsersWithSelections(parsed.data.date);
+            res.status(200).json(results);
+        } catch (error) {
+            res.status(500).json({ message: "Failed to fetch users with selections", error });
         }
     },
 

@@ -189,6 +189,13 @@ export const presetService = {
 
         const presetDetails = await prisma.presetItems.findMany({
             where: { presetId },
+            orderBy: {
+                menuDayMeals: {
+                    meal: {
+                        name: 'asc',
+                    },
+                },
+            },
             select: {
                 id: true,
                 presetId: true,

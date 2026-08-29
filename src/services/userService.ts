@@ -79,6 +79,15 @@ export const userService = {
         return count > 0;
     },
 
+    getUserLeaves: async (userId: number) => {
+        return await prisma.userAvailability.findMany({
+            where: { userId },
+            orderBy: {
+                startDate: "asc"
+            }
+        });
+    },
+
     getUserProfile: async (userId: number) => {
         const user = await prisma.users.findUnique({
             where: { id: userId },

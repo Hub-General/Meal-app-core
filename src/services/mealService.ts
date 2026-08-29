@@ -16,7 +16,10 @@ export const mealService = {
         ? await userPreferenceService.getUserExcludedMeals(userId)
         : [];
 
-        return await prisma.meals.findMany({where:{id:{notIn:excludedMealIds}}});
+        return await prisma.meals.findMany({
+            where: { id: { notIn: excludedMealIds } },
+            orderBy: { name: 'asc' },
+        });
     },
     getMealById: async(mealId: number)=>{
         return await prisma.meals.findUnique({where: {id: mealId}});
