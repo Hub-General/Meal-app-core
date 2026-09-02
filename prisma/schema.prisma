@@ -110,6 +110,11 @@ enum Days {
   SATURDAY
   SUNDAY
 }
+enum Theme {
+  LIGHT
+  DARK
+  SYSTEM
+}
 
 enum Status {
   ACTIVE
@@ -212,7 +217,12 @@ model UserPreferences {
   userId Int @id
   dislikes Json
   excludedMealIds Json
+  announcementVersion Int @db.SmallInt @default(0)
+  theme Theme @default(LIGHT)
+  autoSubmitPreset Boolean @default(false)
   updatedAt DateTime @updatedAt
+
+  @@unique([userId])
 
   user Users @relation(fields:[userId], references: [id], onDelete: Cascade)
 }
