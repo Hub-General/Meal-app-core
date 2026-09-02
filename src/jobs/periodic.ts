@@ -1,8 +1,9 @@
 import { prisma } from "../db/prisma";
 import { digiHRService } from "../services/digiHRService";
 import { weekMenuScheduleService } from "../services/weekMenuScheduleService";
-import { getISOWeekInfo } from "../helpers/dateFunctions";
+import { getISOWeekInfo, getUnavailableDays, getWeekRange } from "../helpers/dateFunctions";
 import { tasteProfileService } from "../services/tasteProfileService";
+import { SelectionStatus, SelectionType, WeekMenuStatus } from "../generated/prisma";
 
 export async function syncDigiHRUsers() {
     await digiHRService.syncUsersWithDatabase();
@@ -134,6 +135,137 @@ export async function activateWeeklyMenu(targetWeek: { week: number; year: numbe
     await weekMenuScheduleService.switchActiveWeekMenuSchedule(correctWeekMenu.id);
 
     return `Week menu for ${targetWeek.week}/${targetWeek.year} successfully activated`;
+}
+
+export async function autoSubmitUserPreferences() {
+    const activeWeekMenu = await prisma.weekMenuSchedule.findFirst({
+        where: {
+            status: WeekMenuStatus.ACTIVE,
+        },
+        select: {
+            id: true,
+            week: true,
+            year: true,
+            menuId: true,
+        },
+    });
+
+    if (!activeWeekMenu) {
+        throw new Error("No active week menu schedule found");
+    }
+
+    const { weekStart, weekEnd } = getWeekRange(
+        activeWeekMenu.week,
+        activeWeekMenu.year,
+    );
+
+    const users = await prisma.userPreferences.findMany({
+        where: {
+            autoSubmitPreset: true,
+
+            user: {
+                presets: {
+                    some: {
+                        isDefault: true,
+                        menuId: activeWeekMenu.menuId,
+                    },
+                },
+            },
+        },
+        select: {
+            userId: true,
+
+            user: {
+                select: {
+                    presets: {
+                        where: {
+                            isDefault: true,
+                            menuId: activeWeekMenu.menuId,
+                        },
+                        take: 1,
+                        select: {
+                            presetItems: {
+                                select: {
+                                    menuDayId: true,
+                                    dayMealId: true,
+                                    menuDay: {
+                                        select: {
+                                            day: true,
+                                        },
+                                    },
+                                },
+                            },
+                        },
+                    },
+
+                    userAvailability: {
+                        where: {
+                            startDate: {
+                                lte: weekEnd,
+                            },
+                            endDate: {
+                                gte: weekStart,
+                            },
+                        },
+                        select: {
+                            startDate: true,
+                            endDate: true,
+                        },
+                    },
+                },
+            },
+        },
+    });
+
+    if (users.length === 0) {
+        return;
+    }
+
+    const selections = [];
+
+    for (const user of users) {
+        const preset = user.user.presets[0];
+
+        if (!preset || preset.presetItems.length === 0) {
+            continue;
+        }
+
+        const unavailableDays = getUnavailableDays(
+            weekStart,
+            weekEnd,
+            user.user.userAvailability,
+        );
+
+        for (const item of preset.presetItems) {
+            const isUnavailable = unavailableDays.has(
+                item.menuDay.day,
+            );
+
+            selections.push({
+                menuDayId: item.menuDayId,
+                dayMealId: isUnavailable 
+                    ? null
+                    : item.dayMealId,
+                weekMenuScheduleId: activeWeekMenu.id,
+                createdBy: user.userId,
+                createdFor: user.userId,
+                guestCount: 1,
+                selectionStatus: SelectionStatus.PENDING,
+                selectionType: isUnavailable
+                    ? SelectionType.UNAVAILABLE
+                    : SelectionType.MEAL,
+            });
+        }
+    }
+
+    if (selections.length === 0) {
+        return;
+    }
+
+    await prisma.selections.createMany({
+        data: selections,
+        skipDuplicates: true,
+    });
 }
 
 export async function updateBiWeeklyTasteProfiles() {

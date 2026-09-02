@@ -1,3 +1,15 @@
+import { Days } from "../generated/prisma";
+
+const UTC_DAY_TO_DAYS: Record<number, Days> = {
+    0: Days.SUNDAY,
+    1: Days.MONDAY,
+    2: Days.TUESDAY,
+    3: Days.WEDNESDAY,
+    4: Days.THURSDAY,
+    5: Days.FRIDAY,
+    6: Days.SATURDAY,
+};
+
 export function getDateFromISOWeek(week: number, year: number): Date {
     const simple = new Date(Date.UTC(year, 0, 4));
     const day = simple.getUTCDay() || 7;
@@ -24,8 +36,8 @@ export function getISOWeekInfo(date = new Date()) {
 
     // ISO week starts Monday (Mon=1 ... Sun=7)
     const isoDay = d.getUTCDay() || 7;
-    const dayNames = ["SUNDAY", "MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY"];
-    const dayName = dayNames[d.getUTCDay()]!;
+    const dayNames = ["SUNDAY", "MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY"] as const;
+    const dayName = dayNames[d.getUTCDay()] ?? "MONDAY";
 
     // shift to Thursday of this week on a copy (ISO anchor)
     const anchor = new Date(d);
@@ -64,4 +76,56 @@ export function getISOWeekRange(date = new Date()) {
     return { weekStart, weekEnd };
 }
 
+export function getWeekRange(week: number, year: number) {
+    const weekStart = getDateFromISOWeek(week, year);
 
+    const weekEnd = new Date(weekStart);
+    weekEnd.setUTCDate(weekEnd.getUTCDate() + 6);
+    weekEnd.setUTCHours(23, 59, 59, 999);
+
+    return { weekStart, weekEnd };
+}
+
+export function getUnavailableDays(
+    weekStart: Date,
+    weekEnd: Date,
+    availability: {
+        startDate: Date;
+        endDate: Date;
+    }[],
+): Set<Days> {
+    const unavailableDays = new Set<Days>();
+
+    for (const range of availability) {
+        const rangeStart = new Date(range.startDate);
+        const rangeEnd = new Date(range.endDate);
+
+        rangeStart.setUTCHours(0, 0, 0, 0);
+        rangeEnd.setUTCHours(23, 59, 59, 999);
+
+        // No overlap with this week.
+        if (rangeEnd < weekStart || rangeStart > weekEnd) {
+            continue;
+        }
+
+        const current = new Date(
+            Math.max(rangeStart.getTime(), weekStart.getTime()),
+        );
+        current.setUTCHours(0, 0, 0, 0);
+
+        const end = new Date(
+            Math.min(rangeEnd.getTime(), weekEnd.getTime()),
+        );
+
+        while (current <= end) {
+            const day = UTC_DAY_TO_DAYS[current.getUTCDay()];
+            if (day) {
+                unavailableDays.add(day);
+            }
+
+            current.setUTCDate(current.getUTCDate() + 1);
+        }
+    }
+
+    return unavailableDays;
+}
