@@ -2,7 +2,8 @@ import z from "zod";
 
 export const LoginRequestSchema = z.object({
     email: z.string().email(),
-    password: z.string().min(6).max(100)
+    password: z.string().min(6).max(100),
+    keepSignedIn: z.boolean().optional().default(false)
 });
 
 export const RegisterRequestSchema = z.object({
@@ -35,11 +36,11 @@ export const GeneratePasswordTokenSchema = z.object({
     email: z.string().trim()
 })
 export const LogoutRequestSchema = z.object({
-    refreshToken: z.string().min(1)
+    refreshToken: z.string().min(1).optional()
 });
 
 export const RefreshRequestSchema = z.object({
-    refreshToken: z.string().min(1)
+    refreshToken: z.string().min(1).optional()
 });
 
 export const ChangePasswordSchema = z.object({

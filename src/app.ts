@@ -1,5 +1,6 @@
 import express from "express";
 import cors from "cors";
+import cookieParser from "cookie-parser";
 
 import roleRoutes from "./routes/roleRoutes";
 import mealRoutes from "./routes/mealRoutes";
@@ -16,7 +17,30 @@ import holidayRoutes from "./routes/holidayRoutes";
 
 const app = express();
 
-app.use(cors());
+const defaultAllowedOrigins = [
+  "http://localhost:5173",
+  "http://localhost:3000",
+  "http://localhost:5000",
+  "https://meal-selection.vercel.app",
+  "https://meal-selection-omega.vercel.app",
+  "https://meal-app-core.vercel.app",
+  process.env.FRONTEND_URL,
+].filter(Boolean) as string[];
+
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      if (!origin || defaultAllowedOrigins.includes(origin) || origin.endsWith(".vercel.app")) {
+        callback(null, true);
+      } else {
+        callback(new Error(`Origin ${origin} not allowed by CORS`));
+      }
+    },
+    credentials: true,
+  })
+);
+
+app.use(cookieParser());
 app.use(express.json());
 
 app.use("/auth", authRoutes);

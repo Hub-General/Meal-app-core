@@ -14,9 +14,10 @@ router.post("/refresh", authController.refreshController);
 router.post("/sync", authController.syncUserController);
 router.post("/sync-availability", authController.syncAvailabilityController);
 
-router.post("/generate-password-token", authController.getResetPasswordTokenController )
-router.post("/reset-password", authController.resetPasswordController)
-router.post("/verify-otp", authController.verifyPasswordResetOTPController)
-router.post("/change-password", authenticate, authController.changePasswordController)
+router.post("/generate-password-token", authController.getResetPasswordTokenController);
+router.post("/reset-password", authController.resetPasswordController);
+router.post("/verify-otp", authController.verifyPasswordResetOTPController);
+router.post("/change-password", authenticate, authController.changePasswordController);
+router.get("/me", authenticate, authController.getMeController);
 
 export default router;

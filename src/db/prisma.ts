@@ -9,7 +9,17 @@ if (!connectionString) {
   throw new Error("Missing DATABASE_URL (or DIRECT_URL) environment variable.");
 }
 
-const pool = new Pool({ connectionString });
+const pool = new Pool({
+  connectionString,
+  max: 10,
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 10000,
+});
+
+pool.on("error", (err) => {
+  console.warn("Database pool idle connection closed or error:", err.message);
+});
+
 const adapter = new PrismaPg(pool);
 
 export const prisma = new PrismaClient({ adapter });

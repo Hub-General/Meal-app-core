@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import {authService} from "../services/authService";
 import { digiHRService } from "../services/digiHRService";
 import { ChangePasswordSchema, GeneratePasswordTokenSchema, LoginRequestSchema, LogoutRequestSchema, OnboardingBatchRequestSchema, OnboardingRequestSchema, RefreshRequestSchema, RegisterRequestSchema, ResetPasswordSchema, VerifyOTPSchema } from "../schema/auth";
+import { getClearRefreshTokenCookieOptions, getRefreshTokenCookieOptions } from "../utility/cookieHelper";
 
 export const authController = {
     loginController : async (req : Request, res : Response) => {
@@ -13,11 +14,19 @@ export const authController = {
                     errors: request.error.flatten()
                 });
             }
-            const user = await authService.login(request.data);
-            res.status(200).json(user);
+            const authResult = await authService.login(request.data);
+
+            const cookieOptions = getRefreshTokenCookieOptions(request.data.keepSignedIn);
+            res.cookie("refreshToken", authResult.refreshToken, cookieOptions);
+
+            const { refreshToken, ...clientData } = authResult;
+            res.status(200).json(clientData);
         }
         catch(error){
-            res.status(401).json({message: "Invalid credentials"});
+            console.error("Login failed:", error);
+            res.status(401).json({
+                message: error instanceof Error ? error.message : "Invalid credentials"
+            });
         }
     },
 
@@ -80,10 +89,15 @@ export const authController = {
     logOutController: async (req: Request, res: Response) => {
         try{
             const parsed = LogoutRequestSchema.safeParse(req.body);
-            if(!parsed.success){
-                return res.status(400).json({message: 'Refresh token required'})
+            const tokenToRevoke = parsed.success && parsed.data?.refreshToken 
+                ? parsed.data.refreshToken 
+                : req.cookies?.refreshToken;
+
+            if(tokenToRevoke){
+                await authService.logout(tokenToRevoke);
             }
-            await authService.logout(parsed.data.refreshToken);
+
+            res.clearCookie("refreshToken", getClearRefreshTokenCookieOptions());
             return res.status(200).json({message: "Logged out successfully"});
 
         }catch(error){
@@ -96,16 +110,36 @@ export const authController = {
     refreshController: async (req: Request, res: Response)=>{
         try{
             const parsed = RefreshRequestSchema.safeParse(req.body);
-            if(!parsed.success){
+            const refreshToken = parsed.success && parsed.data?.refreshToken 
+                ? parsed.data.refreshToken 
+                : req.cookies?.refreshToken;
+
+            if(!refreshToken){
                 return res.status(401).json({message: "Refresh token is required"})
             }
-            const newAccessToken = await authService.refreshToken(parsed.data.refreshToken);
-            return res.status(200).json(newAccessToken)
+            const refreshResult = await authService.refreshToken(refreshToken);
+            return res.status(200).json(refreshResult);
 
         }catch(error){
-            res.status(400).json({
-                message: "Failed to renew access token"
-            })
+            res.status(401).json({
+                message: error instanceof Error ? error.message : "Failed to renew access token"
+            });
+        }
+    },
+
+    getMeController: async (req: Request, res: Response) => {
+        try {
+            const userId = req.user?.id;
+            if (!userId) {
+                return res.status(401).json({ message: "Unauthorized" });
+            }
+
+            const me = await authService.getMe(userId);
+            return res.status(200).json(me);
+        } catch (error) {
+            return res.status(401).json({
+                message: error instanceof Error ? error.message : "Failed to fetch user session"
+            });
         }
     },
 

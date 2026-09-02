@@ -293,13 +293,17 @@ export const authService = {
         const accessToken = generateAccessToken(user.id, user.role);
         const refreshToken =  generateRefreshToken(user.id)
         
+        const refreshExpiryMs = loginRequest.keepSignedIn
+            ? 7 * 24 * 60 * 60 * 1000 // 7 days
+            : 24 * 60 * 60 * 1000;    // 1 day / 24 hours
+
         await prisma.refreshToken.create({
             data: 
             {
             token: refreshToken,
             userId: user.id,
             expiresAt: new Date(
-                Date.now() + 7 * 24 * 60 * 60 * 1000
+                Date.now() + refreshExpiryMs
             ),
             },
         });
@@ -326,7 +330,33 @@ export const authService = {
         return await prisma.refreshToken.deleteMany({where: {token: refreshToken}}) 
     },
 
-    
+    getMe: async (userId: number) => {
+        const user = await prisma.users.findUnique({
+            where: { id: userId },
+            include: { role: { select: { id: true, name: true } } }
+        });
+
+        if (!user || !user.isActivated || user.status !== "ACTIVE") {
+            throw new Error("User not found or inactive");
+        }
+
+        const availability = await prisma.userAvailability.findFirst({ where: { userId: user.id } });
+
+        return {
+            user: {
+                id: user.id,
+                email: user.email,
+                name: user.name,
+                roleId: user.roleId,
+                roleName: user.role.name,
+            },
+            availability: {
+                startDate: availability?.startDate,
+                endDate: availability?.endDate
+            }
+        };
+    },
+
     refreshToken: async(refreshToken: string)=>{
 
         //Check if Exists
@@ -338,7 +368,7 @@ export const authService = {
 
         //Check if Expired
 
-        if(existing.expiresAt < new Date) {
+        if(existing.expiresAt < new Date()) {
             await prisma.refreshToken.delete({where:{id: existing.id}})
             throw new Error("Refresh Token Expired")
         }
@@ -355,8 +385,21 @@ export const authService = {
         //All checks passed, generate a new token
         const newAccessToken = generateAccessToken(existing.userId, existing.user.role)
 
+        const availability = await prisma.userAvailability.findFirst({where: {userId: existing.user.id}});
+
         return {
-            accessToken: newAccessToken
+            accessToken: newAccessToken,
+            user: {
+                id: existing.user.id,
+                email: existing.user.email,
+                name: existing.user.name,
+                roleId: existing.user.roleId,
+                roleName: existing.user.role.name,
+            },
+            availability: {
+                startDate: availability?.startDate,
+                endDate: availability?.endDate
+            }
         }
 
     },
