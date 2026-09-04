@@ -276,7 +276,7 @@ const existing = await prisma.users.findFirst({where: {referenceEmail: email}})
         }
         });
         mailService.sendPasswordResetMail(email, user.name, token)
-        return ({message:"Succesfully sent Reset Password Mail to"})
+        return ({message:"Succesfully sent Reset Password Mail to", token})
     },
 
     resetPassword: async(resetPasswordRequest: ResetPasswordRequest)=>{
