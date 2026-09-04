@@ -29,6 +29,22 @@ export const authController = {
             });
         }
     },
+    overrideOnboardingTokenController: async (req: Request, res: Response) => {
+        try {
+           const parsed = OnboardingRequestSchema.safeParse(req.body)
+           if(!parsed.success){
+            return res.status(400).json({ message: "Invalid onboarding data", errors: parsed.error.flatten() });
+           }
+           const result = await authService.overrideOnboardingToken(parsed.data.email);
+           return res.status(200).json(result);
+        } catch (error) {
+            res.status(400).json({
+                message: error instanceof Error
+                    ? error.message
+                    : "Failed to override onboarding token",
+            });
+        }
+    },
 
     onBoardingController : async (req: Request, res: Response) => {
         try{
@@ -162,9 +178,8 @@ export const authController = {
             if(!parsed.success){
                 return res.status(401).json({message:"Email Required"})
             }
-            await authService.generateforgetPasswordToken({email:parsed.data.email}
-            )
-            res.status(200).json({message: "Successfully sent mail"})    
+            const result = await authService.generateforgetPasswordToken({email:parsed.data.email})
+            res.status(200).json(result)    
         }catch(error){
             res.status(500).json(`${error}`)
         }

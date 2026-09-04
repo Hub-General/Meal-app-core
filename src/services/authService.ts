@@ -94,6 +94,42 @@ export const authService = {
 
     },
 
+    overrideOnboardingToken: async (email:string) =>{
+const existing = await prisma.users.findFirst({where: {referenceEmail: email}})
+
+        if(existing && existing.isActivated){
+            throw new Error("User with this email is already activated");
+        }else if (!existing){
+            throw new Error("Email invalid")
+        }
+
+        
+        const token = generateOtp(6)
+        const tokenHash = await argon2.hash(token);
+
+        await prisma.userTokens.upsert({
+        where: {
+            userId_type: {
+            userId: existing.id,
+            type: "USER_ONBOARDING"
+            }
+        },
+        update: {
+            token: tokenHash,
+            expiresAt: new Date(Date.now() + 1 * 60 * 60 * 1000),
+            usedAt: null
+        },
+        create: {
+            userId: existing.id,
+            type: "USER_ONBOARDING",
+            token: tokenHash,
+            expiresAt: new Date(Date.now() + 1 * 60 * 60 * 1000)
+        }
+        });
+        return ({message:"Token Generated",token})
+
+    },
+    
     onBoardingBatch: async(email: string[])=>{
             const users = await prisma.users.findMany({
                 where: { referenceEmail: { in: email }, status:"ACTIVE" },
@@ -240,7 +276,7 @@ export const authService = {
         }
         });
         mailService.sendPasswordResetMail(email, user.name, token)
-        return ({message:"Succesfully sent Reset Password Mail to"})
+        return ({message:"Succesfully sent Reset Password Mail to", token})
     },
 
     resetPassword: async(resetPasswordRequest: ResetPasswordRequest)=>{

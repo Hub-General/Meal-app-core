@@ -2,9 +2,8 @@
 import { Status } from "../generated/prisma";
 import { SafeUser } from "../selection/selectionShapes";
 import { prisma } from "../prisma/client";
+import { Roles } from "../enums/ERoles";
 import { RegisterUserDigiHRRequest, RegisterUserRequest, SyncUserDataRequest, UserLeaveRequest, UserProfileUpdateRequest } from "../schema/user";
-
-
 
 export const userService = {
 
@@ -53,7 +52,7 @@ export const userService = {
     bulkCreateUsers: async (users: RegisterUserDigiHRRequest[]) => {
         const usersWithRoleId = users.map((user) => ({
             ...user,
-            roleId: 1,
+            roleId: Roles.user,
         }));
 
         return await prisma.users.createMany({
