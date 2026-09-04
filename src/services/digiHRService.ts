@@ -1,6 +1,7 @@
 import { userService } from "./userService";
 import { Status } from "../generated/prisma";
 import { prisma } from "../prisma/client";
+import { Roles } from "../enums/ERoles";
 import { GetEmploymentStatus } from "../helpers/digiHRStatusConverter";
 
 interface DigiHRUser {
@@ -100,7 +101,7 @@ export const digiHRService = {
                     referenceId: digiUser.ID,
                     status: digiStatus,
                     isActivated: false,
-                    roleId: 1,
+                    roleId: Roles.user,
                 },
                 update: {
                     name: digiUser.EmployeeName,

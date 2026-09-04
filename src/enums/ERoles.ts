@@ -1,7 +1,7 @@
 export enum Roles {
-    user = 1,
-    worker = 2,
+    admin = 1,
+    manager = 2,
     hr = 3,
-    manager = 4,
-    admin = 5,
+    worker = 4,
+    user = 5,
 }
