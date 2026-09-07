@@ -218,7 +218,7 @@ export async function autoSubmitUserPreferences() {
     });
 
     if (users.length === 0) {
-        return;
+        return "No users with auto-submit presets found";
     }
 
     const selections = [];
@@ -259,13 +259,15 @@ export async function autoSubmitUserPreferences() {
     }
 
     if (selections.length === 0) {
-        return;
+        return `Found ${users.length} user(s) with autoSubmitPreset enabled, but no valid preset items to submit`;
     }
 
-    await prisma.selections.createMany({
+    const created = await prisma.selections.createMany({
         data: selections,
         skipDuplicates: true,
     });
+
+    return `Auto-submitted ${created.count} preset selection(s) for ${users.length} user(s) on week ${activeWeekMenu.week}/${activeWeekMenu.year}`;
 }
 
 export async function updateBiWeeklyTasteProfiles() {
