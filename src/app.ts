@@ -41,11 +41,14 @@ const corsOptions: cors.CorsOptions = {
 
     const cleanOrigin = origin.replace(/\/$/, "");
 
-    if (defaultAllowedOrigins.includes(cleanOrigin)) {
+    if (
+      defaultAllowedOrigins.includes(cleanOrigin) ||
+      cleanOrigin.endsWith(".vercel.app")
+    ) {
       return callback(null, true);
     }
 
-    return callback(null, false);
+    return callback(new Error(`Origin ${origin} not allowed by CORS`));
   },
   credentials: true,
   methods: ["GET", "HEAD", "PUT", "PATCH", "POST", "DELETE", "OPTIONS"],
