@@ -1,5 +1,7 @@
 import "dotenv/config";
 import { prisma } from "../src/prisma/client";
+import { Theme } from "../src/generated/prisma";
+import { seedUserPreferences } from "../scripts/seedUserPreferences";
 
 export interface RoleSeedData {
   id: number;
@@ -82,13 +84,18 @@ export async function seedRoles() {
   console.log("Seeded roles summary:", seeded);
 }
 
+export { seedUserPreferences };
+
 async function main() {
   try {
     await prisma.$connect();
     await seedRoles();
-    console.log("Role Seeding completed successfully.");
+    console.log("✓ Role Seeding completed successfully.\n");
+
+    await seedUserPreferences();
+    console.log("\n🌱 All database seeding completed successfully.");
   } catch (error) {
-    console.error("Role Seeding failed:", error);
+    console.error("Database Seeding failed:", error);
     process.exit(1);
   } finally {
     await prisma.$disconnect();

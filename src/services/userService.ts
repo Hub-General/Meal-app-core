@@ -4,6 +4,7 @@ import { SafeUser } from "../selection/selectionShapes";
 import { prisma } from "../prisma/client";
 import { Roles } from "../enums/ERoles";
 import { RegisterUserDigiHRRequest, RegisterUserRequest, SyncUserDataRequest, UserLeaveRequest, UserProfileUpdateRequest } from "../schema/user";
+import { userPreferenceService } from "./userPreferenceService";
 
 export const userService = {
 
@@ -55,10 +56,15 @@ export const userService = {
             roleId: Roles.user,
         }));
 
-        return await prisma.users.createMany({
+        const result = await prisma.users.createMany({
             data: usersWithRoleId as any,
             skipDuplicates: true
         });
+
+        // Initialize empty preferences for created users without overriding existing records
+        await userPreferenceService.backfillMissingUserPreferences();
+
+        return result;
     },
 
     // User availability endpoints

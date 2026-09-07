@@ -9,6 +9,14 @@ import {
     UserPreference 
 } from "../schema/userPreference";
 
+export const DEFAULT_USER_PREFERENCES = {
+    dislikes: { meals: [] as number[], foodItems: [] as string[] },
+    excludedMealIds: [] as number[],
+    announcementVersion: 0,
+    theme: "LIGHT" as const,
+    autoSubmitPreset: false,
+};
+
 export const userPreferenceService = {
     // Dietary Preferences
     getUserDietaryPreferences: async (userId: number) => {
@@ -123,6 +131,39 @@ export const userPreferenceService = {
             }
         });
         return (meals?.excludedMealIds as number[]) ?? [];
+    },
+
+    // Backfill empty preferences for users missing a record without overriding existing ones
+    backfillMissingUserPreferences: async () => {
+        const usersWithoutPreferences = await prisma.users.findMany({
+            where: {
+                preferences: null,
+            },
+            select: {
+                id: true,
+            },
+        });
+
+        if (usersWithoutPreferences.length === 0) {
+            return { totalChecked: 0, backfilledCount: 0 };
+        }
+
+        const result = await prisma.userPreferences.createMany({
+            data: usersWithoutPreferences.map((u) => ({
+                userId: u.id,
+                dislikes: DEFAULT_USER_PREFERENCES.dislikes,
+                excludedMealIds: DEFAULT_USER_PREFERENCES.excludedMealIds,
+                announcementVersion: DEFAULT_USER_PREFERENCES.announcementVersion,
+                theme: DEFAULT_USER_PREFERENCES.theme,
+                autoSubmitPreset: DEFAULT_USER_PREFERENCES.autoSubmitPreset,
+            })),
+            skipDuplicates: true,
+        });
+
+        return {
+            totalChecked: usersWithoutPreferences.length,
+            backfilledCount: result.count,
+        };
     },
 
     // Compatibility aliases

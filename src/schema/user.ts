@@ -18,7 +18,8 @@ export const userUpdateSchema = z.object({
 export const userLeaveRequestSchema = z.object({
     userId: z.number(),
     startDate: z.date(),
-    endDate: z.date()
+    endDate: z.date(),
+    daysRequested: z.number().positive().optional()
 });
 
 export const syncUserDataRequestSchema = z.object({
