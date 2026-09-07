@@ -174,4 +174,4 @@ export const userPreferenceService = {
     updateUserPreference: async (userId: number, preferences: updateUserPreferencesRequest) => {
         return await userPreferenceService.updateUserAppPreferences(userId, preferences);
     }
-};
+};
