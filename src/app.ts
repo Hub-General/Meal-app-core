@@ -17,6 +17,15 @@ import holidayRoutes from "./routes/holidayRoutes";
 
 const app = express();
 
+app.set("etag", false);
+
+app.use((req, res, next) => {
+  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+  res.setHeader("Pragma", "no-cache");
+  res.setHeader("Expires", "0");
+  next();
+});
+
 const envOrigins = (process.env.FRONTEND_URL || "")
   .split(",")
   .map((url) => url.trim().replace(/\/$/, ""))
