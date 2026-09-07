@@ -1,9 +1,17 @@
 import { Request, Response } from "express";
 import { getISOWeekInfo } from "../helpers/dateFunctions";
-import { syncDigiHRUsers, scheduleWeeklyMenu, activateWeeklyMenu, updateBiWeeklyTasteProfiles } from "./periodic";
+import { 
+    syncDigiHRUsers, 
+    scheduleWeeklyMenu, 
+    activateWeeklyMenu, 
+    autoSubmitUserPreferences,
+    updateBiWeeklyTasteProfiles 
+} from "./periodic";
 import { cleanUpExpiredTokens } from "./maintenance";
 
 type JobResult = { job: string; status: "success" | "failed"; message: string };
+
+const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 async function runJob(name: string, fn: () => Promise<string>): Promise<JobResult> {
     try {
@@ -25,6 +33,11 @@ export const cronController = {
         results.push(await runJob("syncDigiHRUsers", syncDigiHRUsers));
         results.push(await runJob("scheduleWeeklyMenu", () => scheduleWeeklyMenu(targetWeek)));
         results.push(await runJob("activateWeeklyMenu", () => activateWeeklyMenu(targetWeek)));
+
+        // Brief delay (2s) to ensure the activated schedule state is settled before auto-submitting selections
+        await delay(2000);
+        results.push(await runJob("autoSubmitUserPreferences", autoSubmitUserPreferences));
+
         results.push(await runJob("updateBiWeeklyTasteProfiles", updateBiWeeklyTasteProfiles));
 
         const failed = results.filter((r) => r.status === "failed").length;

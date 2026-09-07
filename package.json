@@ -10,11 +10,15 @@
     "migrate:deploy": "prisma migrate deploy",
     "prestart": "npm run generate && npm run migrate:deploy && node scripts/copyGeneratedPrismaClient.js",
     "start": "node dist/server.js",
+    "sync:sequences": "tsx scripts/syncSequences.ts",
+    "update:user-roles": "tsx scripts/migrateUserRoles.ts",
+    "seed": "tsx prisma/seed.ts",
+    "seed:preferences": "tsx scripts/seedUserPreferences.ts",
     "update:images": "ts-node scripts/updateMealImages.ts",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "prisma": {
-    "seed": "ts-node src/prisma/seed.ts"
+    "seed": "tsx prisma/seed.ts"
   },
   "keywords": [],
   "author": "",
@@ -22,6 +26,7 @@
   "type": "commonjs",
   "devDependencies": {
     "@prisma/adapter-pg": "^7.8.0",
+    "@types/cookie-parser": "^1.4.10",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/jsonwebtoken": "^9.0.10",
@@ -41,6 +46,7 @@
   "dependencies": {
     "@prisma/client": "^7.8.0",
     "argon2": "^0.44.0",
+    "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
     "express": "^5.2.1",
     "jsonwebtoken": "^9.0.3",

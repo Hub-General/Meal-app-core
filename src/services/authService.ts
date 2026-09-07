@@ -8,9 +8,11 @@ import { generateOtp } from "../helpers/otpGenerator";
 
 export const authService = {
     register: async (registerRequest: RegisterRequest) => { 
-
-        const existing = await prisma.users.findFirst({where: {referenceEmail: registerRequest.email}})
-        
+        const existing = await prisma.users.findFirst({
+            where: {
+                referenceEmail: { equals: registerRequest.email, mode: "insensitive" }
+            }
+        });
         
         if(existing && existing.isActivated){
             throw new Error("User with this email is already activated");
@@ -56,8 +58,11 @@ export const authService = {
     },
     
     onBoarding: async(email: string)=>{
-
-        const existing = await prisma.users.findFirst({where: {referenceEmail: email}})
+        const existing = await prisma.users.findFirst({
+            where: {
+                referenceEmail: { equals: email.trim(), mode: "insensitive" }
+            }
+        });
 
         if(existing && existing.isActivated){
             throw new Error("User with this email is already activated");
@@ -95,7 +100,11 @@ export const authService = {
     },
 
     overrideOnboardingToken: async (email:string) =>{
-const existing = await prisma.users.findFirst({where: {referenceEmail: email}})
+        const existing = await prisma.users.findFirst({
+            where: {
+                referenceEmail: { equals: email.trim(), mode: "insensitive" }
+            }
+        });
 
         if(existing && existing.isActivated){
             throw new Error("User with this email is already activated");
@@ -132,13 +141,16 @@ const existing = await prisma.users.findFirst({where: {referenceEmail: email}})
     
     onBoardingBatch: async(email: string[])=>{
             const users = await prisma.users.findMany({
-                where: { referenceEmail: { in: email }, status:"ACTIVE" },
+                where: {
+                    referenceEmail: { in: email, mode: "insensitive" },
+                    status: "ACTIVE"
+                },
                 select: { id: true, referenceEmail: true, name: true, isActivated: true },
             });
 
 
-            const knownEmails = new Set(users.map(u => u.referenceEmail));
-            const unknown = email.filter(e => !knownEmails.has(e));
+            const knownEmails = new Set(users.map(u => u.referenceEmail.toLowerCase()));
+            const unknown = email.filter(e => !knownEmails.has(e.toLowerCase()));
             
             if (unknown.length) {
                 throw new Error(`These email(s) are not registered or are inactive: ${unknown.join(', ')}`);
@@ -247,7 +259,14 @@ const existing = await prisma.users.findFirst({where: {referenceEmail: email}})
     },
 
     generateforgetPasswordToken: async({email}:{email:string})=>{
-        const user = await prisma.users.findFirst({where:{OR:[{referenceEmail:email, status:"ACTIVE", isActivated:true}, {email:email, status:"ACTIVE", isActivated:true}]}})
+        const user = await prisma.users.findFirst({
+            where: {
+                OR: [
+                    { referenceEmail: { equals: email.trim(), mode: "insensitive" }, status: "ACTIVE", isActivated: true },
+                    { email: { equals: email.trim(), mode: "insensitive" }, status: "ACTIVE", isActivated: true }
+                ]
+            }
+        });
 
         if(!user){
             throw new Error("Invalid Email or User is Inactive")
@@ -275,12 +294,19 @@ const existing = await prisma.users.findFirst({where: {referenceEmail: email}})
             expiresAt: new Date(Date.now() + 2 * 60 * 60 * 1000)
         }
         });
-        mailService.sendPasswordResetMail(email, user.name, token)
-        return ({message:"Succesfully sent Reset Password Mail to"})
+        mailService.sendPasswordResetMail(email.trim(), user.name, token)
+        return ({message:"Succesfully sent Reset Password Mail to", token})
     },
 
     resetPassword: async(resetPasswordRequest: ResetPasswordRequest)=>{
-        const existing = await prisma.users.findFirst({where:{OR:[{referenceEmail:resetPasswordRequest.email, status:"ACTIVE", isActivated:true}, {email:resetPasswordRequest.email, status:"ACTIVE", isActivated:true}]}})
+        const existing = await prisma.users.findFirst({
+            where: {
+                OR: [
+                    { referenceEmail: { equals: resetPasswordRequest.email, mode: "insensitive" }, status: "ACTIVE", isActivated: true },
+                    { email: { equals: resetPasswordRequest.email, mode: "insensitive" }, status: "ACTIVE", isActivated: true }
+                ]
+            }
+        });
         
         if(!existing){
             throw new Error("Invalid email or User is Inactive")
@@ -314,7 +340,15 @@ const existing = await prisma.users.findFirst({where: {referenceEmail: email}})
     },
 
     login: async (loginRequest: LoginRequest) => {
-        const user = await prisma.users.findFirst({ where: { OR : [{email: loginRequest.email, status:"ACTIVE", isActivated:true}, {referenceEmail: loginRequest.email, status:"ACTIVE", isActivated:true}]}, include:{role:{select:{id: true, name: true}}}})
+        const user = await prisma.users.findFirst({
+            where: {
+                OR: [
+                    { email: { equals: loginRequest.email, mode: "insensitive" }, status: "ACTIVE", isActivated: true },
+                    { referenceEmail: { equals: loginRequest.email, mode: "insensitive" }, status: "ACTIVE", isActivated: true }
+                ]
+            },
+            include: { role: { select: { id: true, name: true } } }
+        });
         
         if(!user) {
             throw new Error("Invalid email or password or user is inactive");
@@ -329,13 +363,17 @@ const existing = await prisma.users.findFirst({where: {referenceEmail: email}})
         const accessToken = generateAccessToken(user.id, user.role);
         const refreshToken =  generateRefreshToken(user.id)
         
+        const refreshExpiryMs = loginRequest.keepSignedIn
+            ? 7 * 24 * 60 * 60 * 1000 // 7 days
+            : 24 * 60 * 60 * 1000;    // 1 day / 24 hours
+
         await prisma.refreshToken.create({
             data: 
             {
             token: refreshToken,
             userId: user.id,
             expiresAt: new Date(
-                Date.now() + 7 * 24 * 60 * 60 * 1000
+                Date.now() + refreshExpiryMs
             ),
             },
         });
@@ -362,7 +400,33 @@ const existing = await prisma.users.findFirst({where: {referenceEmail: email}})
         return await prisma.refreshToken.deleteMany({where: {token: refreshToken}}) 
     },
 
-    
+    getMe: async (userId: number) => {
+        const user = await prisma.users.findUnique({
+            where: { id: userId },
+            include: { role: { select: { id: true, name: true } } }
+        });
+
+        if (!user || !user.isActivated || user.status !== "ACTIVE") {
+            throw new Error("User not found or inactive");
+        }
+
+        const availability = await prisma.userAvailability.findFirst({ where: { userId: user.id } });
+
+        return {
+            user: {
+                id: user.id,
+                email: user.email,
+                name: user.name,
+                roleId: user.roleId,
+                roleName: user.role.name,
+            },
+            availability: {
+                startDate: availability?.startDate,
+                endDate: availability?.endDate
+            }
+        };
+    },
+
     refreshToken: async(refreshToken: string)=>{
 
         //Check if Exists
@@ -374,7 +438,7 @@ const existing = await prisma.users.findFirst({where: {referenceEmail: email}})
 
         //Check if Expired
 
-        if(existing.expiresAt < new Date) {
+        if(existing.expiresAt < new Date()) {
             await prisma.refreshToken.delete({where:{id: existing.id}})
             throw new Error("Refresh Token Expired")
         }
@@ -391,14 +455,34 @@ const existing = await prisma.users.findFirst({where: {referenceEmail: email}})
         //All checks passed, generate a new token
         const newAccessToken = generateAccessToken(existing.userId, existing.user.role)
 
+        const availability = await prisma.userAvailability.findFirst({where: {userId: existing.user.id}});
+
         return {
-            accessToken: newAccessToken
+            accessToken: newAccessToken,
+            user: {
+                id: existing.user.id,
+                email: existing.user.email,
+                name: existing.user.name,
+                roleId: existing.user.roleId,
+                roleName: existing.user.role.name,
+            },
+            availability: {
+                startDate: availability?.startDate,
+                endDate: availability?.endDate
+            }
         }
 
     },
 
     verifyResetPasswordOTP: async({email, token}:VerifyResetPasswordOTPSchema)=> {
-        const user = await prisma.users.findFirst({where:{OR:[{referenceEmail: email, status:"ACTIVE", isActivated:true}, {email:email, status:"ACTIVE", isActivated:true}]}})
+        const user = await prisma.users.findFirst({
+            where: {
+                OR: [
+                    { referenceEmail: { equals: email.trim(), mode: "insensitive" }, status: "ACTIVE", isActivated: true },
+                    { email: { equals: email.trim(), mode: "insensitive" }, status: "ACTIVE", isActivated: true }
+                ]
+            }
+        });
 
         if (!user){
             throw new Error("Invalid User or User is Inactive")

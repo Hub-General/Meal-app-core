@@ -1,6 +1,7 @@
 import { userService } from "./userService";
-import { Status } from "../generated/prisma";
+import { Status, Theme } from "../generated/prisma";
 import { prisma } from "../prisma/client";
+import { Roles } from "../enums/ERoles";
 import { GetEmploymentStatus } from "../helpers/digiHRStatusConverter";
 
 interface DigiHRUser {
@@ -25,6 +26,11 @@ interface DigiHRUserLeave {
 
 
 
+export function getExcludedReferenceIds(): Set<number> {
+    if (!process.env.EXCLUDED_USERS) return new Set();
+    return new Set(process.env.EXCLUDED_USERS.split(",").map(Number));
+}
+
 export const digiHRService = {
     getUsers: async (): Promise<DigiHRUser[]> => {
         const url = process.env.DIGI_HR_USERS;
@@ -40,9 +46,9 @@ export const digiHRService = {
     },
 
     getUsersLeaves: async (): Promise<DigiHRUserLeave[]> => {
-        const url = process.env.DIGI_HR_USER_LEAVES;
+        const url = process.env.DIGI_HR_USER_LEAVES || process.env.DIGI_HR_LEAVES;
         if (!url) {
-            throw new Error("Environment variable DIGI_HR_USER_LEAVES is not defined");
+            throw new Error("Environment variable DIGI_HR_USER_LEAVES (or DIGI_HR_LEAVES) is not defined");
         }
 
         const res = await fetch(url);
@@ -59,25 +65,20 @@ export const digiHRService = {
         );
     },
 
-    updateUserAvailabilityTable: async(data:DigiHRUserLeave[])=>{
-        const user_leaves_records = data
-        
-        for (const leave of user_leaves_records) {
-            // Resolve the local userId from the DigiHR Email
+    updateUserAvailabilityTable: async (data: DigiHRUserLeave[]) => {
+        for (const leave of data) {
             const user = await userService.getUserByReferenceId(leave.referenceID);
-            
             if (user) {
                 const startDate = new Date(leave.StartDate);
                 const endDate = new Date(leave.EndDate);
 
-                // Check for duplicates using the helper with prisma.count
                 const alreadyExists = await userService.checkLeaveExists(user.id, startDate, endDate);
-
                 if (!alreadyExists) {
                     await userService.createUserLeave({
                         userId: user.id,
                         startDate,
-                        endDate
+                        endDate,
+                        daysRequested: leave.DaysRequested
                     });
                 }
             }
@@ -86,8 +87,11 @@ export const digiHRService = {
 
     syncUsersWithDatabase: async () => {
         const digiUsers = await digiHRService.getUsers();
+        const excludedIds = getExcludedReferenceIds();
 
         for (const digiUser of digiUsers) {
+            if (excludedIds.has(digiUser.ID)) continue;
+
             const digiStatus = GetEmploymentStatus(digiUser.Status) as Status;
 
             await prisma.users.upsert({
@@ -95,21 +99,30 @@ export const digiHRService = {
                     referenceId: digiUser.ID,
                 },
                 create: {
-                    name: digiUser.EmployeeName,
-                    referenceEmail: digiUser.Email,
+                    name: digiUser.EmployeeName.trim(),
+                    referenceEmail: digiUser.Email.trim(),
                     referenceId: digiUser.ID,
                     status: digiStatus,
                     isActivated: false,
-                    roleId: 1,
+                    roleId: Roles.user,
+                    preferences: {
+                        create: {
+                            dislikes: { meals: [], foodItems: [] },
+                            excludedMealIds: [],
+                            announcementVersion: 0,
+                            theme: Theme.LIGHT,
+                            autoSubmitPreset: false,
+                        },
+                    },
                 },
                 update: {
-                    name: digiUser.EmployeeName,
-                    referenceEmail: digiUser.Email,
+                    name: digiUser.EmployeeName.trim(),
+                    referenceEmail: digiUser.Email.trim(),
                     status: digiStatus,
                 },
             });
         }
 
-        console.log(`Synchronized ${digiUsers.length} users.`);
+        console.log(`Synchronized users from DigiHR.`);
     }
 }

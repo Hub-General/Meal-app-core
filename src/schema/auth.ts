@@ -1,18 +1,19 @@
 import z from "zod";
 
 export const LoginRequestSchema = z.object({
-    email: z.string().email(),
-    password: z.string().min(6).max(100)
+    email: z.string().trim().email(),
+    password: z.string().min(6).max(100),
+    keepSignedIn: z.boolean().optional().default(false)
 });
 
 export const RegisterRequestSchema = z.object({
-    email: z.string().email(),
+    email: z.string().trim().email(),
     password: z.string().min(6).max(100),
     token: z.string()
 });
 
 export const ResetPasswordSchema = z.object({
-    email: z.string().email(),
+    email: z.string().trim().email(),
     password: z.string().min(6).max(100),
     token: z.string()
 })
@@ -27,19 +28,19 @@ export const OnboardingBatchRequestSchema = z.object({
 })
 
 export const VerifyOTPSchema = z.object({
-    email: z.email(),
+    email: z.string().trim().email(),
     token: z.string()
 })
 
 export const GeneratePasswordTokenSchema = z.object({
-    email: z.string().trim()
+    email: z.string().trim().email()
 })
 export const LogoutRequestSchema = z.object({
-    refreshToken: z.string().min(1)
+    refreshToken: z.string().min(1).optional()
 });
 
 export const RefreshRequestSchema = z.object({
-    refreshToken: z.string().min(1)
+    refreshToken: z.string().min(1).optional()
 });
 
 export const ChangePasswordSchema = z.object({

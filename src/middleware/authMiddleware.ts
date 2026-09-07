@@ -3,23 +3,27 @@ import { verifyToken } from "../utility/verifyToken";
 
 export const authenticate = (req: Request, res: Response, next: NextFunction) => {
   try {
+    let token: string | undefined;
     const authHeader = req.headers.authorization;
 
-    if (!authHeader) {
-      return res.status(401).json({
-        message: "Authorization header missing"
-      })
+    if (authHeader) {
+      const [type, headerToken] = authHeader.split(" ");
+      if (type === "Bearer" && headerToken) {
+        token = headerToken;
+      }
     }
 
-    const [type, token] = authHeader.split(" ");
-
-    if (type !== "Bearer" || !token) {
-      return res.status(401).json({
-        message: "Invalid authorization format"
-      })
+    if (!token && req.cookies?.accessToken) {
+      token = req.cookies.accessToken;
     }
 
-    const decoded = verifyToken(token)
+    if (!token) {
+      return res.status(401).json({
+        message: "Authorization required"
+      });
+    }
+
+    const decoded = verifyToken(token);
 
     req.user = {
       id: decoded.userId,
