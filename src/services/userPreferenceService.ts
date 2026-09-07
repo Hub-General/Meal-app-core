@@ -117,9 +117,12 @@ export const userPreferenceService = {
             where: { userId }
         });
         return preference ?? {
-            userId: null,
-            dislikes: null,
-            excludedMealIds: null
+            userId,
+            dislikes: { meals: [], foodItems: [] },
+            excludedMealIds: [],
+            theme: "LIGHT",
+            autoSubmitPreset: false,
+            announcementVersion: 0
         };
     },
 
@@ -131,6 +134,48 @@ export const userPreferenceService = {
             }
         });
         return (meals?.excludedMealIds as number[]) ?? [];
+    },
+
+    updateUserPreference: async (userId: number, preferences: updateUserPreferencesRequest) => {
+        let excludedMeals: number[] | undefined;
+
+        if (preferences.dislikes) {
+            const meals = await prisma.meals.findMany({
+                select: {
+                    id: true,
+                    foodCode: true
+                }
+            });
+            excludedMeals = getExcludedMeals(meals, preferences.dislikes);
+        }
+
+        const updateData: Record<string, any> = {};
+        if (preferences.dislikes) {
+            updateData.dislikes = preferences.dislikes;
+            updateData.excludedMealIds = excludedMeals;
+        }
+        if (preferences.theme !== undefined) {
+            updateData.theme = preferences.theme;
+        }
+        if (preferences.autoSubmitPreset !== undefined) {
+            updateData.autoSubmitPreset = preferences.autoSubmitPreset;
+        }
+        if (preferences.announcementVersion !== undefined) {
+            updateData.announcementVersion = preferences.announcementVersion;
+        }
+
+        return await prisma.userPreferences.upsert({
+            where: { userId },
+            create: {
+                userId,
+                dislikes: preferences.dislikes ?? { meals: [], foodItems: [] },
+                excludedMealIds: excludedMeals ?? [],
+                theme: preferences.theme ?? "LIGHT",
+                autoSubmitPreset: preferences.autoSubmitPreset ?? false,
+                announcementVersion: preferences.announcementVersion ?? 0
+            },
+            update: updateData
+        });
     },
 
     // Backfill empty preferences for users missing a record without overriding existing ones
@@ -169,9 +214,5 @@ export const userPreferenceService = {
     // Compatibility aliases
     updateUserDietaryPreference: async (userId: number, preferences: createUserPreferencesRequest) => {
         return await userPreferenceService.updateUserDietaryPreferences(userId, preferences);
-    },
-
-    updateUserPreference: async (userId: number, preferences: updateUserPreferencesRequest) => {
-        return await userPreferenceService.updateUserAppPreferences(userId, preferences);
     }
 };

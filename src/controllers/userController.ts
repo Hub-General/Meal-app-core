@@ -6,7 +6,8 @@ import { userPreferenceService } from "../services/userPreferenceService";
 import { 
     updateUserDietaryPreferencesSchema, 
     updateUserAppPreferencesSchema, 
-    updateUserAnnouncementVersionSchema 
+    updateUserAnnouncementVersionSchema,
+    updateUserPreferencesSchema
 } from "../schema/userPreference";
 
 export const userController = {
@@ -198,12 +199,12 @@ export const userController = {
             if (!userId) {
                 return res.status(401).json({ message: "Unauthorized" });
             }
-            const parsed = updateUserAppPreferencesSchema.safeParse(req.body);
+            const parsed = updateUserPreferencesSchema.safeParse(req.body);
             if (!parsed.success) {
                 return res.status(400).json({ message: "Invalid user preferences payload", errors: parsed.error.flatten() });
             }
-            await userPreferenceService.updateUserAppPreferences(userId, parsed.data);
-            res.status(200).json({ message: "Successfully Updated User Preferences" });
+            const response = await userPreferenceService.updateUserPreference(userId, parsed.data);
+            res.status(200).json({ message: "Successfully Updated User Preferences", data: response });
         } catch (error) {
             res.status(500).json({
                 message: "Failed to update user preferences",
