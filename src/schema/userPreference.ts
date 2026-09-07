@@ -6,8 +6,8 @@ import { Theme } from "../generated/prisma";
 // ==========================================
 
 export const userDislikesSchema = z.object({
-    meals: z.array(z.number().int().positive()),
-    foodItems: z.array(z.string())
+    meals: z.array(z.number().int().positive()).optional().default([]),
+    foodItems: z.array(z.string()).optional().default([])
 });
 
 export const updateUserDietaryPreferencesSchema = z.object({
@@ -59,16 +59,22 @@ export interface UserAppPreference {
 
 export type UpdateUserAppPreferencesRequest = z.infer<typeof updateUserAppPreferencesSchema>;
 export type UpdateUserAnnouncementVersionRequest = z.infer<typeof updateUserAnnouncementVersionSchema>;
-
-// Backward-compatibility alias
-export const updateUserPreferencesSchema = updateUserAppPreferencesSchema;
-export type updateUserPreferencesRequest = UpdateUserAppPreferencesRequest;
 export type updateUserAnnouncementVersionRequest = UpdateUserAnnouncementVersionRequest;
 
 
 // ==========================================
 // Combined User Preferences
 // ==========================================
+
+export const updateUserPreferencesSchema = z.object({
+    dislikes: userDislikesSchema.optional(),
+    theme: z.enum(Theme).optional(),
+    autoSubmitPreset: z.boolean().optional(),
+    announcementVersion: z.number().int().nonnegative().optional(),
+});
+
+export type UpdateUserPreferencesRequest = z.infer<typeof updateUserPreferencesSchema>;
+export type updateUserPreferencesRequest = UpdateUserPreferencesRequest;
 
 export interface UserPreference {
     userId: number;
