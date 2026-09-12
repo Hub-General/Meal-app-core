@@ -46,6 +46,7 @@ model Users {
   userAvailability UserAvailability[]
   refreshTokens RefreshToken[]
   userTokens UserTokens[]
+  pushSubscription PushSubscription[]
 }
 
 model RefreshToken {
@@ -229,8 +230,13 @@ model UserPreferences {
   dislikes Json
   excludedMealIds Json
   announcementVersion Int @db.SmallInt @default(0)
+
+  emailNotifications Boolean @default(true)
+  pushNotifications Boolean @default(true)
+
   theme Theme @default(LIGHT)
   autoSubmitPreset Boolean @default(false)
+
   updatedAt DateTime @updatedAt
 
   @@unique([userId])
@@ -391,4 +397,21 @@ model ExpenditurePeriod {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+
+model PushSubscription{
+  id Int @id @default(autoincrement())
+  userId Int
+  user Users @relation(fields: [userId], references: [id])
+
+  
+  endpoint String @unique
+  p256dh String
+  auth String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, endpoint])
 }

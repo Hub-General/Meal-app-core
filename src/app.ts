@@ -17,6 +17,7 @@ import holidayRoutes from "./routes/holidayRoutes";
 import budgetRoutes from "./routes/budgetRoutes";
 import expenditureRoutes from "./routes/expenditureRoutes";
 import analyticsRoutes from "./routes/analyticsRoutes";
+import notificationRoutes from "./routes/notificationRoutes";
 
 const app = express();
 
@@ -96,5 +97,6 @@ app.use("/holidays", holidayRoutes);
 app.use("/budgets", budgetRoutes);
 app.use("/expenditures", expenditureRoutes);
 app.use("/analytics", analyticsRoutes);
+app.use("/notifications", notificationRoutes);
 
 export default app;
