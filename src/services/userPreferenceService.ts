@@ -1,218 +1,58 @@
 import { prisma } from "../db/prisma";
 import { getExcludedMeals } from "../helpers/mealPreferencesHelpers";
-import { 
-    UpdateUserDietaryPreferencesRequest, 
-    UpdateUserAppPreferencesRequest, 
-    createUserPreferencesRequest, 
-    updateUserPreferencesRequest, 
-    UserDislikes, 
-    UserPreference 
+import {
+  UpdateUserPreferencesRequest,
 } from "../schema/userPreference";
 
-export const DEFAULT_USER_PREFERENCES = {
-    dislikes: { meals: [] as number[], foodItems: [] as string[] },
-    excludedMealIds: [] as number[],
-    announcementVersion: 0,
-    theme: "LIGHT" as const,
-    autoSubmitPreset: false,
-};
-
 export const userPreferenceService = {
-    // Dietary Preferences
-    getUserDietaryPreferences: async (userId: number) => {
-        const preference = await prisma.userPreferences.findUnique({
-            where: { userId },
-            select: {
-                userId: true,
-                dislikes: true,
-                excludedMealIds: true,
-            }
-        });
-        return preference ?? {
-            userId,
-            dislikes: { meals: [], foodItems: [] },
-            excludedMealIds: []
-        };
-    },
+  /**
+   * Get preferences for a user. Returns null if none exist.
+   */
+  getUserPreference: async (userId: number) => {
+    return prisma.userPreferences.findUnique({
+      where: { userId },
+    });
+  },
 
-    updateUserDietaryPreferences: async (userId: number, preferences: UpdateUserDietaryPreferencesRequest) => {
-        let excludedMeals: number[] = [];
-        if (preferences.dislikes) {
-            const meals = await prisma.meals.findMany({
-                select: {
-                    id: true,
-                    foodCode: true
-                }
-            });
-            excludedMeals = getExcludedMeals(meals, preferences.dislikes);
-        }
+  /**
+   * Upsert preferences for a user. Accepts any optional partial fields.
+   */
+  updateUserPreference: async (
+    userId: number,
+    preferences: UpdateUserPreferencesRequest
+  ) => {
+    let excludedMeals: number[] | undefined;
 
-        return await prisma.userPreferences.upsert({
-            where: { userId },
-            create: {
-                userId,
-                dislikes: preferences.dislikes ?? { meals: [], foodItems: [] },
-                excludedMealIds: excludedMeals
-            },
-            update: {
-                dislikes: preferences.dislikes ?? { meals: [], foodItems: [] },
-                excludedMealIds: excludedMeals
-            }
-        });
-    },
-
-    // App Preferences
-    getUserAppPreferences: async (userId: number) => {
-        const preference = await prisma.userPreferences.findUnique({
-            where: { userId },
-            select: {
-                userId: true,
-                theme: true,
-                autoSubmitPreset: true,
-                announcementVersion: true,
-                updatedAt: true,
-            }
-        });
-        return preference ?? {
-            userId,
-            theme: "LIGHT",
-            autoSubmitPreset: false,
-            announcementVersion: 0
-        };
-    },
-
-    updateUserAppPreferences: async (userId: number, preferences: UpdateUserAppPreferencesRequest) => {
-        return await prisma.userPreferences.upsert({
-            where: { userId },
-            create: {
-                userId,
-                dislikes: { meals: [], foodItems: [] },
-                excludedMealIds: [],
-                ...preferences
-            },
-            update: {
-                ...preferences
-            }
-        });
-    },
-
-    patchUserAnnouncementVersion: async (userId: number, announcementVersion: number) => {
-        return await prisma.userPreferences.upsert({
-            where: { userId },
-            create: {
-                userId,
-                dislikes: { meals: [], foodItems: [] },
-                excludedMealIds: [],
-                announcementVersion
-            },
-            update: {
-                announcementVersion
-            }
-        });
-    },
-
-    // Combined / General Preferences
-    getUserPreference: async (userId: number) => {
-        const preference = await prisma.userPreferences.findUnique({
-            where: { userId }
-        });
-        return preference ?? {
-            userId,
-            dislikes: { meals: [], foodItems: [] },
-            excludedMealIds: [],
-            theme: "LIGHT",
-            autoSubmitPreset: false,
-            announcementVersion: 0
-        };
-    },
-
-    getUserExcludedMeals: async (userId: number) => {
-        const meals = await prisma.userPreferences.findUnique({
-            where: { userId },
-            select: {
-                excludedMealIds: true
-            }
-        });
-        return (meals?.excludedMealIds as number[]) ?? [];
-    },
-
-    updateUserPreference: async (userId: number, preferences: updateUserPreferencesRequest) => {
-        let excludedMeals: number[] | undefined;
-
-        if (preferences.dislikes) {
-            const meals = await prisma.meals.findMany({
-                select: {
-                    id: true,
-                    foodCode: true
-                }
-            });
-            excludedMeals = getExcludedMeals(meals, preferences.dislikes);
-        }
-
-        const updateData: Record<string, any> = {};
-        if (preferences.dislikes) {
-            updateData.dislikes = preferences.dislikes;
-            updateData.excludedMealIds = excludedMeals;
-        }
-        if (preferences.theme !== undefined) {
-            updateData.theme = preferences.theme;
-        }
-        if (preferences.autoSubmitPreset !== undefined) {
-            updateData.autoSubmitPreset = preferences.autoSubmitPreset;
-        }
-        if (preferences.announcementVersion !== undefined) {
-            updateData.announcementVersion = preferences.announcementVersion;
-        }
-
-        return await prisma.userPreferences.upsert({
-            where: { userId },
-            create: {
-                userId,
-                dislikes: preferences.dislikes ?? { meals: [], foodItems: [] },
-                excludedMealIds: excludedMeals ?? [],
-                theme: preferences.theme ?? "LIGHT",
-                autoSubmitPreset: preferences.autoSubmitPreset ?? false,
-                announcementVersion: preferences.announcementVersion ?? 0
-            },
-            update: updateData
-        });
-    },
-
-    // Backfill empty preferences for users missing a record without overriding existing ones
-    backfillMissingUserPreferences: async () => {
-        const usersWithoutPreferences = await prisma.users.findMany({
-            where: {
-                preferences: null,
-            },
-            select: {
-                id: true,
-            },
-        });
-
-        if (usersWithoutPreferences.length === 0) {
-            return { totalChecked: 0, backfilledCount: 0 };
-        }
-
-        const result = await prisma.userPreferences.createMany({
-            data: usersWithoutPreferences.map((u) => ({
-                userId: u.id,
-                dislikes: DEFAULT_USER_PREFERENCES.dislikes,
-                excludedMealIds: DEFAULT_USER_PREFERENCES.excludedMealIds,
-                announcementVersion: DEFAULT_USER_PREFERENCES.announcementVersion,
-                theme: DEFAULT_USER_PREFERENCES.theme,
-                autoSubmitPreset: DEFAULT_USER_PREFERENCES.autoSubmitPreset,
-            })),
-            skipDuplicates: true,
-        });
-
-        return {
-            totalChecked: usersWithoutPreferences.length,
-            backfilledCount: result.count,
-        };
-    },
-
-    // Compatibility aliases
-    updateUserDietaryPreference: async (userId: number, preferences: createUserPreferencesRequest) => {
-        return await userPreferenceService.updateUserDietaryPreferences(userId, preferences);
+    if (preferences.dislikes) {
+      const meals = await prisma.meals.findMany({
+        select: { id: true, foodCode: true },
+      });
+      excludedMeals = getExcludedMeals(meals, preferences.dislikes);
     }
+
+    return prisma.userPreferences.upsert({
+      where: { userId },
+      create: {
+        userId,
+        dislikes: preferences.dislikes ?? { meals: [], foodItems: [] },
+        excludedMealIds: excludedMeals ?? [],
+        ...preferences,
+      },
+      update: {
+        ...preferences,
+        ...(excludedMeals !== undefined ? { excludedMealIds: excludedMeals } : {}),
+      },
+    });
+  },
+
+  /**
+   * Helper used by menu and meal services to filter dishes by dietary dislikes.
+   */
+  getUserExcludedMeals: async (userId: number) => {
+    const pref = await prisma.userPreferences.findUnique({
+      where: { userId },
+      select: { excludedMealIds: true },
+    });
+    return (pref?.excludedMealIds as number[]) ?? [];
+  },
 };

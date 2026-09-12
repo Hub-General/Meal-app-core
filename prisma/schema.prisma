@@ -46,6 +46,7 @@ model Users {
   userAvailability UserAvailability[]
   refreshTokens RefreshToken[]
   userTokens UserTokens[]
+  pushSubscription PushSubscription[]
 }
 
 model RefreshToken {
@@ -125,6 +126,13 @@ enum Status {
 enum SelectionStatus {
   PENDING
   SUBMITTED
+  CANCELLED
+}
+
+enum FulfillmentStatus {
+  PENDING
+  FULFILLED
+  NOT_FULFILLED
 }
 
 enum SelectionType {
@@ -155,6 +163,10 @@ enum HolidayType {
 enum TokenType {
   USER_ONBOARDING
   PASSWORD_RESET
+}
+
+enum ExpenditureType {
+  MEAL
 }
 
 model Menus{ 
@@ -218,8 +230,13 @@ model UserPreferences {
   dislikes Json
   excludedMealIds Json
   announcementVersion Int @db.SmallInt @default(0)
+
+  emailNotifications Boolean @default(true)
+  pushNotifications Boolean @default(true)
+
   theme Theme @default(LIGHT)
   autoSubmitPreset Boolean @default(false)
+
   updatedAt DateTime @updatedAt
 
   @@unique([userId])
@@ -253,6 +270,10 @@ model Selections{
 
   weekMenuScheduleId Int
   weekMenuSchedule WeekMenuSchedule @relation(fields: [weekMenuScheduleId], references: [id])
+
+  fulfillmentStatus FulfillmentStatus @default(PENDING)
+  fulfilledAt DateTime?
+  fulfillmentNote String?
 
   createdBy Int
   createdFor Int?
@@ -351,4 +372,46 @@ model Holidays {
 
   @@index([year])
   @@index([year, type])
+}
+
+
+model Budget{
+  id Int @id @default(autoincrement())
+  title String
+  description String?
+  startPeriod DateTime
+  endPeriod DateTime
+  amount Float
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+}
+
+
+model ExpenditurePeriod {
+  id Int @id @default(autoincrement())
+  type ExpenditureType
+  cost Float
+  startDate DateTime
+  endDate DateTime
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+
+model PushSubscription{
+  id Int @id @default(autoincrement())
+  userId Int
+  user Users @relation(fields: [userId], references: [id])
+
+  
+  endpoint String @unique
+  p256dh String
+  auth String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, endpoint])
 }

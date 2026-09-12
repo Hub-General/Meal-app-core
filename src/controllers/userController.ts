@@ -3,12 +3,7 @@ import { GetUsersQueryRequestSchema, userRegisterRequestSchema, userUpdateSchema
 import { userService } from "../services/userService";
 import { Status } from "../generated/prisma";
 import { userPreferenceService } from "../services/userPreferenceService";
-import { 
-    updateUserDietaryPreferencesSchema, 
-    updateUserAppPreferencesSchema, 
-    updateUserAnnouncementVersionSchema,
-    updateUserPreferencesSchema
-} from "../schema/userPreference";
+import { updateUserPreferencesSchema } from "../schema/userPreference";
 
 export const userController = {
 
@@ -86,98 +81,7 @@ export const userController = {
         }
     },
 
-    // Dietary Preferences
-    getUserDietaryPreferencesController: async (req: Request, res: Response) => {
-        try {
-            const userId = req.user?.id;
-            if (!userId) {
-                return res.status(401).json({ message: "Unauthorized" });
-            }
-            const response = await userPreferenceService.getUserDietaryPreferences(userId);
-            res.status(200).json(response);
-        } catch (error) {
-            res.status(500).json({
-                message: `Failed to get user dietary preferences for user ${req.user?.id}`,
-                error: error instanceof Error ? error.message : error,
-            });
-        }
-    },
-    updateUserDietaryPreferencesController: async (req: Request, res: Response) => {
-        try {
-            const userId = req.user?.id;
-            if (!userId) {
-                return res.status(401).json({ message: "Unauthorized" });
-            }
-            const parsed = updateUserDietaryPreferencesSchema.safeParse(req.body);
-            if (!parsed.success) {
-                return res.status(400).json({ message: "Invalid user dietary preferences payload", errors: parsed.error.flatten() });
-            }
-            const response = await userPreferenceService.updateUserDietaryPreferences(userId, parsed.data);
-            res.status(200).json({ message: "Successfully Updated User Dietary Preferences", data: response });
-        } catch (error) {
-            res.status(500).json({
-                message: "Failed to update user dietary preferences",
-                error: error instanceof Error ? error.message : error,
-            });
-        }
-    },
-
-    // App Preferences
-    getUserAppPreferencesController: async (req: Request, res: Response) => {
-        try {
-            const userId = req.user?.id;
-            if (!userId) {
-                return res.status(401).json({ message: "Unauthorized" });
-            }
-            const response = await userPreferenceService.getUserAppPreferences(userId);
-            res.status(200).json(response);
-        } catch (error) {
-            res.status(500).json({
-                message: `Failed to get user app preferences for user ${req.user?.id}`,
-                error: error instanceof Error ? error.message : error,
-            });
-        }
-    },
-    updateUserAppPreferencesController: async (req: Request, res: Response) => {
-        try {
-            const userId = req.user?.id;
-            if (!userId) {
-                return res.status(401).json({ message: "Unauthorized" });
-            }
-            const parsed = updateUserAppPreferencesSchema.safeParse(req.body);
-            if (!parsed.success) {
-                return res.status(400).json({ message: "Invalid user app preferences payload", errors: parsed.error.flatten() });
-            }
-            await userPreferenceService.updateUserAppPreferences(userId, parsed.data);
-            res.status(200).json({ message: "Successfully Updated User App Preferences" });
-        } catch (error) {
-            res.status(500).json({
-                message: "Failed to update user app preferences",
-                error: error instanceof Error ? error.message : error,
-            });
-        }
-    },
-    patchUserAnnouncementVersionController: async (req: Request, res: Response) => {
-        try {
-            const userId = req.user?.id;
-            if (!userId) {
-                return res.status(401).json({ message: "Unauthorized" });
-            }
-            const parsed = updateUserAnnouncementVersionSchema.safeParse(req.body);
-            if (!parsed.success) {
-                return res.status(400).json({ message: "Invalid user announcement version payload", errors: parsed.error.flatten() });
-            }
-            await userPreferenceService.patchUserAnnouncementVersion(userId, parsed.data.announcementVersion);
-            res.status(200).json({ message: "Successfully Updated User Announcement Version" });
-        } catch (error) {
-            res.status(500).json({
-                message: "Failed to update user announcement version",
-                error: error instanceof Error ? error.message : error,
-            });
-        }
-    },
-
-    // Combined / General User Preferences
+    // User Preferences
     getUserPreferencesController: async (req: Request, res: Response) => {
         try {
             const userId = req.user?.id;

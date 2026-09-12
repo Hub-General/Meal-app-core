@@ -19,7 +19,6 @@ function verifyCronSecret(req: Request, res: Response, next: NextFunction) {
     next();
 }
 
-router.get("/periodic", verifyCronSecret, cronController.periodic);
-router.get("/maintenance", verifyCronSecret, cronController.maintenance);
+router.get("/daily", verifyCronSecret, cronController.daily);
 
 export default router;

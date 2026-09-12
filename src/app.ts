@@ -14,6 +14,10 @@ import tasteProfileRoutes from "./routes/tasteProfileRoutes";
 import cronRoutes from "./routes/cronRoutes";
 import weekMenuScheduleRoutes from "./routes/weekMenuScheduleRoutes";
 import holidayRoutes from "./routes/holidayRoutes";
+import budgetRoutes from "./routes/budgetRoutes";
+import expenditureRoutes from "./routes/expenditureRoutes";
+import analyticsRoutes from "./routes/analyticsRoutes";
+import notificationRoutes from "./routes/notificationRoutes";
 
 const app = express();
 
@@ -79,17 +83,20 @@ app.use(cookieParser());
 app.use(express.json());
 
 app.use("/auth", authRoutes);
-app.use("/cron", cronRoutes)
+app.use("/cron", cronRoutes);
 app.use("/roles", roleRoutes);
 app.use("/meals", mealRoutes);
 app.use("/menus", menuRoutes);
 app.use("/users", userRoutes);
-app.use("/users/taste-profiles", tasteProfileRoutes)
+app.use("/users/taste-profiles", tasteProfileRoutes);
 app.use("/week-menu-schedules", weekMenuScheduleRoutes);
 app.use("/meal-selections", selectionRoutes);
 app.use("/presets", presetRoutes);
 app.use("/food-library", foodLibraryRoutes);
 app.use("/holidays", holidayRoutes);
-
+app.use("/budgets", budgetRoutes);
+app.use("/expenditures", expenditureRoutes);
+app.use("/analytics", analyticsRoutes);
+app.use("/notifications", notificationRoutes);
 
 export default app;

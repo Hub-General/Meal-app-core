@@ -1,10 +1,11 @@
 import { prisma } from "../db/prisma";
-import { SelectionStatus } from "../generated/prisma";
+import { FulfillmentStatus, SelectionStatus, SelectionType, WeekMenuStatus } from "../generated/prisma";
 import { getISOWeekInfo, getISOWeekRange } from "../helpers/dateFunctions";
 import { selectionHelper } from "../helpers/mealSelectionHelpers";
 import { SelectionValidationError, validateSelectionUpdates } from "../helpers/validateSelectionUpdate";
 import {
     CreateMealSelectionRequest,
+    FoodArrivalFulfillmentRequest,
     MealSelection,
     MealSelectionFilter,
     ReplaceWeeklyMealRequest,
@@ -17,6 +18,7 @@ import {
 import { weekMenuScheduleService } from "./weekMenuScheduleService";
 import { mailService } from "./emailService";
 import { holidayService } from "./holidayService";
+import { notificationService } from "./notificationService";
 
 export class SelectionConflictError extends Error {
     constructor(message: string) {
@@ -1115,6 +1117,82 @@ export const mealSelectionService = {
                 hasPrevPage: page > 1
             },
             data
+        };
+    },
+
+    /**
+     * Notify food arrival and update fulfillment statuses:
+     * 1. Broadcasts the "Food is in!" push notification to users who ordered (excluding any unfulfilled selections).
+     * 2. Marks any selections in unfulfilledSelectionIds as NOT_FULFILLED.
+     * 3. Marks all other active meal selections for that schedule (and optional menuDayId) as FULFILLED with fulfilledAt timestamp.
+     */
+    notifyFoodArrivalAndFulfill: async (params?: FoodArrivalFulfillmentRequest) => {
+        let scheduleId = params?.weekMenuScheduleId;
+
+        if (!scheduleId) {
+            const activeSchedule = await prisma.weekMenuSchedule.findFirst({
+                where: { status: WeekMenuStatus.ACTIVE },
+                select: { id: true }
+            });
+            scheduleId = activeSchedule?.id;
+        }
+
+        if (!scheduleId) {
+            throw new Error("No active week menu schedule found for food arrival fulfillment");
+        }
+
+        const unfulfilledIds = params?.unfulfilledSelectionIds ?? [];
+
+        // 1. First, send the notification (excluding unfulfilled selections if any)
+        const notificationResult = await notificationService.notifyFoodArrived({
+            weekMenuScheduleId: scheduleId,
+            menuDayId: params?.menuDayId,
+            excludedSelectionIds: unfulfilledIds,
+        });
+
+        // 2. Do the fulfillment logic
+        const now = new Date();
+        const baseWhere = {
+            weekMenuScheduleId: scheduleId,
+            selectionType: SelectionType.MEAL,
+            selectionStatus: { not: SelectionStatus.CANCELLED },
+            ...(params?.menuDayId ? { menuDayId: params.menuDayId } : {}),
+        };
+
+        let unfulfilledCount = 0;
+        if (unfulfilledIds.length > 0) {
+            const res = await prisma.selections.updateMany({
+                where: {
+                    ...baseWhere,
+                    id: { in: unfulfilledIds },
+                },
+                data: {
+                    fulfillmentStatus: FulfillmentStatus.NOT_FULFILLED,
+                    fulfilledAt: null,
+                    fulfillmentNote: params?.note || "Not fulfilled upon food arrival",
+                }
+            });
+            unfulfilledCount = res.count;
+        }
+
+        const fulfilledRes = await prisma.selections.updateMany({
+            where: {
+                ...baseWhere,
+                ...(unfulfilledIds.length > 0 ? { id: { notIn: unfulfilledIds } } : {}),
+            },
+            data: {
+                fulfillmentStatus: FulfillmentStatus.FULFILLED,
+                fulfilledAt: now,
+            }
+        });
+
+        return {
+            message: `Food arrival processed: ${fulfilledRes.count} selection(s) fulfilled, ${unfulfilledCount} selection(s) marked not fulfilled`,
+            weekMenuScheduleId: scheduleId,
+            menuDayId: params?.menuDayId,
+            fulfilledCount: fulfilledRes.count,
+            unfulfilledCount,
+            notification: notificationResult,
         };
     }
 }
