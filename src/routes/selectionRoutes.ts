@@ -35,6 +35,8 @@ router.patch("/submit",authenticate, mealSelectionController.submitSelectionsCon
 
 
 //ADMIN Routes
+router.post("/food-arrival", authenticate, authorize([Roles.admin, Roles.manager, Roles.hr]), mealSelectionController.foodArrivalFulfillmentController);
+router.patch("/food-arrival", authenticate, authorize([Roles.admin, Roles.manager, Roles.hr]), mealSelectionController.foodArrivalFulfillmentController);
 router.patch("/submit-weekly",authenticate, authorize([Roles.admin, Roles.hr]), mealSelectionController.updateWeeklySelectionsStatusController);
 router.put("/override", authenticate,
     authorize([Roles.admin,Roles.hr]),

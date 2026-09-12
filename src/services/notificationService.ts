@@ -109,6 +109,8 @@ export const notificationService = {
    */
   notifyFoodArrived: async (params?: {
     weekMenuScheduleId?: number;
+    menuDayId?: number;
+    excludedSelectionIds?: number[];
     title?: string;
     description?: string;
   }) => {
@@ -131,12 +133,16 @@ export const notificationService = {
       };
     }
 
-    // Find all users who have meal selections for this week schedule
+    // Find all users who have meal selections for this week schedule (excluding unfulfilled meals if specified)
     const selections = await prisma.selections.findMany({
       where: {
         weekMenuScheduleId: scheduleId,
         selectionType: SelectionType.MEAL,
         selectionStatus: { not: SelectionStatus.CANCELLED },
+        ...(params?.menuDayId ? { menuDayId: params.menuDayId } : {}),
+        ...(params?.excludedSelectionIds?.length
+          ? { id: { notIn: params.excludedSelectionIds } }
+          : {}),
       },
       select: {
         createdFor: true,
