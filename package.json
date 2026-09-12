@@ -13,7 +13,6 @@
     "sync:sequences": "tsx scripts/syncSequences.ts",
     "update:user-roles": "tsx scripts/migrateUserRoles.ts",
     "seed": "tsx prisma/seed.ts",
-    "seed:preferences": "tsx scripts/seedUserPreferences.ts",
     "update:images": "ts-node scripts/updateMealImages.ts",
     "test": "echo \"Error: no test specified\" && exit 1"
   },

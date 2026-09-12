@@ -15,6 +15,8 @@ export const DEFAULT_USER_PREFERENCES = {
     announcementVersion: 0,
     theme: "LIGHT" as const,
     autoSubmitPreset: false,
+    emailNotifications: true,
+    pushNotifications: true,
 };
 
 export const userPreferenceService = {
@@ -52,7 +54,12 @@ export const userPreferenceService = {
             create: {
                 userId,
                 dislikes: preferences.dislikes ?? { meals: [], foodItems: [] },
-                excludedMealIds: excludedMeals
+                excludedMealIds: excludedMeals,
+                theme: DEFAULT_USER_PREFERENCES.theme,
+                autoSubmitPreset: DEFAULT_USER_PREFERENCES.autoSubmitPreset,
+                announcementVersion: DEFAULT_USER_PREFERENCES.announcementVersion,
+                emailNotifications: DEFAULT_USER_PREFERENCES.emailNotifications,
+                pushNotifications: DEFAULT_USER_PREFERENCES.pushNotifications,
             },
             update: {
                 dislikes: preferences.dislikes ?? { meals: [], foodItems: [] },
@@ -70,6 +77,8 @@ export const userPreferenceService = {
                 theme: true,
                 autoSubmitPreset: true,
                 announcementVersion: true,
+                emailNotifications: true,
+                pushNotifications: true,
                 updatedAt: true,
             }
         });
@@ -77,7 +86,9 @@ export const userPreferenceService = {
             userId,
             theme: "LIGHT",
             autoSubmitPreset: false,
-            announcementVersion: 0
+            announcementVersion: 0,
+            emailNotifications: true,
+            pushNotifications: true,
         };
     },
 
@@ -88,6 +99,8 @@ export const userPreferenceService = {
                 userId,
                 dislikes: { meals: [], foodItems: [] },
                 excludedMealIds: [],
+                emailNotifications: DEFAULT_USER_PREFERENCES.emailNotifications,
+                pushNotifications: DEFAULT_USER_PREFERENCES.pushNotifications,
                 ...preferences
             },
             update: {
@@ -103,7 +116,9 @@ export const userPreferenceService = {
                 userId,
                 dislikes: { meals: [], foodItems: [] },
                 excludedMealIds: [],
-                announcementVersion
+                announcementVersion,
+                emailNotifications: DEFAULT_USER_PREFERENCES.emailNotifications,
+                pushNotifications: DEFAULT_USER_PREFERENCES.pushNotifications,
             },
             update: {
                 announcementVersion
@@ -122,7 +137,9 @@ export const userPreferenceService = {
             excludedMealIds: [],
             theme: "LIGHT",
             autoSubmitPreset: false,
-            announcementVersion: 0
+            announcementVersion: 0,
+            emailNotifications: true,
+            pushNotifications: true,
         };
     },
 
@@ -163,6 +180,12 @@ export const userPreferenceService = {
         if (preferences.announcementVersion !== undefined) {
             updateData.announcementVersion = preferences.announcementVersion;
         }
+        if (preferences.emailNotifications !== undefined) {
+            updateData.emailNotifications = preferences.emailNotifications;
+        }
+        if (preferences.pushNotifications !== undefined) {
+            updateData.pushNotifications = preferences.pushNotifications;
+        }
 
         return await prisma.userPreferences.upsert({
             where: { userId },
@@ -172,7 +195,9 @@ export const userPreferenceService = {
                 excludedMealIds: excludedMeals ?? [],
                 theme: preferences.theme ?? "LIGHT",
                 autoSubmitPreset: preferences.autoSubmitPreset ?? false,
-                announcementVersion: preferences.announcementVersion ?? 0
+                announcementVersion: preferences.announcementVersion ?? 0,
+                emailNotifications: preferences.emailNotifications ?? true,
+                pushNotifications: preferences.pushNotifications ?? true,
             },
             update: updateData
         });
@@ -201,6 +226,8 @@ export const userPreferenceService = {
                 announcementVersion: DEFAULT_USER_PREFERENCES.announcementVersion,
                 theme: DEFAULT_USER_PREFERENCES.theme,
                 autoSubmitPreset: DEFAULT_USER_PREFERENCES.autoSubmitPreset,
+                emailNotifications: DEFAULT_USER_PREFERENCES.emailNotifications,
+                pushNotifications: DEFAULT_USER_PREFERENCES.pushNotifications,
             })),
             skipDuplicates: true,
         });
