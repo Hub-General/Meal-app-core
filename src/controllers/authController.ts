@@ -178,8 +178,8 @@ export const authController = {
             if(!parsed.success){
                 return res.status(401).json({message:"Email Required"})
             }
-            const result = await authService.generateforgetPasswordToken({email:parsed.data.email})
-            res.status(200).json(result)    
+            await authService.generateforgetPasswordToken({email:parsed.data.email})
+            res.status(200).json({message:"Reset Token Generated"})    
         }catch(error){
             res.status(500).json(`${error}`)
         }

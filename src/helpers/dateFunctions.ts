@@ -128,4 +128,54 @@ export function getUnavailableDays(
     }
 
     return unavailableDays;
-}
+}
+
+/**
+ * Formats a Date, timestamp, or ISO string into a short date string (e.g. "5 Aug", "31 Aug").
+ * Uses UTC by default to prevent timezone-induced date shifts on ISO midnight strings.
+ */
+export function formatShortDate(
+    date: Date | string | number,
+    options?: { includeYear?: boolean; timeZone?: string }
+): string {
+    const d = typeof date === "object" ? date : new Date(date);
+    if (isNaN(d.getTime())) return "";
+
+    const timeZone = options?.timeZone ?? "UTC";
+    const day = d.toLocaleDateString("en-GB", { day: "numeric", timeZone });
+    const month = d.toLocaleDateString("en-GB", { month: "short", timeZone });
+
+    if (options?.includeYear) {
+        const year = d.toLocaleDateString("en-GB", { year: "numeric", timeZone });
+        return `${day} ${month} ${year}`;
+    }
+
+    return `${day} ${month}`;
+}
+
+/**
+ * Formats a date range into a concise human-readable string.
+ *
+ * Examples:
+ *   formatDateRange("2026-08-31T00:00:00.000Z", "2026-09-06T23:59:59.999Z")
+ *   => "31 Aug → 6 Sep"
+ *
+ *   formatDateRange("2026-08-05T00:00:00.000Z", "2026-08-10T23:59:59.999Z")
+ *   => "5 Aug → 10 Aug"
+ */
+export function formatDateRange(
+    startDate: Date | string | number,
+    endDate: Date | string | number,
+    separator = " → ",
+    options?: { includeYear?: boolean; timeZone?: string }
+): string {
+    const start = formatShortDate(startDate, options);
+    const end = formatShortDate(endDate, options);
+
+    if (!start && !end) return "";
+    if (!start) return end;
+    if (!end) return start;
+
+    return `${start}${separator}${end}`;
+}
+

@@ -15,6 +15,14 @@ import {
 } from "../schema/analytics";
 import { budgetService } from "./budgetService";
 
+const WEEKDAYS: Days[] = [
+  Days.MONDAY,
+  Days.TUESDAY,
+  Days.WEDNESDAY,
+  Days.THURSDAY,
+  Days.FRIDAY,
+];
+
 const DAY_OFFSET_MAP: Record<Days, number> = {
   [Days.MONDAY]: 0,
   [Days.TUESDAY]: 1,
@@ -157,7 +165,7 @@ export const analyticsService = {
     }>();
 
     const dayMap = new Map<Days, { portions: number; totalCost: number }>();
-    for (const day of Object.values(Days)) {
+    for (const day of WEEKDAYS) {
       dayMap.set(day, { portions: 0, totalCost: 0 });
     }
 
@@ -227,11 +235,12 @@ export const analyticsService = {
         currentWeek.unitCost = unitCost;
         weeklyMap.set(weekKey, currentWeek);
 
-        // Day of week breakdown
-        const currentDay = dayMap.get(day) || { portions: 0, totalCost: 0 };
-        currentDay.portions += guestCount;
-        currentDay.totalCost += itemCost;
-        dayMap.set(day, currentDay);
+        // Day of week breakdown (Monday - Friday)
+        const currentDay = dayMap.get(day);
+        if (currentDay) {
+          currentDay.portions += guestCount;
+          currentDay.totalCost += itemCost;
+        }
       }
     }
 

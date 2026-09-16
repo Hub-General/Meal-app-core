@@ -295,7 +295,7 @@ export const authService = {
         }
         });
         mailService.sendPasswordResetMail(email.trim(), user.name, token)
-        return ({message:"Succesfully sent Reset Password Mail to", token})
+        return ({message:"Succesfully sent Reset Password Mail"})
     },
 
     resetPassword: async(resetPasswordRequest: ResetPasswordRequest)=>{
