@@ -21,6 +21,7 @@ import notificationRoutes from "./routes/notificationRoutes";
 
 const app = express();
 
+app.set("trust proxy", 1);
 app.set("etag", false);
 
 app.use((req, res, next) => {

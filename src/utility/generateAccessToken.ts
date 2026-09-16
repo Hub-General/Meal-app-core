@@ -21,15 +21,17 @@ export const generateAccessToken = (
 
 
 export const generateRefreshToken = (
-  userId: number
+  userId: number,
+  keepSignedIn: boolean = false
 ) => {
   return jwt.sign(
     {
       userId,
+      keepSignedIn,
     },
     process.env.JWT_REFRESH_SECRET!,
     {
-      expiresIn: process.env.REFRESH_TOKEN_EXPIRES!,
+      expiresIn: process.env.REFRESH_TOKEN_EXPIRES || "14d",
     } as SignOptions
   );
 };
