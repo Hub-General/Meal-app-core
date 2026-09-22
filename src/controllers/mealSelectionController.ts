@@ -267,7 +267,13 @@ export const mealSelectionController = {
                 return res.status(400).json({ error: "Invalid weekly submission payload", details: parsed.error.flatten() });
             }
             const { weekNumber, year , status} = parsed.data;
-            await mealSelectionService.changeWeeklySelectionsStatus(weekNumber, year, status);
+            const result = await mealSelectionService.changeWeeklySelectionsStatus(weekNumber, year, status);
+            if (!result) {
+                return res.status(404).json({ error: "Week menu schedule not found" });
+            }
+            if (result.alreadyClosed) {
+                return res.status(200).json({ message: "Selections already closed" });
+            }
             res.status(200).json({ message: "Weekly selections submitted successfully" });
         }catch(error){
             res.status(500).json({message:"Failed to submit weekly selections", error})

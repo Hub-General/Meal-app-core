@@ -95,6 +95,7 @@ model WeekMenuSchedule {
   year Int
   menuId Int @db.SmallInt
   status WeekMenuStatus @default(DRAFT)
+  closedAt DateTime?
 
   menu Menus @relation(fields: [menuId], references: [id])
   selections Selections[]
@@ -232,7 +233,7 @@ model UserPreferences {
   announcementVersion Int @db.SmallInt @default(0)
 
   emailNotifications Boolean @default(true)
-  pushNotifications Boolean @default(true)
+  pushNotifications Boolean @default(false)
 
   theme Theme @default(LIGHT)
   autoSubmitPreset Boolean @default(false)
