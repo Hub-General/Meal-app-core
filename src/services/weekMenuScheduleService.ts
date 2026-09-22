@@ -13,7 +13,8 @@ const weekMenuScheduleSelectShape = {
             title: true,
         }
     },
-    status: true
+    status: true,
+    closedAt: true,
 }
 
 export const weekMenuScheduleService = {
@@ -88,7 +89,7 @@ export const weekMenuScheduleService = {
                     status: WeekMenuStatus.ACTIVE,
                     id: { not: targetWeekMenuScheduleId },
                 },
-                data: { status: WeekMenuStatus.CLOSED },
+                data: { status: WeekMenuStatus.CLOSED, closedAt: new Date() },
             });
 
             return await tx.weekMenuSchedule.update({

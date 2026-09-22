@@ -642,10 +642,28 @@ export const mealSelectionService = {
         });
     },
 
-    changeWeeklySelectionsStatus: async (weekNumber: number, year: number , status: SelectionStatus)=>{
-        const weekMenuSchedule = await weekMenuScheduleService.getWeekMenuScheduleByWeekAndYear({week: weekNumber, year: year});
-        if(!weekMenuSchedule) return;
-        return await prisma.selections.updateMany({where:{weekMenuScheduleId: weekMenuSchedule.id}, data: {selectionStatus: status}})
+    changeWeeklySelectionsStatus: async (weekNumber: number, year: number, status: SelectionStatus) => {
+        const schedule = await weekMenuScheduleService.getWeekMenuScheduleByWeekAndYear({ week: weekNumber, year });
+        if (!schedule) return null;
+        if (schedule.status === WeekMenuStatus.CLOSED) return { alreadyClosed: true };
+
+        await notificationService.notifySelectionsClosed({
+            weekMenuScheduleId: schedule.id,
+            closedAt: schedule.closedAt,
+        });
+
+        await prisma.$transaction([
+            prisma.selections.updateMany({
+                where: { weekMenuScheduleId: schedule.id },
+                data: { selectionStatus: status },
+            }),
+            prisma.weekMenuSchedule.update({
+                where: { id: schedule.id },
+                data: { status: WeekMenuStatus.CLOSED, closedAt: new Date() },
+            }),
+        ]);
+
+        return { alreadyClosed: false };
     },
 
     replaceWeeklyMeal: async (request: ReplaceWeeklyMealRequest) => {

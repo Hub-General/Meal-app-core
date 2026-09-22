@@ -217,7 +217,54 @@ export const notificationService = {
   },
 
   /**
-   * 3. Send custom notification with custom title & description to a specific array of users.
+   * 3. Notify users that meal selections have been closed.
+   * If closedAt is null (first close), sends to all active users with push notifications enabled.
+   * If closedAt is not null (re-close after reopen), sends only to users who submitted or updated
+   * selections after the recorded closedAt timestamp.
+   */
+  notifySelectionsClosed: async (params: {
+    weekMenuScheduleId: number;
+    closedAt?: Date | null;
+  }) => {
+    let recipientUserIds: number[] | undefined;
+
+    if (params.closedAt) {
+      const recent = await prisma.selections.findMany({
+        where: {
+          weekMenuScheduleId: params.weekMenuScheduleId,
+          updatedAt: { gt: params.closedAt },
+        },
+        select: { createdFor: true, createdBy: true },
+      });
+
+      const userIds = [...new Set(recent.flatMap((s) => [s.createdFor, s.createdBy].filter(Boolean) as number[]))];
+      if (!userIds.length) return { sent: 0 };
+      recipientUserIds = userIds;
+    }
+
+    const subscriptions = await prisma.pushSubscription.findMany({
+      where: {
+        ...(recipientUserIds ? { userId: { in: recipientUserIds } } : {}),
+        user: {
+          status: "ACTIVE",
+          OR: [{ preferences: null }, { preferences: { pushNotifications: true } }],
+        },
+      },
+      select: { endpoint: true, p256dh: true, auth: true },
+    });
+
+    if (!subscriptions.length) return { sent: 0 };
+
+    return await pushService.sendBatch(subscriptions, {
+      title: "Selections Closed",
+      description: "Selections have been closed for this week you can no longer submit meal selections.",
+      type: NotificationType.SELECTION_WINDOW_CLOSED,
+      url: "/meal-selection",
+    });
+  },
+
+  /**
+   * 4. Send custom notification with custom title & description to a specific array of users.
    */
   notifyUsers: async (request: CustomNotificationRequest) => {
     const { recipientIds, title, description, type } = request;

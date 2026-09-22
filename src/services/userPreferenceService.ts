@@ -33,10 +33,10 @@ export const userPreferenceService = {
     return prisma.userPreferences.upsert({
       where: { userId },
       create: {
+        ...preferences,
         userId,
         dislikes: preferences.dislikes ?? { meals: [], foodItems: [] },
         excludedMealIds: excludedMeals ?? [],
-        ...preferences,
       },
       update: {
         ...preferences,
