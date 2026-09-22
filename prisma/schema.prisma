@@ -232,7 +232,7 @@ model UserPreferences {
   excludedMealIds Json
   announcementVersion Int @db.SmallInt @default(0)
 
-  emailNotifications Boolean @default(true)
+  emailNotifications Boolean @default(false)
   pushNotifications Boolean @default(false)
 
   theme Theme @default(LIGHT)
