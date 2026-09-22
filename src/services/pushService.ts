@@ -8,8 +8,8 @@ function initializeVapid(): boolean {
   if (isVapidInitialized) return true;
 
   const subject = process.env.VAPID_SUBJECT || "mailto:admin@mealapp-omega.vercel.app";
-  const publicKey = (process.env.VPD_PUB_KEY || process.env.VAPID_PUBLIC_KEY || "").trim();
-  const privateKey = (process.env.VPD_PRIV_KEY || process.env.VAPID_PRIVATE_KEY || "").trim();
+  const publicKey = process.env.VPD_PUB_KEY?.trim();
+  const privateKey = process.env.VPD_PRIV_KEY?.trim();
 
   if (!publicKey || !privateKey) {
     console.warn("[PushService] VAPID keys are missing. Push notifications are disabled.");
