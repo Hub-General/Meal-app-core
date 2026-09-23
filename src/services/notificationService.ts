@@ -1,7 +1,5 @@
 import { prisma } from "../db/prisma";
-import {
-  NotificationType,
-} from "../enums/ENotificationTypes";
+import { NotificationType } from "../enums/ENotificationTypes";
 import {
   SelectionStatus,
   SelectionType,
@@ -15,6 +13,30 @@ import {
 import { mealSelectionService } from "./mealSelectionService";
 import { pushService } from "./pushService";
 import { weekMenuScheduleService } from "./weekMenuScheduleService";
+
+const pushSubscriptionSelect = {
+  id: true,
+  userId: true,
+  endpoint: true,
+  p256dh: true,
+  auth: true,
+} as const;
+
+const activePushUsersFilter = {
+  status: "ACTIVE",
+  preferences: {
+    pushNotifications: true,
+  },
+} as const;
+
+const getActivePushSubscriptionsForUsers = async (userIds: number[]) =>
+  prisma.pushSubscription.findMany({
+    where: {
+      userId: { in: userIds },
+      user: activePushUsersFilter,
+    },
+    select: pushSubscriptionSelect,
+  });
 
 export const notificationService = {
   /**
@@ -52,26 +74,7 @@ export const notificationService = {
 
     const unselectedUserIds = unselectedUsers.map((u) => u.id);
 
-    // Filter to users who have push notifications enabled and active push subscriptions
-    const subscriptions = await prisma.pushSubscription.findMany({
-      where: {
-        userId: { in: unselectedUserIds },
-        user: {
-          status: "ACTIVE",
-          OR: [
-            { preferences: null },
-            { preferences: { pushNotifications: true } },
-          ],
-        },
-      },
-      select: {
-        id: true,
-        userId: true,
-        endpoint: true,
-        p256dh: true,
-        auth: true,
-      },
-    });
+    const subscriptions = await getActivePushSubscriptionsForUsers(unselectedUserIds);
 
     if (!subscriptions.length) {
       return {
@@ -166,26 +169,7 @@ export const notificationService = {
       };
     }
 
-    // Filter by preferences.pushNotifications !== false
-    const subscriptions = await prisma.pushSubscription.findMany({
-      where: {
-        userId: { in: recipientUserIds },
-        user: {
-          status: "ACTIVE",
-          OR: [
-            { preferences: null },
-            { preferences: { pushNotifications: true } },
-          ],
-        },
-      },
-      select: {
-        id: true,
-        userId: true,
-        endpoint: true,
-        p256dh: true,
-        auth: true,
-      },
-    });
+    const subscriptions = await getActivePushSubscriptionsForUsers(recipientUserIds);
 
     if (!subscriptions.length) {
       return {
@@ -245,12 +229,13 @@ export const notificationService = {
     const subscriptions = await prisma.pushSubscription.findMany({
       where: {
         ...(recipientUserIds ? { userId: { in: recipientUserIds } } : {}),
-        user: {
-          status: "ACTIVE",
-          OR: [{ preferences: null }, { preferences: { pushNotifications: true } }],
-        },
+        user: activePushUsersFilter,
       },
-      select: { endpoint: true, p256dh: true, auth: true },
+      select: {
+        endpoint: true,
+        p256dh: true,
+        auth: true,
+      },
     });
 
     if (!subscriptions.length) return { sent: 0 };
@@ -278,25 +263,7 @@ export const notificationService = {
       };
     }
 
-    const subscriptions = await prisma.pushSubscription.findMany({
-      where: {
-        userId: { in: recipientIds },
-        user: {
-          status: "ACTIVE",
-          OR: [
-            { preferences: null },
-            { preferences: { pushNotifications: true } },
-          ],
-        },
-      },
-      select: {
-        id: true,
-        userId: true,
-        endpoint: true,
-        p256dh: true,
-        auth: true,
-      },
-    });
+    const subscriptions = await getActivePushSubscriptionsForUsers(recipientIds);
 
     if (!subscriptions.length) {
       return {
