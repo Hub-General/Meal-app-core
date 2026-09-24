@@ -20,7 +20,7 @@ interface DigiHRUserLeave {
     DaysRequested: number
     StartDate: string
     EndDate: string
-    userID: number
+    UserID: number | null
     ApprovalStatus: string
 }
 
@@ -61,19 +61,20 @@ export const digiHRService = {
 
         return user_leaves.filter(leave => 
             leave.ApprovalStatus === "Approved" && 
-            new Date(leave.StartDate) > today
+            new Date(leave.StartDate) > today &&
+            leave.UserID !== null
         );
     },
 
     updateUserAvailabilityTable: async (data: DigiHRUserLeave[]) => {
-        const referenceIds = [...new Set(data.map((leave) => leave.userID))];
+        const referenceIds = [...new Set(data.map((leave) => leave.UserID!))];
         const users = await userService.getUsersByReferenceIds(referenceIds);
         const usersByReferenceId = new Map(
             users.map((user) => [user.referenceId, user])
         );
 
         const availabilityRecords = data.flatMap((leave) => {
-            const user = usersByReferenceId.get(leave.userID);
+            const user = usersByReferenceId.get(leave.UserID!);
             if (!user) return [];
 
             return [{
