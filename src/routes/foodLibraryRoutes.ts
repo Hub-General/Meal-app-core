@@ -5,9 +5,9 @@ import { Roles } from "../enums/ERoles";
 
 const router = Router();
 
-router.get("/", authenticate, authorize([Roles.admin, Roles.hr, Roles.user]), foodLibraryController.getAllFoodItemsController);
-router.get("/:foodGroup", authenticate, authorize([Roles.admin, Roles.hr]), foodLibraryController.getFoodItemsByFoodGroupsController);
-router.post("/batch", authenticate, authorize([Roles.admin, Roles.hr]), foodLibraryController.createFoodItemsBatch);
-router.post("/", authenticate, authorize([Roles.admin, Roles.hr]), foodLibraryController.createFoodItem);
+router.get("/", authenticate, authorize([Roles.admin, Roles.worker,Roles.hr, Roles.user]), foodLibraryController.getAllFoodItemsController);
+router.get("/:foodGroup", authenticate, authorize([Roles.admin, Roles.worker,Roles.hr]), foodLibraryController.getFoodItemsByFoodGroupsController);
+router.post("/batch", authenticate, authorize([Roles.admin, Roles.worker,Roles.hr]), foodLibraryController.createFoodItemsBatch);
+router.post("/", authenticate, authorize([Roles.admin, Roles.worker,Roles.hr]), foodLibraryController.createFoodItem);
 
 export default router;

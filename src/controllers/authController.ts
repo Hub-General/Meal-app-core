@@ -207,10 +207,22 @@ export const authController = {
     syncUserController: async(req: Request, res: Response)=>{
         try{
             await digiHRService.syncUsersWithDatabase();
+            await digiHRService.syncUsersLeavesWithDatabase();
             return res.status(200).json(`Successful sync!`)
         }catch (error){
             res.status(500).json({
                 message:'Failed to sync users'
+            })
+        }
+    },
+    syncUsersLeavesController: async(req: Request, res: Response)=>{
+        try{
+            await digiHRService.syncUsersLeavesWithDatabase();
+            return res.status(200).json(`Successful user leave sync!`)
+        }catch (error){
+            res.status(500).json({
+                message:'Failed to sync users availability',
+                error
             })
         }
     },
