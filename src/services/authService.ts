@@ -361,10 +361,10 @@ export const authService = {
         }
         
         const accessToken = generateAccessToken(user.id, user.role);
-        const refreshToken =  generateRefreshToken(user.id)
+        const refreshToken =  generateRefreshToken(user.id, !!loginRequest.keepSignedIn)
         
         const refreshExpiryMs = loginRequest.keepSignedIn
-            ? 7 * 24 * 60 * 60 * 1000 // 7 days
+            ? 14 * 24 * 60 * 60 * 1000 // 14 days
             : 24 * 60 * 60 * 1000;    // 1 day / 24 hours
 
         await prisma.refreshToken.create({
@@ -446,10 +446,38 @@ export const authService = {
         const decoded = jwt.verify(
             refreshToken,
             process.env.JWT_REFRESH_SECRET!
-        )as {userId: number}
+        )as {userId: number; keepSignedIn?: boolean}
 
         if(decoded.userId !== existing.user.id){
             throw new Error("Invalid Refresh Token")
+        }
+
+        // Determine if this was a persistent session (keepSignedIn)
+        // Fallback to checking if initial duration was > 24 hours for backward compatibility
+        const wasKeepSignedIn = decoded.keepSignedIn !== undefined
+            ? decoded.keepSignedIn
+            : (existing.expiresAt.getTime() - existing.createdAt.getTime() > 24 * 60 * 60 * 1000);
+
+        const now = Date.now();
+        const timeRemainingMs = existing.expiresAt.getTime() - now;
+        const FOUR_DAYS_MS = 4 * 24 * 60 * 60 * 1000;
+        const FOURTEEN_DAYS_MS = 14 * 24 * 60 * 60 * 1000;
+
+        let renewedRefreshToken: string | undefined = undefined;
+
+        // If the user asserted keepSignedIn and less than 4 days remain, renew the refresh token
+        if (wasKeepSignedIn && timeRemainingMs < FOUR_DAYS_MS) {
+            renewedRefreshToken = generateRefreshToken(existing.userId, true);
+            const newExpiresAt = new Date(now + FOURTEEN_DAYS_MS);
+
+            await prisma.refreshToken.update({
+                where: { id: existing.id },
+                data: {
+                    token: renewedRefreshToken,
+                    expiresAt: newExpiresAt,
+                    createdAt: new Date(),
+                }
+            });
         }
 
         //All checks passed, generate a new token
@@ -459,6 +487,8 @@ export const authService = {
 
         return {
             accessToken: newAccessToken,
+            refreshToken: renewedRefreshToken,
+            isKeepSignedIn: wasKeepSignedIn,
             user: {
                 id: existing.user.id,
                 email: existing.user.email,

@@ -1,5 +1,7 @@
 import { prisma } from "../db/prisma";
+import { NotificationType } from "../enums/ENotificationTypes";
 import { digiHRService } from "../services/digiHRService";
+import { notificationService } from "../services/notificationService";
 import { weekMenuScheduleService } from "../services/weekMenuScheduleService";
 import { getISOWeekInfo, getUnavailableDays, getWeekRange } from "../helpers/dateFunctions";
 import { tasteProfileService } from "../services/tasteProfileService";
@@ -134,6 +136,27 @@ export async function activateWeeklyMenu(targetWeek: { week: number; year: numbe
 
     await weekMenuScheduleService.switchActiveWeekMenuSchedule(correctWeekMenu.id);
 
+    const allPushEnabledUsers = await prisma.users.findMany({
+        where: {
+            status: "ACTIVE",
+            preferences: {
+                pushNotifications: true,
+            },
+        },
+        select: {
+            id: true,
+        },
+    });
+
+    if (allPushEnabledUsers.length > 0) {
+        await notificationService.notifyUsers({
+            recipientIds: allPushEnabledUsers.map((user) => user.id),
+            title: "Meal selection window open",
+            description: `The meal selection window is now open. You can select your meals now.`,
+            type: NotificationType.SELECTION_WINDOW_OPEN,
+        });
+    }
+
     return `Week menu for ${targetWeek.week}/${targetWeek.year} successfully activated`;
 }
 
@@ -162,8 +185,10 @@ export async function autoSubmitUserPreferences() {
     const users = await prisma.userPreferences.findMany({
         where: {
             autoSubmitPreset: true,
+            pushNotifications: true,
 
             user: {
+                status: "ACTIVE",
                 presets: {
                     some: {
                         isDefault: true,
@@ -266,6 +291,15 @@ export async function autoSubmitUserPreferences() {
         data: selections,
         skipDuplicates: true,
     });
+
+    if (users.length > 0) {
+        await notificationService.notifyUsers({
+            recipientIds: users.map((user) => user.userId),
+            title: "Preset submitted",
+            description: `Your preset was automatically submitted for this week.`,
+            type: NotificationType.MEAL_SELECTED_CONFIRMATION,
+        });
+    }
 
     return `Auto-submitted ${created.count} preset selection(s) for ${users.length} user(s) on week ${activeWeekMenu.week}/${activeWeekMenu.year}`;
 }

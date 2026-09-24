@@ -13,7 +13,6 @@
     "sync:sequences": "tsx scripts/syncSequences.ts",
     "update:user-roles": "tsx scripts/migrateUserRoles.ts",
     "seed": "tsx prisma/seed.ts",
-    "seed:preferences": "tsx scripts/seedUserPreferences.ts",
     "update:images": "ts-node scripts/updateMealImages.ts",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
@@ -35,6 +34,7 @@
     "@types/nodemailer": "^8.0.1",
     "@types/pg": "^8.20.0",
     "@types/sharp": "^0.31.1",
+    "@types/web-push": "^3.6.4",
     "dotenv": "^17.4.2",
     "nodemon": "^3.1.14",
     "pg": "^8.21.0",
@@ -53,6 +53,7 @@
     "multer": "^2.2.0",
     "nodemailer": "^9.0.1",
     "sharp": "^0.35.4",
+    "web-push": "^3.6.7",
     "zod": "^4.4.3"
   }
 }

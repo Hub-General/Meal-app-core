@@ -246,3 +246,12 @@ export type SubmitSelectionsRequest = z.infer<typeof submitSelectionsRequestSche
 export type ReplaceWeeklyMealRequest = z.infer<typeof replaceWeeklyMealRequestSchema>;
 export type ReplaceWeeklyMealsBatchRequest = z.infer<typeof replaceWeeklyMealsBatchRequestSchema>;
 export type WeeklyHistoryFilter = z.infer<typeof weeklyHistoryFilterSchema>;
+
+export const foodArrivalFulfillmentSchema = z.object({
+  weekMenuScheduleId: z.coerce.number().int().positive().optional(),
+  menuDayId: z.coerce.number().int().positive().optional(),
+  unfulfilledSelectionIds: z.array(z.coerce.number().int().positive()).optional().default([]),
+  note: z.string().trim().optional(),
+});
+
+export type FoodArrivalFulfillmentRequest = z.infer<typeof foodArrivalFulfillmentSchema>;

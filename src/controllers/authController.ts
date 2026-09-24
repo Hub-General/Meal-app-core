@@ -134,7 +134,14 @@ export const authController = {
                 return res.status(401).json({message: "Refresh token is required"})
             }
             const refreshResult = await authService.refreshToken(refreshToken);
-            return res.status(200).json(refreshResult);
+
+            if (refreshResult.refreshToken) {
+                const cookieOptions = getRefreshTokenCookieOptions(refreshResult.isKeepSignedIn);
+                res.cookie("refreshToken", refreshResult.refreshToken, cookieOptions);
+            }
+
+            const { isKeepSignedIn, ...clientData } = refreshResult;
+            return res.status(200).json(clientData);
 
         }catch(error){
             res.status(401).json({

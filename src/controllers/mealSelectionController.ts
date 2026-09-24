@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import { mealSelectionService, SelectionConflictError } from "../services/mealSelectionService";
-import { bulkDeleteGuestSelectionsRequestSchema, createMealSelectionBatchRequestSchema, getUsersWithoutSelectionsRequestSchema, getUsersWithSelectionsRequestSchema, mealSelectionFilterSchema, replaceWeeklyMealRequestSchema, replaceWeeklyMealsBatchRequestSchema, submitWeeklySelectionsRequestSchema, weeklyHistoryFilterSchema } from "../schema/mealSelection";
+import { bulkDeleteGuestSelectionsRequestSchema, createMealSelectionBatchRequestSchema, foodArrivalFulfillmentSchema, getUsersWithoutSelectionsRequestSchema, getUsersWithSelectionsRequestSchema, mealSelectionFilterSchema, replaceWeeklyMealRequestSchema, replaceWeeklyMealsBatchRequestSchema, submitWeeklySelectionsRequestSchema, weeklyHistoryFilterSchema } from "../schema/mealSelection";
 import { SelectionValidationError } from "../helpers/validateSelectionUpdate";
 import { Roles } from "../enums/ERoles";
 
@@ -267,7 +267,13 @@ export const mealSelectionController = {
                 return res.status(400).json({ error: "Invalid weekly submission payload", details: parsed.error.flatten() });
             }
             const { weekNumber, year , status} = parsed.data;
-            await mealSelectionService.changeWeeklySelectionsStatus(weekNumber, year, status);
+            const result = await mealSelectionService.changeWeeklySelectionsStatus(weekNumber, year, status);
+            if (!result) {
+                return res.status(404).json({ error: "Week menu schedule not found" });
+            }
+            if (result.alreadyClosed) {
+                return res.status(200).json({ message: "Selections already closed" });
+            }
             res.status(200).json({ message: "Weekly selections submitted successfully" });
         }catch(error){
             res.status(500).json({message:"Failed to submit weekly selections", error})
@@ -317,6 +323,26 @@ export const mealSelectionController = {
             res.status(200).json(history);
         } catch (error) {
             res.status(500).json({ message: "Failed to fetch user weekly selections history", error });
+        }
+    },
+
+    foodArrivalFulfillmentController: async (req: Request, res: Response) => {
+        try {
+            const parsed = foodArrivalFulfillmentSchema.safeParse(req.body);
+            if (!parsed.success) {
+                return res.status(400).json({
+                    message: "Invalid food arrival fulfillment payload",
+                    errors: parsed.error.flatten(),
+                });
+            }
+
+            const result = await mealSelectionService.notifyFoodArrivalAndFulfill(parsed.data);
+            return res.status(200).json(result);
+        } catch (error: any) {
+            return res.status(500).json({
+                message: "Failed to process food arrival fulfillment",
+                error: error.message || error,
+            });
         }
     }
 }

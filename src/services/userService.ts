@@ -4,7 +4,6 @@ import { SafeUser } from "../selection/selectionShapes";
 import { prisma } from "../prisma/client";
 import { Roles } from "../enums/ERoles";
 import { RegisterUserDigiHRRequest, RegisterUserRequest, SyncUserDataRequest, UserLeaveRequest, UserProfileUpdateRequest } from "../schema/user";
-import { userPreferenceService } from "./userPreferenceService";
 
 export const userService = {
 
@@ -60,9 +59,6 @@ export const userService = {
             data: usersWithRoleId as any,
             skipDuplicates: true
         });
-
-        // Initialize empty preferences for created users without overriding existing records
-        await userPreferenceService.backfillMissingUserPreferences();
 
         return result;
     },
