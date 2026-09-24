@@ -88,6 +88,7 @@ export const analyticsService = {
       prisma.selections.findMany({
         where: {
           selectionStatus: { not: SelectionStatus.CANCELLED },
+          selectionType: SelectionType.MEAL,
           OR: [
             {
               createdAt: { gte: periodStart, lte: periodEnd },
