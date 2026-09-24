@@ -13,8 +13,9 @@ router.post("/override-token", authenticate, authorize([Roles.admin]),authContro
 router.post("/onboarding-broadcast", authController.onBoardingBroadcastController);
 router.post("/logout", authController.logOutController);
 router.post("/refresh", authController.refreshController);
-router.post("/sync", authController.syncUserController);
-router.post("/sync-availability", authController.syncAvailabilityController);
+router.post("/sync", authenticate, authorize([Roles.admin]), authController.syncUserController);
+router.post("/sync-leaves", authenticate, authorize([Roles.admin]), authController.syncUsersLeavesController);
+router.post("/sync-availability", authenticate, authorize([Roles.admin]), authController.syncAvailabilityController);
 
 router.post("/generate-password-token", authController.getResetPasswordTokenController);
 router.post("/reset-password", authController.resetPasswordController);

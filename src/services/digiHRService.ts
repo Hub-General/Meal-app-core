@@ -20,7 +20,7 @@ interface DigiHRUserLeave {
     DaysRequested: number
     StartDate: string
     EndDate: string
-    referenceID: number
+    userID: number
     ApprovalStatus: string
 }
 
@@ -46,9 +46,9 @@ export const digiHRService = {
     },
 
     getUsersLeaves: async (): Promise<DigiHRUserLeave[]> => {
-        const url = process.env.DIGI_HR_USER_LEAVES || process.env.DIGI_HR_LEAVES;
+        const url = process.env.DIGI_HR_LEAVES;
         if (!url) {
-            throw new Error("Environment variable DIGI_HR_USER_LEAVES (or DIGI_HR_LEAVES) is not defined");
+            throw new Error("Environment variable DIGI_HR_LEAVES is not defined");
         }
 
         const res = await fetch(url);
@@ -66,23 +66,36 @@ export const digiHRService = {
     },
 
     updateUserAvailabilityTable: async (data: DigiHRUserLeave[]) => {
-        for (const leave of data) {
-            const user = await userService.getUserByReferenceId(leave.referenceID);
-            if (user) {
-                const startDate = new Date(leave.StartDate);
-                const endDate = new Date(leave.EndDate);
+        const referenceIds = [...new Set(data.map((leave) => leave.userID))];
+        const users = await userService.getUsersByReferenceIds(referenceIds);
+        const usersByReferenceId = new Map(
+            users.map((user) => [user.referenceId, user])
+        );
 
-                const alreadyExists = await userService.checkLeaveExists(user.id, startDate, endDate);
-                if (!alreadyExists) {
-                    await userService.createUserLeave({
-                        userId: user.id,
-                        startDate,
-                        endDate,
-                        daysRequested: leave.DaysRequested
-                    });
-                }
-            }
+        const availabilityRecords = data.flatMap((leave) => {
+            const user = usersByReferenceId.get(leave.userID);
+            if (!user) return [];
+
+            return [{
+                userId: user.id,
+                startDate: new Date(leave.StartDate),
+                endDate: new Date(leave.EndDate),
+                daysCount: leave.DaysRequested,
+            }];
+        });
+
+        if (availabilityRecords.length > 0) {
+            await prisma.userAvailability.createMany({
+                data: availabilityRecords,
+                skipDuplicates: true,
+            });
         }
+    },
+
+    syncUsersLeavesWithDatabase: async () => {
+        const digiLeaves = await digiHRService.getUsersLeaves();
+        await digiHRService.updateUserAvailabilityTable(digiLeaves);
+        console.log(`Synchronized user leaves from DigiHR.`);
     },
 
     syncUsersWithDatabase: async () => {
@@ -112,6 +125,8 @@ export const digiHRService = {
                             announcementVersion: 0,
                             theme: Theme.LIGHT,
                             autoSubmitPreset: false,
+                            emailNotifications: false,
+                            pushNotifications: false,
                         },
                     },
                 },
