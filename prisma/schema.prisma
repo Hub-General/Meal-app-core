@@ -85,6 +85,7 @@ model UserAvailability {
 
   @@index([userId])
   @@index([startDate, endDate])
+  @@unique([userId, startDate, endDate])
   
   user Users @relation(fields: [userId], references: [id])
 }

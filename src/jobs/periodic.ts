@@ -12,6 +12,11 @@ export async function syncDigiHRUsers() {
     return "DigiHR users synced successfully";
 }
 
+export async function syncDigiHRUsersLeaves() {
+    await digiHRService.syncUsersLeavesWithDatabase();
+    return "DigiHR user leaves synced successfully";
+}
+
 export async function getNextCycleMenu(
     activeMenus: Array<{ id: number; order: number | null }>,
     targetWeek: { week: number; year: number }

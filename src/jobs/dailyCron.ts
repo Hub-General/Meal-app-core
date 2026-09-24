@@ -6,6 +6,7 @@ import {
   autoSubmitUserPreferences,
   scheduleWeeklyMenu,
   syncDigiHRUsers,
+  syncDigiHRUsersLeaves,
   updateBiWeeklyTasteProfiles,
 } from "./periodic";
 
@@ -97,6 +98,11 @@ export const dailyCronRegistry: Record<DayOfWeek, CronJobDefinition[]> = {
       name: "syncDigiHRUsers",
       description: "Sync DigiHR users before menu scheduling",
       run: syncDigiHRUsers,
+    },
+    {
+      name: "syncDigiHRUserLeaves",
+      description: "Sync approved DigiHR user leave records before menu scheduling",
+      run: syncDigiHRUsersLeaves,
     },
     {
       name: "scheduleWeeklyMenu",
