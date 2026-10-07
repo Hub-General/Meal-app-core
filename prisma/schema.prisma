@@ -148,6 +148,9 @@ enum FoodGroup {
   BASE
   PROTEIN
   PREP
+  VARIATION
+  ACCOMPANIMENT
+  MODIFIER
 }
 
 enum WeekMenuStatus {
