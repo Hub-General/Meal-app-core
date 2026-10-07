@@ -109,14 +109,24 @@ export const userPreferenceService = {
       }),
     ]);
 
-    const updates = allPreferences.map((pref) => {
-      const excludedMealIds = getExcludedMeals(allMeals, (pref.dislikes as any) ?? {});
-      return prisma.userPreferences.update({
-        where: { userId: pref.userId },
-        data: { excludedMealIds },
+    const chunkSize = 20;
+    const results = [];
+    for (let i = 0; i < allPreferences.length; i += chunkSize) {
+      const chunk = allPreferences.slice(i, i + chunkSize);
+      const updates = chunk.map((pref) => {
+        const excludedMealIds = getExcludedMeals(allMeals, (pref.dislikes as any) ?? {});
+        return prisma.userPreferences.update({
+          where: { userId: pref.userId },
+          data: { excludedMealIds },
+        });
       });
-    });
+      const chunkResults = await prisma.$transaction(updates, {
+        timeout: 30000,
+        maxWait: 10000,
+      });
+      results.push(...chunkResults);
+    }
 
-    return await prisma.$transaction(updates);
+    return results;
   },
 };
