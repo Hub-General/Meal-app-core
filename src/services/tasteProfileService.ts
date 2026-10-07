@@ -129,19 +129,27 @@ export const tasteProfileService = {
             selectionsByUser.set(selection.createdFor, userSelections);
         }
 
-        const upserts = uniqueUserIds.map((userId) => {
-            const userSelections = selectionsByUser.get(userId) ?? [];
-            const submittedSelections = userSelections.filter(
-                (selection) => selection.selectionStatus === SelectionStatus.SUBMITTED
+        const results = [];
+        const chunkSize = 15;
+        for (let i = 0; i < uniqueUserIds.length; i += chunkSize) {
+            const chunk = uniqueUserIds.slice(i, i + chunkSize);
+            const chunkResults = await Promise.all(
+                chunk.map((userId) => {
+                    const userSelections = selectionsByUser.get(userId) ?? [];
+                    const submittedSelections = userSelections.filter(
+                        (selection) => selection.selectionStatus === SelectionStatus.SUBMITTED
+                    );
+                    return createTasteProfileUpsert(
+                        userId,
+                        calendarYear,
+                        submittedSelections.length > 0 ? submittedSelections : userSelections
+                    );
+                })
             );
-            return createTasteProfileUpsert(
-                userId,
-                calendarYear,
-                submittedSelections.length > 0 ? submittedSelections : userSelections
-            );
-        });
+            results.push(...chunkResults);
+        }
 
-        return prisma.$transaction(upserts);
+        return results;
     },
 
     updateWeeklySubmittersTasteProfiles: async (weekNumber: number, calendarYear: number = new Date().getFullYear()) => {

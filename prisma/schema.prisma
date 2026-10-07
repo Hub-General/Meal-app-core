@@ -151,9 +151,6 @@ enum FoodGroup {
   ACCOMPANIMENT
   MODIFIER
   PREP
-  VARIATION
-  ACCOMPANIMENT
-  MODIFIER
 }
 
 enum WeekMenuStatus {

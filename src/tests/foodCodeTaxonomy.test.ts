@@ -8,7 +8,7 @@ import {
     getFoodCodeValues,
     FOOD_CODE_DIMENSIONS_COUNT,
 } from "../helpers/foodCodeParser";
-import { getExcludedMeals } from "../helpers/mealPreferencesHelpers";
+import { getExcludedMeals, getExcludedMealDetails } from "../helpers/mealPreferencesHelpers";
 import { tasteProfileHelper } from "../helpers/tasteProfileMetrics";
 
 console.log("🧪 Running FoodCode Taxonomy & Helper Tests...\n");
@@ -194,7 +194,6 @@ assert.equal(heavyEaterProfile.metrics.swallowCount, 2);
 assert.equal(heavyEaterProfile.metrics.swallowRatio, 0.67);
 
 // 13. Detailed Excluded Meals with Dimension Dislikes
-const { getExcludedMealDetails } = await import("../helpers/mealPreferencesHelpers");
 const detailedExcluded = getExcludedMealDetails(
     [
         { id: 1, name: "Fufu with Light Soup", foodCode: "S-FU-OO-GT-LS-OO-OO" },
