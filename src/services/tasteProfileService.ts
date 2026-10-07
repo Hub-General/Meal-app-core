@@ -1,5 +1,5 @@
 import { prisma } from "../db/prisma";
-import { Prisma, SelectionStatus, Status } from "../generated/prisma";
+import { Prisma, SelectionStatus } from "../generated/prisma";
 import { tasteProfileHelper } from "../helpers/tasteProfileMetrics";
 
 const tasteProfileSelectionShape = {
@@ -16,6 +16,36 @@ const tasteProfileSelectionShape = {
         }
     },
 } as const;
+
+type TasteProfileSelection = Parameters<typeof tasteProfileHelper.generateProfile>[0][number];
+
+function createTasteProfileUpsert(userId: number, calendarYear: number, selections: TasteProfileSelection[]) {
+    const profile = tasteProfileHelper.generateProfile(selections);
+    const profileMetrics = profile.metrics as unknown as Prisma.InputJsonValue;
+
+    return prisma.tasteProfile.upsert({
+        where: {
+            userId_calendarYear: {
+                userId,
+                calendarYear,
+            }
+        },
+        update: {
+            totalMealsSelected: profile.totalMealsSelected,
+            metrics: profileMetrics,
+            favoriteProtein: profile.favorites.favoriteProtein,
+            personalityType: profile.personalityType,
+        },
+        create: {
+            userId,
+            calendarYear,
+            totalMealsSelected: profile.totalMealsSelected,
+            metrics: profileMetrics,
+            favoriteProtein: profile.favorites.favoriteProtein,
+            personalityType: profile.personalityType,
+        }
+    });
+}
 
 export const tasteProfileService = {
 
@@ -51,65 +81,75 @@ export const tasteProfileService = {
 
     //Advanced Taste Profile Operations
     getYearlySubmittedSelectionsByUser: async (userId: number, calendarYear: number) => {
-        let selections = await prisma.selections.findMany({
+        const selections = await prisma.selections.findMany({
             where: {
                 createdFor: userId,
-                selectionStatus: SelectionStatus.SUBMITTED,
                 weekMenuSchedule: {
                     year: calendarYear
                 }
             },
-            select: tasteProfileSelectionShape
+            select: {
+                ...tasteProfileSelectionShape,
+                selectionStatus: true,
+            }
         });
 
-        if (selections.length === 0) {
-            selections = await prisma.selections.findMany({
-                where: {
-                    createdFor: userId,
-                    weekMenuSchedule: {
-                        year: calendarYear
-                    }
-                },
-                select: tasteProfileSelectionShape
-            });
-        }
-
-        return selections;
+        const submittedSelections = selections.filter(
+            (selection) => selection.selectionStatus === SelectionStatus.SUBMITTED
+        );
+        return submittedSelections.length > 0 ? submittedSelections : selections;
     },
 
     updateUserTasteProfile: async (userId: number, calendarYear: number = new Date().getFullYear()) => {
         const selections = await tasteProfileService.getYearlySubmittedSelectionsByUser(userId, calendarYear);
-        const profile = tasteProfileHelper.generateProfile(selections);
-        const profileMetrics = profile.metrics as unknown as Prisma.InputJsonValue;
-
-        return await prisma.tasteProfile.upsert({
-            where: {
-                userId_calendarYear: {
-                    userId,
-                    calendarYear,
-                }
-            },
-            update: {
-                totalMealsSelected: profile.totalMealsSelected,
-                metrics: profileMetrics,
-                favoriteProtein: profile.favorites.favoriteProtein,
-                personalityType: profile.personalityType,
-            },
-            create: {
-                userId,
-                calendarYear,
-                totalMealsSelected: profile.totalMealsSelected,
-                metrics: profileMetrics,
-                favoriteProtein: profile.favorites.favoriteProtein,
-                personalityType: profile.personalityType,
-            }
-        });
+        return createTasteProfileUpsert(userId, calendarYear, selections);
     },
 
     updateUsersTasteProfiles: async (userIds: number[], calendarYear: number = new Date().getFullYear()) => {
-        return await Promise.all(
-            userIds.map(userId => tasteProfileService.updateUserTasteProfile(userId, calendarYear))
-        );
+        const uniqueUserIds = [...new Set(userIds)];
+        if (uniqueUserIds.length === 0) return [];
+
+        const selections = await prisma.selections.findMany({
+            where: {
+                createdFor: { in: uniqueUserIds },
+                weekMenuSchedule: { year: calendarYear },
+            },
+            select: {
+                ...tasteProfileSelectionShape,
+                createdFor: true,
+                selectionStatus: true,
+            },
+        });
+
+        const selectionsByUser = new Map<number, typeof selections>();
+        for (const selection of selections) {
+            if (selection.createdFor === null) continue;
+            const userSelections = selectionsByUser.get(selection.createdFor) ?? [];
+            userSelections.push(selection);
+            selectionsByUser.set(selection.createdFor, userSelections);
+        }
+
+        const results = [];
+        const chunkSize = 15;
+        for (let i = 0; i < uniqueUserIds.length; i += chunkSize) {
+            const chunk = uniqueUserIds.slice(i, i + chunkSize);
+            const chunkResults = await Promise.all(
+                chunk.map((userId) => {
+                    const userSelections = selectionsByUser.get(userId) ?? [];
+                    const submittedSelections = userSelections.filter(
+                        (selection) => selection.selectionStatus === SelectionStatus.SUBMITTED
+                    );
+                    return createTasteProfileUpsert(
+                        userId,
+                        calendarYear,
+                        submittedSelections.length > 0 ? submittedSelections : userSelections
+                    );
+                })
+            );
+            results.push(...chunkResults);
+        }
+
+        return results;
     },
 
     updateWeeklySubmittersTasteProfiles: async (weekNumber: number, calendarYear: number = new Date().getFullYear()) => {

@@ -1,27 +1,49 @@
 import prisma from "../prisma/client";
 import { FoodGroup } from "../generated/prisma";
+import { parseDimension } from "./foodCodeParser";
 
 export const synthesizeMeals = async (foodCode: string) => {
+    if (!foodCode || typeof foodCode !== "string") {
+        return { ingredients: [] };
+    }
 
     const parts = foodCode.split("-");
-    const supergroupCode = parts[0];
-    const baseCode = parts[1];
-    const proteinCode = parts[2];
-    const prepCode = parts[3];
+    const conditions: Array<{ foodCode: string; foodGroup: FoodGroup }> = [];
 
-    const conditions: any[] = [];
-    
-    if (supergroupCode) {
-        supergroupCode.split("|").forEach(code => conditions.push({ foodCode: code, foodGroup: FoodGroup.SUPERGROUP }));
-    }
-    if (baseCode) {
-        baseCode.split("|").forEach(code => conditions.push({ foodCode: code, foodGroup: FoodGroup.BASE }));
-    }
-    if (proteinCode) {
-        proteinCode.split("|").forEach(code => conditions.push({ foodCode: code, foodGroup: FoodGroup.PROTEIN }));
-    }
-    if (prepCode) {
-        prepCode.split("|").forEach(code => conditions.push({ foodCode: code, foodGroup: FoodGroup.PREP }));
+    if (parts.length === 7) {
+        const dimensionGroups: FoodGroup[] = [
+            FoodGroup.SUPERGROUP,
+            FoodGroup.BASE,
+            FoodGroup.VARIATION,
+            FoodGroup.PROTEIN,
+            FoodGroup.ACCOMPANIMENT,
+            FoodGroup.MODIFIER,
+            FoodGroup.PREP,
+        ];
+
+        parts.forEach((part, index) => {
+            const group = dimensionGroups[index];
+            if (!group) return;
+            parseDimension(part).forEach((code) => {
+                conditions.push({ foodCode: code, foodGroup: group });
+            });
+        });
+    } else if (parts.length === 4) {
+        // Backwards compatibility for legacy 4-block food codes
+        const legacyGroups: FoodGroup[] = [
+            FoodGroup.SUPERGROUP,
+            FoodGroup.BASE,
+            FoodGroup.PROTEIN,
+            FoodGroup.PREP,
+        ];
+
+        parts.forEach((part, index) => {
+            const group = legacyGroups[index];
+            if (!group) return;
+            parseDimension(part).forEach((code) => {
+                conditions.push({ foodCode: code, foodGroup: group });
+            });
+        });
     }
 
     let ingredients: { name: string; foodGroup: string }[] = [];
@@ -33,4 +55,4 @@ export const synthesizeMeals = async (foodCode: string) => {
     }
 
     return { ingredients };
-};
+};

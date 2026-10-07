@@ -48,11 +48,75 @@ export const userPreferenceService = {
   /**
    * Helper used by menu and meal services to filter dishes by dietary dislikes.
    */
-  getUserExcludedMeals: async (userId: number) => {
+  getUserExcludedMeals: async (userId: number): Promise<number[]> => {
     const pref = await prisma.userPreferences.findUnique({
       where: { userId },
       select: { excludedMealIds: true },
     });
     return (pref?.excludedMealIds as number[]) ?? [];
+  },
+
+  /**
+   * Returns rich details about why meals are excluded for a user (banned vs disliked ingredients).
+   */
+  getUserExcludedMealDetails: async (userId: number) => {
+    const pref = await prisma.userPreferences.findUnique({
+      where: { userId },
+    });
+
+    const meals = await prisma.meals.findMany({
+      where: { isActive: true },
+      select: {
+        id: true,
+        name: true,
+        foodCode: true,
+        imagePath: true,
+        calories: true,
+      },
+      orderBy: { name: "asc" },
+    });
+
+    if (!pref || !pref.dislikes) {
+      return {
+        userId,
+        excludedMealIds: [],
+        excludedMeals: [],
+        totalExcluded: 0,
+      };
+    }
+
+    const { getExcludedMealDetails } = await import("../helpers/mealPreferencesHelpers");
+    const excludedMeals = getExcludedMealDetails(meals, pref.dislikes as any);
+
+    return {
+      userId,
+      excludedMealIds: excludedMeals.map((m) => m.id),
+      excludedMeals,
+      totalExcluded: excludedMeals.length,
+    };
+  },
+
+  /**
+   * Recalculates and updates excludedMealIds across all users based on current meal food codes.
+   */
+  recalculateAllUserPreferences: async () => {
+    const [allMeals, allPreferences] = await Promise.all([
+      prisma.meals.findMany({
+        select: { id: true, foodCode: true },
+      }),
+      prisma.userPreferences.findMany({
+        select: { userId: true, dislikes: true },
+      }),
+    ]);
+
+    const updates = allPreferences.map((pref) => {
+      const excludedMealIds = getExcludedMeals(allMeals, (pref.dislikes as any) ?? {});
+      return prisma.userPreferences.update({
+        where: { userId: pref.userId },
+        data: { excludedMealIds },
+      });
+    });
+
+    return await prisma.$transaction(updates);
   },
 };

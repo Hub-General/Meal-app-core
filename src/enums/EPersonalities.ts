@@ -27,6 +27,10 @@ export const tastePersonalities = {
         name: "Spice Chaser",
         description: "Often chooses meals with bold or spicy preparation patterns.",
     },
+    HEAVY_EATER: {
+        name: "Heavy Eater",
+        description: "Frequently chooses hearty, traditional swallow-based meals.",
+    },
     ADVENTUROUS: {
         name: "Adventurous",
         description: "Combines high variety with bolder preparation choices and a willingness to move around the menu.",
