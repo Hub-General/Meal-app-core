@@ -18,12 +18,17 @@ export const foodLibraryController = {
     },
     getFoodItemsByFoodGroupsController: async(req: Request, res:Response)=>{
         try{
-            if(!req.params.foodGroup || !(req.params.foodGroup.length > 0) ){
+            if(!req.params.foodGroup || !(req.params.foodGroup.trim().length > 0) ){
                 return res.status(400).json({message:'Food Group Invalid'})
             }
-            const foodGroup = req.params.foodGroup as FoodGroup
-            const items = await foodLibraryService.getFoodByGroup(foodGroup)
-            res.status(200).json(items)
+            const normalizedGroup = req.params.foodGroup.trim().toUpperCase() as FoodGroup;
+            if (!Object.values(FoodGroup).includes(normalizedGroup)) {
+                return res.status(400).json({
+                    message: `Invalid food group. Allowed: ${Object.values(FoodGroup).join(", ")}`
+                });
+            }
+            const items = await foodLibraryService.getFoodByGroup(normalizedGroup);
+            res.status(200).json(items);
         }catch (error){
             res.status(500).json({message: 'Failed to fetch food groups', error})
         }
