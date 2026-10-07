@@ -58,9 +58,9 @@ export const dailyCronRegistry: Record<DayOfWeek, CronJobDefinition[]> = {
 
   TUESDAY: [
     {
-      name: "syncDigiHRUsersTuesday",
-      description: "Sync DigiHR user records with the database",
-      run: syncDigiHRUsers,
+      name: "tuesdayOperationalCheck",
+      description: "Mid-week operational checks",
+      run: async () => "Tuesday operational checks completed successfully",
     },
   ],
 

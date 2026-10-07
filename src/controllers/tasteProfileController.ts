@@ -48,7 +48,7 @@ export const tasteProfileController = {
 
     forceSyncTasteProfilesController: async (req: Request, res: Response) => {
         try {
-            const userIdParam = req.params.userId ?? req.body.userId;
+            const userIdParam = req.params.userId ?? req.body?.userId;
             const calendarYear = req.query.year ? Number(req.query.year) : new Date().getFullYear();
 
             if (userIdParam) {
