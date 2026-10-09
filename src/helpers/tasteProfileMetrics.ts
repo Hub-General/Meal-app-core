@@ -76,16 +76,27 @@ interface PersonalityContext {
     proteinRatio: number;
     isSpicy: boolean;
     swallowRatio: number;
+    saladCount: number;
+    saladRatio: number;
+    isTopBaseSalad: boolean;
+    isExplorer: boolean;
+    topMealRatio: number;
 }
 
 const PERSONALITY_RULES: Array<{ type: TastePersonality; test: (c: PersonalityContext) => boolean }> = [
-    { type: "ADVENTUROUS", test: (c) => c.diversity >= 75 && c.isSpicy },
+    { type: "ADVENTUROUS", test: (c) => c.isExplorer && c.isSpicy },
     { type: "SPICE_CHASER", test: (c) => c.isSpicy },
+    {
+        type: "HEALTH_CONSCIOUS",
+        test: (c) =>
+            c.saladRatio >= 0.05 ||
+            c.isTopBaseSalad ||
+            (c.avgCalories > 0 && c.avgCalories <= 550 && c.saladCount >= 2),
+    },
     { type: "HEAVY_EATER", test: (c) => c.swallowRatio >= 0.35 },
-    { type: "HEALTH_CONSCIOUS", test: (c) => c.avgCalories > 0 && c.avgCalories <= 550 },
+    { type: "EXPLORER", test: (c) => c.isExplorer },
     { type: "PROTEIN_LOVER", test: (c) => c.proteinRatio >= 0.45 },
-    { type: "EXPLORER", test: (c) => c.diversity >= 70 },
-    { type: "TRADITIONALIST", test: (c) => c.consistency >= 60 },
+    { type: "LOYALIST", test: (c) => c.topMealRatio >= 0.15 || c.consistency >= 60 },
     { type: "COMFORT_SEEKER", test: (c) => c.consistency >= 40 },
 ];
 
@@ -216,19 +227,42 @@ export const tasteProfileHelper = {
     determinePersonality(
         counts: TasteProfileCounts,
         scores: TasteProfileScores,
-        pepperedCount = 0,
-        favoriteProteinCount = 0,
-        swallowCount = 0
+        metrics: TasteProfileMetrics,
+        topMeals: TopMealDetail[]
     ): TastePersonality {
-        const pepperedRatio = counts.totalSelections > 0 ? pepperedCount / counts.totalSelections : 0;
+        const saladCount = (metrics.bases.SL ?? 0) + (metrics.accompaniments?.SL ?? 0);
+        const saladRatio = counts.totalSelections > 0 ? saladCount / counts.totalSelections : 0;
+        const favoriteBaseEntry = this.findFavoriteEntry(metrics.bases);
+        const isTopBaseSalad = favoriteBaseEntry?.[0] === "SL" && favoriteBaseEntry[1] > 0;
+
+        const swallowCount = metrics.supergroups.S ?? 0;
         const swallowRatio = counts.totalSelections > 0 ? swallowCount / counts.totalSelections : 0;
+
+        const pepperedCount = metrics.modifiers.PP ?? 0;
+        const pepperedRatio = counts.totalSelections > 0 ? pepperedCount / counts.totalSelections : 0;
+
+        const favoriteProteinEntry = this.findFavoriteEntry(metrics.proteins);
+        const proteinRatio = counts.totalSelections > 0 && favoriteProteinEntry ? favoriteProteinEntry[1] / counts.totalSelections : 0;
+
+        const topMealCount = topMeals[0]?.count ?? 0;
+        const topMealRatio = counts.totalSelections > 0 ? topMealCount / counts.totalSelections : 0;
+
+        const isExplorer =
+            (counts.totalSelections >= 20 && ((counts.uniqueMeals >= 30 && topMealRatio <= 0.12) || (counts.uniqueMeals >= 45 && topMealRatio <= 0.15))) ||
+            (counts.totalSelections >= 10 && counts.totalSelections < 20 && (counts.uniqueMeals / counts.totalSelections) >= 0.65);
+
         const ctx: PersonalityContext = {
             diversity: scores.diversityScore,
             consistency: scores.consistencyScore,
             avgCalories: counts.averageCalories,
-            proteinRatio: counts.totalSelections > 0 ? favoriteProteinCount / counts.totalSelections : 0,
+            proteinRatio,
             isSpicy: pepperedRatio >= 0.3,
             swallowRatio,
+            saladCount,
+            saladRatio,
+            isTopBaseSalad,
+            isExplorer,
+            topMealRatio,
         };
 
         return PERSONALITY_RULES.find((rule) => rule.test(ctx))?.type ?? "BALANCED";
@@ -237,22 +271,20 @@ export const tasteProfileHelper = {
     generateProfile(selections: TasteProfileSelection[]): GeneratedTasteProfile {
         const { counts, metrics, uniqueMealIds, topMeals } = this.buildMetrics(selections);
         const scores = this.calculateScores(counts);
-        const favoriteProtein = this.findFavoriteEntry(metrics.proteins);
-        const swallowCount = metrics.supergroups.S ?? 0;
-        const swallowRatio = counts.totalSelections > 0 ? Number((swallowCount / counts.totalSelections).toFixed(2)) : 0;
-
         const personalityType = this.determinePersonality(
             counts,
             scores,
-            metrics.modifiers.PP ?? 0,
-            favoriteProtein?.[1],
-            swallowCount
+            metrics,
+            topMeals
         );
 
         const favorites = this.getFavorites(metrics);
         favorites.favoriteMeal = topMeals[0]
             ? { id: topMeals[0].id, name: topMeals[0].name, count: topMeals[0].count }
             : undefined;
+
+        const swallowCount = metrics.supergroups.S ?? 0;
+        const swallowRatio = counts.totalSelections > 0 ? Number((swallowCount / counts.totalSelections).toFixed(2)) : 0;
 
         return {
             totalMealsSelected: counts.totalSelections,
