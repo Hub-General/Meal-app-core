@@ -130,23 +130,17 @@ export const tasteProfileService = {
         }
 
         const results = [];
-        const chunkSize = 15;
-        for (let i = 0; i < uniqueUserIds.length; i += chunkSize) {
-            const chunk = uniqueUserIds.slice(i, i + chunkSize);
-            const chunkResults = await Promise.all(
-                chunk.map((userId) => {
-                    const userSelections = selectionsByUser.get(userId) ?? [];
-                    const submittedSelections = userSelections.filter(
-                        (selection) => selection.selectionStatus === SelectionStatus.SUBMITTED
-                    );
-                    return createTasteProfileUpsert(
-                        userId,
-                        calendarYear,
-                        submittedSelections.length > 0 ? submittedSelections : userSelections
-                    );
-                })
+        for (const userId of uniqueUserIds) {
+            const userSelections = selectionsByUser.get(userId) ?? [];
+            const submittedSelections = userSelections.filter(
+                (selection) => selection.selectionStatus === SelectionStatus.SUBMITTED
             );
-            results.push(...chunkResults);
+            const res = await createTasteProfileUpsert(
+                userId,
+                calendarYear,
+                submittedSelections.length > 0 ? submittedSelections : userSelections
+            );
+            results.push(res);
         }
 
         return results;
