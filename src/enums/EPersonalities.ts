@@ -7,9 +7,9 @@ export const tastePersonalities = {
         name: "Explorer",
         description: "Frequently rotates meals and shows a strong preference for variety across the year.",
     },
-    TRADITIONALIST: {
-        name: "Traditionalist",
-        description: "Returns to familiar meals often and keeps selection habits highly consistent.",
+    LOYALIST: {
+        name: "Loyalist",
+        description: "Faithfully returns to a core rotation of favourite meals and keeps selection habits highly consistent.",
     },
     COMFORT_SEEKER: {
         name: "Comfort Seeker",
@@ -21,7 +21,7 @@ export const tastePersonalities = {
     },
     HEALTH_CONSCIOUS: {
         name: "Health Conscious",
-        description: "Typically chooses lighter meals and keeps average calories comparatively low.",
+        description: "Frequently chooses fresh salads, lighter meal options, and mindful calorie choices.",
     },
     SPICE_CHASER: {
         name: "Spice Chaser",
