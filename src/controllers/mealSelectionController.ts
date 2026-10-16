@@ -1,6 +1,19 @@
 import { Request, Response } from "express";
 import { mealSelectionService, SelectionConflictError } from "../services/mealSelectionService";
-import { bulkDeleteGuestSelectionsRequestSchema, createMealSelectionBatchRequestSchema, foodArrivalFulfillmentSchema, getUsersWithoutSelectionsRequestSchema, getUsersWithSelectionsRequestSchema, mealSelectionFilterSchema, replaceWeeklyMealRequestSchema, replaceWeeklyMealsBatchRequestSchema, submitWeeklySelectionsRequestSchema, weeklyHistoryFilterSchema } from "../schema/mealSelection";
+import {
+    activateWeeklySelectionsRequestSchema,
+    bulkDeleteGuestSelectionsRequestSchema,
+    createMealSelectionBatchRequestSchema,
+    deleteWeeklySelectionsRequestSchema,
+    foodArrivalFulfillmentSchema,
+    getUsersWithoutSelectionsRequestSchema,
+    getUsersWithSelectionsRequestSchema,
+    mealSelectionFilterSchema,
+    replaceWeeklyMealRequestSchema,
+    replaceWeeklyMealsBatchRequestSchema,
+    submitWeeklySelectionsRequestSchema,
+    weeklyHistoryFilterSchema
+} from "../schema/mealSelection";
 import { SelectionValidationError } from "../helpers/validateSelectionUpdate";
 import { Roles } from "../enums/ERoles";
 
@@ -341,6 +354,72 @@ export const mealSelectionController = {
         } catch (error: any) {
             return res.status(500).json({
                 message: "Failed to process food arrival fulfillment",
+                error: error.message || error,
+            });
+        }
+    },
+
+    deleteWeeklySelectionsController: async (req: Request, res: Response) => {
+        try {
+            const payload = {
+                weekNumber: req.body?.weekNumber ?? req.query?.weekNumber ?? req.body?.week ?? req.query?.week,
+                year: req.body?.year ?? req.query?.year,
+                weekMenuScheduleId: req.body?.weekMenuScheduleId ?? req.query?.weekMenuScheduleId ?? req.params?.id,
+            };
+
+            const parsed = deleteWeeklySelectionsRequestSchema.safeParse(payload);
+            if (!parsed.success) {
+                return res.status(400).json({
+                    error: "Invalid delete weekly selections payload",
+                    details: parsed.error.flatten(),
+                });
+            }
+
+            const result = await mealSelectionService.deleteWeeklySelections(parsed.data);
+            if (!result) {
+                return res.status(404).json({ error: "Week menu schedule not found" });
+            }
+
+            return res.status(200).json({
+                message: `Successfully deleted ${result.deletedCount} selection(s) for week ${result.week}/${result.year}`,
+                ...result,
+            });
+        } catch (error: any) {
+            return res.status(500).json({
+                message: "Failed to delete weekly selections",
+                error: error.message || error,
+            });
+        }
+    },
+
+    activateWeeklySelectionsController: async (req: Request, res: Response) => {
+        try {
+            const payload = {
+                weekNumber: req.body?.weekNumber ?? req.query?.weekNumber ?? req.body?.week ?? req.query?.week,
+                year: req.body?.year ?? req.query?.year,
+                weekMenuScheduleId: req.body?.weekMenuScheduleId ?? req.query?.weekMenuScheduleId ?? req.params?.id,
+            };
+
+            const parsed = activateWeeklySelectionsRequestSchema.safeParse(payload);
+            if (!parsed.success) {
+                return res.status(400).json({
+                    error: "Invalid activate weekly selections payload",
+                    details: parsed.error.flatten(),
+                });
+            }
+
+            const result = await mealSelectionService.activateWeeklySelections(parsed.data);
+            if (!result) {
+                return res.status(404).json({ error: "Week menu schedule not found" });
+            }
+
+            return res.status(200).json({
+                message: `Weekly selections activated and presets auto-submitted for week ${result.week}/${result.year}`,
+                ...result,
+            });
+        } catch (error: any) {
+            return res.status(500).json({
+                message: "Failed to activate weekly selections",
                 error: error.message || error,
             });
         }

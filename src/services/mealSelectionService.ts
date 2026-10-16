@@ -4,7 +4,9 @@ import { getISOWeekInfo, getISOWeekRange } from "../helpers/dateFunctions";
 import { selectionHelper } from "../helpers/mealSelectionHelpers";
 import { SelectionValidationError, validateSelectionUpdates } from "../helpers/validateSelectionUpdate";
 import {
+    ActivateWeeklySelectionsRequest,
     CreateMealSelectionRequest,
+    DeleteWeeklySelectionsRequest,
     FoodArrivalFulfillmentRequest,
     MealSelection,
     MealSelectionFilter,
@@ -19,6 +21,8 @@ import { weekMenuScheduleService } from "./weekMenuScheduleService";
 import { mailService } from "./emailService";
 import { holidayService } from "./holidayService";
 import { notificationService } from "./notificationService";
+import { NotificationType } from "../enums/ENotificationTypes";
+import { autoSubmitUserPreferences } from "../jobs/periodic";
 
 export class SelectionConflictError extends Error {
     constructor(message: string) {
@@ -1211,6 +1215,68 @@ export const mealSelectionService = {
             fulfilledCount: fulfilledRes.count,
             unfulfilledCount,
             notification: notificationResult,
+        };
+    },
+
+    deleteWeeklySelections: async (params: DeleteWeeklySelectionsRequest) => {
+        let schedule;
+        if (params.weekMenuScheduleId) {
+            schedule = await weekMenuScheduleService.getWeekMenuScheduleById(params.weekMenuScheduleId);
+        } else if (params.weekNumber && params.year) {
+            schedule = await weekMenuScheduleService.getWeekMenuScheduleByWeekAndYear({
+                week: params.weekNumber,
+                year: params.year,
+            });
+        }
+
+        if (!schedule) {
+            return null;
+        }
+
+        const deleted = await prisma.selections.deleteMany({
+            where: { weekMenuScheduleId: schedule.id },
+        });
+
+        return {
+            weekMenuScheduleId: schedule.id,
+            week: schedule.week,
+            year: schedule.year,
+            deletedCount: deleted.count,
+        };
+    },
+
+    activateWeeklySelections: async (params: ActivateWeeklySelectionsRequest) => {
+        let schedule;
+        if (params.weekMenuScheduleId) {
+            schedule = await weekMenuScheduleService.getWeekMenuScheduleById(params.weekMenuScheduleId);
+        } else if (params.weekNumber && params.year) {
+            schedule = await weekMenuScheduleService.getWeekMenuScheduleByWeekAndYear({
+                week: params.weekNumber,
+                year: params.year,
+            });
+        }
+
+        if (!schedule) {
+            return null;
+        }
+
+        await weekMenuScheduleService.switchActiveWeekMenuSchedule(schedule.id);
+
+        await notificationService.notifyUsers({
+            allActiveUsers: true,
+            title: "Meal selection window open",
+            description: `The meal selection window is now open. You can select your meals now.`,
+            type: NotificationType.SELECTION_WINDOW_OPEN,
+        });
+
+        const autoSubmitMessage = await autoSubmitUserPreferences(schedule.id);
+
+        return {
+            weekMenuScheduleId: schedule.id,
+            week: schedule.week,
+            year: schedule.year,
+            status: WeekMenuStatus.ACTIVE,
+            autoSubmitMessage,
         };
     }
 }

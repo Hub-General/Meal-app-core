@@ -255,3 +255,25 @@ export const foodArrivalFulfillmentSchema = z.object({
 });
 
 export type FoodArrivalFulfillmentRequest = z.infer<typeof foodArrivalFulfillmentSchema>;
+
+export const deleteWeeklySelectionsRequestSchema = z.object({
+    weekNumber: z.coerce.number().int().min(1).max(53).optional(),
+    year: z.coerce.number().int().min(2000).max(2100).optional(),
+    weekMenuScheduleId: z.coerce.number().int().positive().optional(),
+}).refine(
+    data => data.weekMenuScheduleId !== undefined || (data.weekNumber !== undefined && data.year !== undefined),
+    { message: "Either weekMenuScheduleId or both weekNumber and year must be provided" }
+);
+
+export type DeleteWeeklySelectionsRequest = z.infer<typeof deleteWeeklySelectionsRequestSchema>;
+
+export const activateWeeklySelectionsRequestSchema = z.object({
+    weekNumber: z.coerce.number().int().min(1).max(53).optional(),
+    year: z.coerce.number().int().min(2000).max(2100).optional(),
+    weekMenuScheduleId: z.coerce.number().int().positive().optional(),
+}).refine(
+    data => data.weekMenuScheduleId !== undefined || (data.weekNumber !== undefined && data.year !== undefined),
+    { message: "Either weekMenuScheduleId or both weekNumber and year must be provided" }
+);
+
+export type ActivateWeeklySelectionsRequest = z.infer<typeof activateWeeklySelectionsRequestSchema>;
