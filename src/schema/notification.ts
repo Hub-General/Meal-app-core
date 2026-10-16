@@ -15,7 +15,9 @@ export const CustomNotificationRequestSchema = z.object({
   type: z.nativeEnum(NotificationType).default(NotificationType.FEEDBACK_REPLY),
   title: z.string().trim().min(1, "Title is required"),
   description: z.string().trim().optional(),
-  recipientIds: z.array(z.coerce.number().int().positive()).min(1, "At least one recipient ID is required"),
+  recipientIds: z.array(z.coerce.number().int().positive()).optional(),
+  allActiveUsers: z.boolean().optional(),
+  preFiltered: z.boolean().optional(),
 });
 
 export const BroadcastFoodArrivedSchema = z.object({

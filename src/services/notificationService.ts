@@ -29,10 +29,10 @@ const activePushUsersFilter = {
   },
 } as const;
 
-const getActivePushSubscriptionsForUsers = async (userIds: number[]) =>
+const getActivePushSubscriptionsForUsers = async (userIds?: number[]) =>
   prisma.pushSubscription.findMany({
     where: {
-      userId: { in: userIds },
+      ...(userIds && userIds.length > 0 ? { userId: { in: userIds } } : {}),
       user: activePushUsersFilter,
     },
     select: pushSubscriptionSelect,
@@ -249,26 +249,28 @@ export const notificationService = {
   },
 
   /**
-   * 4. Send custom notification with custom title & description to a specific array of users.
+   * 4. Send custom notification with custom title & description.
+   * If recipientIds are provided, sends to only those recipient IDs.
+   * If no recipientIds are provided, assumes internal filter and sends to all active users who have push notifications enabled.
    */
   notifyUsers: async (request: CustomNotificationRequest) => {
     const { recipientIds, title, description, type } = request;
 
-    if (!recipientIds.length) {
-      return {
-        message: "No recipient IDs provided",
-        recipientsCount: 0,
-        sent: 0,
-        failed: 0,
-      };
-    }
+    const hasRecipientIds = Boolean(recipientIds && recipientIds.length > 0);
 
-    const subscriptions = await getActivePushSubscriptionsForUsers(recipientIds);
+    const subscriptions = hasRecipientIds
+      ? await prisma.pushSubscription.findMany({
+          where: { userId: { in: recipientIds! } },
+          select: pushSubscriptionSelect,
+        })
+      : await getActivePushSubscriptionsForUsers();
 
     if (!subscriptions.length) {
       return {
-        message: `Found ${recipientIds.length} target user(s), but none have active push subscriptions`,
-        recipientsCount: recipientIds.length,
+        message: hasRecipientIds
+          ? `Found ${recipientIds!.length} target user(s), but none have active push subscriptions`
+          : "No active users with enabled push subscriptions found",
+        recipientsCount: hasRecipientIds ? recipientIds!.length : 0,
         subscriptionsCount: 0,
         sent: 0,
         failed: 0,
@@ -281,9 +283,13 @@ export const notificationService = {
       type: type || NotificationType.FEEDBACK_REPLY,
     });
 
+    const targetCount = hasRecipientIds
+      ? recipientIds!.length
+      : new Set(subscriptions.map((s) => s.userId)).size;
+
     return {
-      message: `Notification sent to ${result.sent} subscription(s) for ${recipientIds.length} user(s)`,
-      recipientsCount: recipientIds.length,
+      message: `Notification sent to ${result.sent} subscription(s) for ${targetCount} user(s)`,
+      recipientsCount: targetCount,
       subscriptionsCount: subscriptions.length,
       sent: result.sent,
       failed: result.failed,
