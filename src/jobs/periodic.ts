@@ -29,12 +29,16 @@ export async function getNextCycleMenu(
         return activeMenus[0]!;
     }
 
-    const targetWeekVal = targetWeek.year * 100 + targetWeek.week;
-
-    // Fetch prior week menu schedules to determine current cycle state
+    // Query the last N weekMenuSchedules strictly prior to targetWeek by calendar weeks
     const priorSchedules = await prisma.weekMenuSchedule.findMany({
+        where: {
+            OR: [
+                { year: { lt: targetWeek.year } },
+                { year: targetWeek.year, week: { lt: targetWeek.week } },
+            ],
+        },
         orderBy: [{ year: "desc" }, { week: "desc" }],
-        take: activeMenus.length * 2,
+        take: activeMenus.length,
         select: {
             id: true,
             week: true,
@@ -43,52 +47,24 @@ export async function getNextCycleMenu(
         },
     });
 
-    const validPrior = priorSchedules.filter(
-        (s) => s.year * 100 + s.week < targetWeekVal
-    );
-
-    const activeMenuMap = new Map(
-        activeMenus.map((m, idx) => [m.id, { menu: m, index: idx }])
-    );
-
-    // Track recently used active menus in continuous history without repeats
-    const recentUsedMenuIds: number[] = [];
-    for (const s of validPrior) {
-        if (recentUsedMenuIds.length >= activeMenus.length) break;
-        if (activeMenuMap.has(s.menuId)) {
-            if (recentUsedMenuIds.includes(s.menuId)) {
-                // Cycle boundary reached
-                break;
-            }
-            recentUsedMenuIds.push(s.menuId);
-        }
-    }
-
-    // Remaining unused menus in the current cycle
-    const unusedMenus = activeMenus.filter((m) => !recentUsedMenuIds.includes(m.id));
-
-    if (unusedMenus.length === 0) {
-        // All active menus have been exhausted in the current cycle!
-        // Start a brand new cycle from the first menu in the sequence
-        const lastScheduledId = validPrior.length > 0 ? validPrior[0]!.menuId : null;
-        if (lastScheduledId === activeMenus[0]!.id && activeMenus.length > 1) {
-            return activeMenus[1]!;
-        }
+    if (priorSchedules.length === 0) {
         return activeMenus[0]!;
     }
 
-    const lastScheduledId = validPrior.length > 0 ? validPrior[0]!.menuId : null;
-    const lastScheduledInfo = lastScheduledId ? activeMenuMap.get(lastScheduledId) : null;
+    // Check if any active menu was unused in the past N weeks window
+    const pastMenuIds = priorSchedules.map((s) => s.menuId);
+    const unused = activeMenus.filter((m) => !pastMenuIds.includes(m.id));
 
-    if (lastScheduledInfo) {
-        const nextInSequence = unusedMenus.find((m) => {
-            const info = activeMenuMap.get(m.id);
-            return info && info.index > lastScheduledInfo.index;
-        });
-        return nextInSequence || unusedMenus[0]!;
+    if (unused.length > 0) {
+        return unused[0]!;
     }
 
-    return unusedMenus[0]!;
+    // All active menus were used in the past window; advance to the next menu in sequence from the last scheduled menu
+    const lastScheduledMenuId = priorSchedules[0]!.menuId;
+    const lastIndex = activeMenus.findIndex((m) => m.id === lastScheduledMenuId);
+    const nextIndex = lastIndex >= 0 ? (lastIndex + 1) % activeMenus.length : 0;
+
+    return activeMenus[nextIndex]!;
 }
 
 export async function scheduleWeeklyMenu(targetWeek: { week: number; year: number }) {
@@ -141,42 +117,43 @@ export async function activateWeeklyMenu(targetWeek: { week: number; year: numbe
 
     await weekMenuScheduleService.switchActiveWeekMenuSchedule(correctWeekMenu.id);
 
-    const allPushEnabledUsers = await prisma.users.findMany({
-        where: {
-            status: "ACTIVE",
-            preferences: {
-                pushNotifications: true,
-            },
-        },
-        select: {
-            id: true,
-        },
+    await notificationService.notifyUsers({
+        allActiveUsers: true,
+        title: "Meal selection window open",
+        description: `The meal selection window is now open. You can select your meals now.`,
+        type: NotificationType.SELECTION_WINDOW_OPEN,
     });
-
-    if (allPushEnabledUsers.length > 0) {
-        await notificationService.notifyUsers({
-            recipientIds: allPushEnabledUsers.map((user) => user.id),
-            title: "Meal selection window open",
-            description: `The meal selection window is now open. You can select your meals now.`,
-            type: NotificationType.SELECTION_WINDOW_OPEN,
-        });
-    }
 
     return `Week menu for ${targetWeek.week}/${targetWeek.year} successfully activated`;
 }
 
-export async function autoSubmitUserPreferences() {
-    const activeWeekMenu = await prisma.weekMenuSchedule.findFirst({
-        where: {
-            status: WeekMenuStatus.ACTIVE,
-        },
-        select: {
-            id: true,
-            week: true,
-            year: true,
-            menuId: true,
-        },
-    });
+export async function autoSubmitUserPreferences(targetScheduleId?: number) {
+    let activeWeekMenu;
+    if (targetScheduleId) {
+        activeWeekMenu = await prisma.weekMenuSchedule.findUnique({
+            where: {
+                id: targetScheduleId,
+            },
+            select: {
+                id: true,
+                week: true,
+                year: true,
+                menuId: true,
+            },
+        });
+    } else {
+        activeWeekMenu = await prisma.weekMenuSchedule.findFirst({
+            where: {
+                status: WeekMenuStatus.ACTIVE,
+            },
+            select: {
+                id: true,
+                week: true,
+                year: true,
+                menuId: true,
+            },
+        });
+    }
 
     if (!activeWeekMenu) {
         throw new Error("No active week menu schedule found");
@@ -190,7 +167,6 @@ export async function autoSubmitUserPreferences() {
     const users = await prisma.userPreferences.findMany({
         where: {
             autoSubmitPreset: true,
-            pushNotifications: true,
 
             user: {
                 status: "ACTIVE",
@@ -303,6 +279,7 @@ export async function autoSubmitUserPreferences() {
             title: "Preset submitted",
             description: `Your preset was automatically submitted for this week.`,
             type: NotificationType.MEAL_SELECTED_CONFIRMATION,
+            preFiltered: true,
         });
     }
 

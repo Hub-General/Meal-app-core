@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { mealSelectionController } from "../controllers/mealSelectionController";
+import { autoSelectController } from "../controllers/autoSelectController";
 import { authenticate, authorize } from "../middleware/authMiddleware";
 import { Roles } from "../enums/ERoles";
 
@@ -24,6 +25,9 @@ router.get("/weekly/history", authenticate, authorize([Roles.admin, Roles.hr]), 
 router.get("/history/user", authenticate, mealSelectionController.getUserWeeklySelectionsHistoryController);
 router.get("/history/by-user/:id", authenticate, mealSelectionController.getUserWeeklySelectionsHistoryController);
 router.get("/weekly/history/by-user/:id", authenticate, mealSelectionController.getUserWeeklySelectionsHistoryController);
+
+// Auto-select — must be registered before /:id wildcard
+router.get("/auto-select", authenticate, autoSelectController.autoSelectController);
 
 router.get("/:id",mealSelectionController.getSelectionByIdController);
 
@@ -56,5 +60,21 @@ router.delete("/guest", authenticate,
 router.delete("/guest/:id", authenticate,
     authorize([Roles.admin, Roles.hr]),
     mealSelectionController.deleteGuestSelectionController);
+
+// DELETE all selections for a week (admin only)
+router.delete("/weekly", authenticate,
+    authorize([Roles.admin]),
+    mealSelectionController.deleteWeeklySelectionsController);
+router.delete("/weekly/:id", authenticate,
+    authorize([Roles.admin]),
+    mealSelectionController.deleteWeeklySelectionsController);
+
+// ACTIVATE selections for a week (triggers preset autosubmit)
+router.post("/weekly/activate", authenticate,
+    authorize([Roles.admin, Roles.hr]),
+    mealSelectionController.activateWeeklySelectionsController);
+router.patch("/weekly/activate", authenticate,
+    authorize([Roles.admin, Roles.hr]),
+    mealSelectionController.activateWeeklySelectionsController);
 
 export default router;
