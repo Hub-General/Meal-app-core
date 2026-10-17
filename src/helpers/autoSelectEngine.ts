@@ -189,7 +189,7 @@ export function autoSelectWeek(
 
         // Compute base scores first to calibrate noise scale for this day
         const baseScores = pool.map(c => {
-            const { supergroup, meal, protein, preparation } = parseFoodCode(c.meal.foodCode);
+            const { supergroup, meal, protein, preparation } = parseFoodCodeSegments(c.meal.foodCode);
             return (
                 3.0 * (normMeals[meal]            ?? 0) +
                 1.5 * (normProteins[protein]       ?? 0) +
@@ -214,7 +214,7 @@ export function autoSelectWeek(
         if (!best) continue;
 
         // Register this pick's protein and supergroup for anti-repeat logic on later days
-        const { protein, supergroup } = parseFoodCode(best.meal.foodCode);
+        const { protein, supergroup } = parseFoodCodeSegments(best.meal.foodCode);
         if (protein)    weekUsed.proteins.add(protein);
         if (supergroup) weekUsed.supergroups.add(supergroup);
 
