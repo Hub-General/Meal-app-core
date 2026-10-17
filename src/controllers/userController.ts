@@ -115,5 +115,34 @@ export const userController = {
                 error: error instanceof Error ? error.message : error,
             });
         }
-    }
+    },
+    getUserExcludedMealsController: async (req: Request, res: Response) => {
+        try {
+            const userId = req.user?.id;
+            if (!userId) {
+                return res.status(401).json({ message: "Unauthorized" });
+            }
+            const response = await userPreferenceService.getUserExcludedMealDetails(userId);
+            res.status(200).json(response);
+        } catch (error) {
+            res.status(500).json({
+                message: `Failed to retrieve excluded meals for user ${req.user?.id}`,
+                error: error instanceof Error ? error.message : error,
+            });
+        }
+    },
+    recalculateUserPreferencesController: async (req: Request, res: Response) => {
+        try {
+            const result = await userPreferenceService.recalculateAllUserPreferences();
+            res.status(200).json({
+                message: `Successfully recalculated preferences for ${result.length} users`,
+                count: result.length,
+            });
+        } catch (error) {
+            res.status(500).json({
+                message: "Failed to recalculate user preferences",
+                error: error instanceof Error ? error.message : error,
+            });
+        }
+    },
 }

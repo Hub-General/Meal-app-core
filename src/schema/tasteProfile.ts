@@ -12,7 +12,11 @@ export const tasteProfileSchema = z.object({
 
 export interface TasteProfileMetrics {
     supergroups: Record<string, number>;
+    bases: Record<string, number>;
+    variations: Record<string, number>;
     proteins: Record<string, number>; 
+    accompaniments: Record<string, number>;
+    modifiers: Record<string, number>;
     preparations: Record<string, number>;
     meals: Record<string, number>;
     combinations: Record<string, number>;
@@ -27,12 +31,22 @@ export interface TasteProfileMetrics {
 
     favouriteMealId?: number;
     favouriteDay?: Days;
+    favoriteBase?: string;
+    favoriteSupergroup?: string;
+    favoriteAccompaniment?: string;
+    swallowCount?: number;
+    swallowRatio?: number;
 
     dislikes?: {
-        proteins?: string[];
-        preparations?: string[];
         supergroups?: string[];
+        bases?: string[];
+        variations?: string[];
+        proteins?: string[];
+        accompaniments?: string[];
+        modifiers?: string[];
+        preparations?: string[];
         flavours?: string[];
+        foodItems?: string[];
         meals?: number[];
     };
 }

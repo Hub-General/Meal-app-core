@@ -4,15 +4,36 @@ import { Theme } from "../generated/prisma";
 export const userDislikesSchema = z.object({
   meals: z.array(z.number().int().positive()).optional().default([]),
   foodItems: z.array(z.string()).optional().default([]),
+  supergroups: z.array(z.string()).optional().default([]),
+  bases: z.array(z.string()).optional().default([]),
+  variations: z.array(z.string()).optional().default([]),
+  proteins: z.array(z.string()).optional().default([]),
+  accompaniments: z.array(z.string()).optional().default([]),
+  modifiers: z.array(z.string()).optional().default([]),
+  preparations: z.array(z.string()).optional().default([]),
 });
 
-export type UserDislikes = {
-  meals: number[];
-  foodItems: string[];
-};
+export type UserDislikes = z.infer<typeof userDislikesSchema>;
 
 export interface ExcludedMealIds {
   Ids: number[];
+}
+
+export interface ExcludedMealItem {
+  id: number;
+  name: string;
+  foodCode: string;
+  imagePath?: string | null;
+  calories?: number | null;
+  reason: "BANNED_MEAL" | "DISLIKED_INGREDIENT";
+  matchedDislikes: string[];
+}
+
+export interface UserExcludedMealsResponse {
+  userId: number;
+  excludedMealIds: number[];
+  excludedMeals: ExcludedMealItem[];
+  totalExcluded: number;
 }
 
 export const updateUserPreferencesSchema = z.object({

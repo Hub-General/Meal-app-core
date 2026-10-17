@@ -13,7 +13,7 @@ const pool = new Pool({
   connectionString,
   max: 10,
   idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 10000,
+  connectionTimeoutMillis: 15000,
 });
 
 pool.on("error", (err) => {
@@ -22,6 +22,12 @@ pool.on("error", (err) => {
 
 const adapter = new PrismaPg(pool);
 
-export const prisma = new PrismaClient({ adapter });
+export const prisma = new PrismaClient({
+  adapter,
+  transactionOptions: {
+    maxWait: 10000,
+    timeout: 30000,
+  },
+});
 
 

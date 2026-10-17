@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { userController } from "../controllers/userController";
-import { authenticate } from "../middleware/authMiddleware";
+import { authenticate, authorize } from "../middleware/authMiddleware";
+import { Roles } from "../enums/ERoles";
 
 const router = Router();
 
@@ -8,6 +9,9 @@ const router = Router();
 router.get("/preferences", authenticate, userController.getUserPreferencesController);
 router.patch("/preferences", authenticate, userController.updateUserPreferencesController);
 router.put("/preferences", authenticate, userController.updateUserPreferencesController);
+// router.get("/preferences/excluded-meals", authenticate, userController.getUserExcludedMealsController);
+// router.get("/excluded-meals", authenticate, userController.getUserExcludedMealsController);
+// router.post("/preferences/recalculate", authenticate, authorize([Roles.admin, Roles.hr]), userController.recalculateUserPreferencesController);
 
 // User Routes
 router.get("/profile", authenticate, userController.getUserProfileController);
