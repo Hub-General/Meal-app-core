@@ -1,6 +1,6 @@
 import { TastePersonality } from "../enums/EPersonalities";
 import { StoredTasteProfileMetrics } from "./tasteProfileMetrics";
-import { parseAnyFoodCode } from "./foodCodeParser";
+import { parseFoodCode } from "./foodCodeParser";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -58,19 +58,15 @@ export function deriveRandomizer(personality: TastePersonality): number {
 // Scoring helpers
 // ---------------------------------------------------------------------------
 
-/** Parse foodCode segments: supports both 7-block and legacy 4-block formats */
-function parseFoodCode(foodCode: string) {
-    const parts = parseAnyFoodCode(foodCode);
-    if (parts) {
-        return {
-            supergroup: parts.supergroups[0] ?? "",
-            meal: parts.bases[0] ?? "",
-            protein: parts.proteins[0] ?? "",
-            preparation: parts.preparations[0] ?? "",
-        };
-    }
-    const [supergroup = "", meal = "", protein = "", preparation = ""] = foodCode.split("-");
-    return { supergroup, meal, protein, preparation };
+/** Parse 7-block foodCode segments */
+function parseFoodCodeSegments(foodCode: string) {
+    const parts = parseFoodCode(foodCode);
+    return {
+        supergroup: parts?.supergroups[0] ?? "",
+        meal: parts?.bases[0] ?? "",
+        protein: parts?.proteins[0] ?? "",
+        preparation: parts?.preparations[0] ?? "",
+    };
 }
 
 /** Normalise a raw frequency map to [0, 1] scores. */
@@ -115,7 +111,7 @@ export function scoreCandidate(
     ctx: ScoringContext,
     weekUsed: { proteins: Set<string>; supergroups: Set<string> }
 ): number {
-    const { supergroup, meal, protein, preparation } = parseFoodCode(candidate.meal.foodCode);
+    const { supergroup, meal, protein, preparation } = parseFoodCodeSegments(candidate.meal.foodCode);
 
     const baseScore =
         3.0 * (ctx.normMeals[meal]            ?? 0) +
