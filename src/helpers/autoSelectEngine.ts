@@ -1,5 +1,6 @@
 import { TastePersonality } from "../enums/EPersonalities";
 import { StoredTasteProfileMetrics } from "./tasteProfileMetrics";
+import { parseAnyFoodCode } from "./foodCodeParser";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -44,10 +45,12 @@ const PERSONALITY_RANDOMIZER: Record<TastePersonality, number> = {
     COMFORT_SEEKER:   25,
     PROTEIN_LOVER:    20,
     HEALTH_CONSCIOUS: 20,
-    TRADITIONALIST:   10,
+    HEAVY_EATER:      20,
+    LOYALIST:         10,
 };
 
 export function deriveRandomizer(personality: TastePersonality): number {
+    if ((personality as string) === "TRADITIONALIST") return 10;
     return PERSONALITY_RANDOMIZER[personality] ?? 40;
 }
 
@@ -55,8 +58,17 @@ export function deriveRandomizer(personality: TastePersonality): number {
 // Scoring helpers
 // ---------------------------------------------------------------------------
 
-/** Parse the foodCode segments: SG-MEAL-PROTEIN-PREP */
+/** Parse foodCode segments: supports both 7-block and legacy 4-block formats */
 function parseFoodCode(foodCode: string) {
+    const parts = parseAnyFoodCode(foodCode);
+    if (parts) {
+        return {
+            supergroup: parts.supergroups[0] ?? "",
+            meal: parts.bases[0] ?? "",
+            protein: parts.proteins[0] ?? "",
+            preparation: parts.preparations[0] ?? "",
+        };
+    }
     const [supergroup = "", meal = "", protein = "", preparation = ""] = foodCode.split("-");
     return { supergroup, meal, protein, preparation };
 }
