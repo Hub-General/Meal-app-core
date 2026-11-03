@@ -22,6 +22,8 @@ export const CustomNotificationRequestSchema = z.object({
 
 export const BroadcastFoodArrivedSchema = z.object({
   weekMenuScheduleId: z.coerce.number().int().positive().optional(),
+  menuDayId: z.coerce.number().int().positive().optional(),
+  excludedSelectionIds: z.array(z.coerce.number().int().positive()).optional(),
   title: z.string().trim().default("Food is in!"),
   description: z.string().trim().default("Your meal is ready for pickup."),
 });

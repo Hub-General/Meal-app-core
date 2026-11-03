@@ -1,5 +1,7 @@
 import z from "zod";
 import { Days } from "../generated/prisma";
+import { TastePersonality } from "../enums/EPersonalities";
+import { StoredTasteProfileMetrics, TopMealDetail } from "../helpers/tasteProfileMetrics";
 
 export const tasteProfileSchema = z.object({
     userId: z.number().int().positive(),
@@ -52,3 +54,128 @@ export interface TasteProfileMetrics {
 }
 
 export type TasteProfile = z.infer<typeof tasteProfileSchema>;
+
+// ---------------------------------------------------------------------------
+// Recap / Wrapped Standardized Sub-Interfaces
+// ---------------------------------------------------------------------------
+
+export type RecapMetricKey =
+    | "loyalty"
+    | "explorer"
+    | "calories"
+    | "swallow"
+    | "spice"
+    | "volume";
+
+export type RecapCardCategory =
+    | "OVERVIEW"
+    | "PERSONALITY"
+    | "TOP_MEAL"
+    | "LOYALTY"
+    | "EXPLORER"
+    | "CALORIES"
+    | "SWALLOW"
+    | "SPICE"
+    | "TASTE_TWIN";
+
+/**
+ * Shared base contract across all Recap sections, rankings, and story slides.
+ * `rank` is a 1-based number (or null if non-ranked) — no redundant boolean flags.
+ */
+export interface RecapStatBase {
+    title: string;                // Main comparative headline, e.g. "You are the #1 most loyal eater in the office!"
+    subtitle: string;             // Supporting context, e.g. "You are 1 of 6 Explorers in the office"
+    description: string;          // Narrative / comparison detail
+    rank: number | null;          // 1-based rank (frontend derives #1, top 3, etc. from this)
+    totalParticipants: number;    // Total users compared
+}
+
+/**
+ * Standardized comparative ranking metric (used in `rankings` and `rankingList`).
+ */
+export interface RecapRankingStat extends RecapStatBase {
+    key: RecapMetricKey;
+    label: string;                // e.g. "Loyalty Ranking", "Explorer Ranking", "Calorie Leaderboard"
+    rank: number;                 // 1-based rank in the office (1 = highest)
+    value: number;                // User's numeric score/count for this metric
+    unit: string;                 // "%", "unique meals", "kcal", "meals", "spicy meals"
+    percentile: number;           // 1–100
+    officeAverage: number;        // Office-wide average for this metric
+}
+
+/**
+ * Standardized Personality sub-recap ("You are 1 of 6 Explorers").
+ */
+export interface RecapPersonalitySummary extends RecapStatBase {
+    type: TastePersonality;
+    name: string;
+    cohortCount: number;          // Total users sharing this personality in the same year
+    cohortPercentage: number;     // % of office with this personality
+}
+
+/**
+ * Standardized Top Meal sub-recap (includes office fan rank for that dish).
+ */
+export interface RecapTopMealHighlight extends RecapStatBase, TopMealDetail {
+    shareOfYearPercentage: number;// % of user's total meals that were this dish
+}
+
+/**
+ * Standardized Office Taste Twin sub-recap.
+ */
+export interface RecapTasteTwin extends RecapStatBase {
+    userId: number;
+    name: string;
+    similarityScore: number;      // 0–100 palate match percentage
+    personalityType: TastePersonality;
+    sharedTopMeal: string | null;
+    sharedFavoriteProtein: string | null;
+}
+
+/**
+ * Office-wide benchmark averages for the calendar year.
+ */
+export interface RecapOfficeAverages {
+    totalParticipants: number;
+    averageMealsSelected: number;
+    averageUniqueMeals: number;
+    averageCaloriesTotal: number;
+    averageCaloriesPerMeal: number;
+    averageConsistencyScore: number;
+    averageDiversityScore: number;
+    averageSwallowCount: number;
+    personalityBreakdown: Record<string, number>;
+}
+
+/**
+ * Standardized Spotify-Wrapped story slide card (extends `RecapStatBase`).
+ */
+export interface RecapSlideCard<TMetadata = Record<string, unknown>> extends RecapStatBase {
+    id: string;
+    category: RecapCardCategory;
+    slideOrder: number;
+    value: string | number;       // Hero display value, e.g. 31, 27900, "Explorer"
+    unit: string;                 // Label/unit for hero value, e.g. "unique meals", "kcal", "%"
+    percentile: number | null;
+    officeAverage: number | null;
+    metadata?: TMetadata;
+}
+
+export interface TasteProfileRecapResponse {
+    userId: number;
+    userName: string | null;
+    calendarYear: number;
+    updatedAt: Date | string;
+    totalMealsSelected: number;
+    favoriteProtein: string | null;
+    favoriteCombination: string | null;
+    personality: RecapPersonalitySummary;
+    topMealHighlight: RecapTopMealHighlight | null;
+    topMeals: TopMealDetail[];
+    rankings: Record<RecapMetricKey, RecapRankingStat>;
+    rankingList: RecapRankingStat[];
+    tasteTwin: RecapTasteTwin | null;
+    officeAverages: RecapOfficeAverages;
+    metrics: StoredTasteProfileMetrics;
+    cards: RecapSlideCard[];
+}

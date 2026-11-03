@@ -22,7 +22,15 @@ import { mailService } from "./emailService";
 import { holidayService } from "./holidayService";
 import { notificationService } from "./notificationService";
 import { NotificationType } from "../enums/ENotificationTypes";
+import { Roles } from "../enums/ERoles";
 import { autoSubmitUserPreferences } from "../jobs/periodic";
+
+export class SelectionPermissionError extends Error {
+    constructor(message: string) {
+        super(message);
+        this.name = "SelectionPermissionError";
+    }
+}
 
 export class SelectionConflictError extends Error {
     constructor(message: string) {
@@ -354,49 +362,68 @@ export const mealSelectionService = {
 
     submitSelections: async (
         selectionRequests: CreateMealSelectionRequest[],
-        requesterId: number
+        requesterId: number,
+        requesterRoleId?: number
     ) => {
 
         if (!selectionRequests?.length) {
             throw new Error("At least one selection is required");
         }
 
-        const result = await prisma.$transaction(async (tx) => {
+        const isRequesterAdminOrHr =
+            requesterRoleId === Roles.admin || requesterRoleId === Roles.hr;
 
-            const scheduleIds = [...new Set(selectionRequests.map(s => s.weekMenuScheduleId))];
-            const schedules = await tx.weekMenuSchedule.findMany({
+        const newSelections: CreateMealSelectionRequest[] = [];
+        const updateSelections: CreateMealSelectionRequest[] = [];
+
+        // Separate creates from updates in one pass.
+        for (const selection of selectionRequests) {
+            if (selection.id === undefined) {
+                newSelections.push(selection);
+            } else {
+                updateSelections.push(selection);
+            }
+        }
+
+        // Guest selections (createdFor === null) are restricted to admins and HR. Fail fast, no DB trip.
+        if (!isRequesterAdminOrHr && newSelections.some(s => s.createdFor === null)) {
+            throw new SelectionPermissionError("Only admins and HR can create guest selections.");
+        }
+
+        // Only MEAL selections carry a dayMealId; UNAVAILABLE / HOLIDAY are always stored with null.
+        const resolveDayMealId = (selection: CreateMealSelectionRequest) =>
+            selection.selectionType === "MEAL" ? selection.dayMealId ?? null : null;
+
+        const scheduleIds = [...new Set(selectionRequests.map(s => s.weekMenuScheduleId))];
+        const updateIds = updateSelections.map(s => s.id!);
+        const uniqueRecipientIds = [
+            ...new Set(
+                newSelections
+                    .map(s => s.createdFor)
+                    .filter((createdFor): createdFor is number => createdFor !== null)
+            )
+        ];
+        const newScheduleIds = [...new Set(newSelections.map(s => s.weekMenuScheduleId))];
+        const newMenuDayIds = [...new Set(newSelections.map(s => s.menuDayId))];
+
+        /*
+        * 1. Validation reads run OUTSIDE the transaction.
+        *
+        * Outside a transaction each query can use its own pool connection, so Promise.all
+        * genuinely runs them in parallel, and no connection is pinned while we validate.
+        * Correctness does not depend on these reads being transactional:
+        *   - updates re-check ownership / PENDING status in their WHERE clause, and
+        *   - creates are protected by @@unique([createdFor, weekMenuScheduleId, menuDayId])
+        *     (a concurrent duplicate surfaces as P2002 and is mapped to 409 in the controller).
+        */
+        const [schedules, existingSelections, recipients, existingForNewDays] = await Promise.all([
+            prisma.weekMenuSchedule.findMany({
                 where: { id: { in: scheduleIds } },
                 select: { id: true, status: true }
-            });
-
-            const hasInactiveSchedule = schedules.some(s => s.status !== "ACTIVE") || schedules.length !== scheduleIds.length;
-            if (hasInactiveSchedule) {
-                throw new SelectionConflictError("Meal selection for this week is closed.");
-            }
-
-            const newSelections: CreateMealSelectionRequest[] = [];
-            const updateSelections: CreateMealSelectionRequest[] = [];
-
-            // Separate creates from updates in one pass.
-            for (const selection of selectionRequests) {
-                if (selection.id === undefined) {
-                    newSelections.push(selection);
-                } else {
-                    updateSelections.push(selection);
-                }
-            }
-
-            const updateIds = updateSelections.map(
-                selection => selection.id!
-            );
-
-            const existingSelections = updateIds.length
-                ? await tx.selections.findMany({
-                    where: {
-                        id: {
-                            in: updateIds
-                        }
-                    },
+            }),
+            updateIds.length
+                ? prisma.selections.findMany({
+                    where: { id: { in: updateIds } },
                     select: {
                         id: true,
                         createdFor: true,
@@ -407,16 +434,47 @@ export const mealSelectionService = {
                         }
                     }
                 })
-                : [];
+                : Promise.resolve([]),
+            uniqueRecipientIds.length
+                ? prisma.users.findMany({
+                    where: {
+                        id: { in: uniqueRecipientIds },
+                        status: "ACTIVE"
+                    },
+                    select: { id: true, name: true, email: true, referenceEmail: true }
+                })
+                : Promise.resolve([]),
+            uniqueRecipientIds.length
+                ? prisma.selections.findMany({
+                    where: {
+                        createdFor: { in: uniqueRecipientIds },
+                        weekMenuScheduleId: { in: newScheduleIds },
+                        menuDayId: { in: newMenuDayIds }
+                    },
+                    select: {
+                        createdFor: true,
+                        createdBy: true,
+                        weekMenuScheduleId: true,
+                        menuDayId: true,
+                        createdByUser: { select: { roleId: true } },
+                        createdForUser: { select: { id: true, name: true } }
+                    }
+                })
+                : Promise.resolve([])
+        ]);
 
+        // 2. In-memory validation
+        const hasInactiveSchedule =
+            schedules.some(s => s.status !== "ACTIVE") ||
+            schedules.length !== scheduleIds.length;
+        if (hasInactiveSchedule) {
+            throw new SelectionConflictError("Meal selection for this week is closed.");
+        }
 
+        if (updateSelections.length > 0) {
             const existingMap = new Map(
-                existingSelections.map(selection => [
-                    selection.id,
-                    selection
-                ])
+                existingSelections.map(selection => [selection.id, selection])
             );
-
 
             const errors = validateSelectionUpdates(
                 updateSelections,
@@ -427,122 +485,80 @@ export const mealSelectionService = {
             if (errors.length > 0) {
                 throw new SelectionValidationError(errors);
             }
+        }
 
+        const recipientMap = new Map(recipients.map(r => [r.id, r]));
 
-            if (newSelections.length > 0) {
-
-                const recipientIds = newSelections
-                    .map(selection => selection.createdFor)
-                    .filter((createdFor): createdFor is number => createdFor !== null);
-
-                const recipients = recipientIds.length
-                    ? await tx.users.findMany({
-                        where: {
-                            id: { in: recipientIds },
-                            status: "ACTIVE"
-                        },
-                        select: { id: true, name: true }
-                    })
-                    : [];
-
-                if (recipients.length !== new Set(recipientIds).size) {
-                    throw new SelectionConflictError("One or more recipients are inactive or unavailable");
-                }
-
-                const requesterUser = await tx.users.findUnique({
-                    where: { id: requesterId },
-                    include: { role: { select: { name: true } } }
-                });
-                const isRequesterAdminOrHr =
-                    requesterUser?.role?.name?.toUpperCase() === "ADMIN" ||
-                    requesterUser?.role?.name?.toUpperCase() === "HR";
-
-                for (const selection of newSelections) {
-                    const existingSelection = await tx.selections.findFirst({
-                        where: {
-                            createdFor: selection.createdFor,
-                            weekMenuScheduleId: selection.weekMenuScheduleId,
-                            menuDayId: selection.menuDayId
-                        },
-                        include: {
-                            createdByUser: { include: { role: { select: { name: true } } } },
-                            createdForUser: { select: { id: true, name: true } }
-                        }
-                    });
-
-                    if (existingSelection) {
-                        const recipient = selection.createdFor ? recipients.find(r => r.id === selection.createdFor) : null;
-                        const recipientName = recipient?.name || existingSelection.createdForUser?.name || (selection.createdFor === requesterId ? "You" : "The recipient");
-
-                        if (selection.createdFor === requesterId) {
-                            throw new SelectionConflictError("You already have a meal selection for this day.");
-                        } else if (existingSelection.createdFor === existingSelection.createdBy) {
-                            throw new SelectionConflictError(`${recipientName} has already selected meals for themselves.`);
-                        } else {
-                            const creatorRole = existingSelection.createdByUser?.role?.name?.toUpperCase();
-                            const isCreatorAdmin = creatorRole === "ADMIN" || creatorRole === "HR";
-                            if (isCreatorAdmin && !isRequesterAdminOrHr) {
-                                throw new SelectionConflictError(
-                                    `${recipientName}'s meal selections were chosen by an administrator and cannot be modified.`
-                                );
-                            }
-                            throw new SelectionConflictError(`${recipientName} has already made meal selections for this week.`);
-                        }
-                    }
-
-                    await tx.selections.create({
-                        data: {
-                            dayMealId: selection.dayMealId ?? null,
-                            selectionType: selection.selectionType ?? "MEAL",
-                            createdBy: requesterId,
-                            createdFor: selection.createdFor,
-                            guestCount: selection.guestCount ?? 1,
-                            weekMenuScheduleId: selection.weekMenuScheduleId,
-                            menuDayId: selection.menuDayId,
-                            selectionStatus: "PENDING"
-                        }
-                    });
-                }
+        if (newSelections.length > 0) {
+            if (recipients.length !== uniqueRecipientIds.length) {
+                throw new SelectionConflictError("One or more recipients are inactive or unavailable");
             }
 
+            const keyOf = (s: { createdFor: number | null; weekMenuScheduleId: number; menuDayId: number }) =>
+                `${s.createdFor}:${s.weekMenuScheduleId}:${s.menuDayId}`;
 
-            for (const request of updateSelections) {
+            const existingByKey = new Map(existingForNewDays.map(s => [keyOf(s), s]));
+            const batchKeys = new Set<string>();
 
-                const existing = existingMap.get(request.id!);
+            for (const selection of newSelections) {
+                // Guests are not bound by the per-user/day uniqueness rule (multiple guests per day are allowed).
+                if (selection.createdFor === null) continue;
 
-                if (!existing) {
-                    throw new SelectionValidationError([
-                        {
-                            id: request.id!,
-                            reason: "NOT_FOUND"
-                        }
-                    ]);
+                const key = keyOf(selection);
+                const recipientName = recipientMap.get(selection.createdFor)?.name ?? "The recipient";
+
+                if (batchKeys.has(key)) {
+                    throw new SelectionConflictError(
+                        selection.createdFor === requesterId
+                            ? "Your request contains more than one selection for the same day."
+                            : `Your request contains more than one selection for ${recipientName} on the same day.`
+                    );
+                }
+                batchKeys.add(key);
+
+                const existingSelection = existingByKey.get(key);
+                if (!existingSelection) continue;
+
+                if (selection.createdFor === requesterId) {
+                    throw new SelectionConflictError("You already have a meal selection for this day.");
+                }
+                if (existingSelection.createdFor === existingSelection.createdBy) {
+                    throw new SelectionConflictError(`${recipientName} has already selected meals for themselves.`);
                 }
 
-                const isCreatedForOwner =
-                    existing.createdFor === requesterId;
+                const creatorRoleId = existingSelection.createdByUser?.roleId;
+                const isCreatorAdmin = creatorRoleId === Roles.admin || creatorRoleId === Roles.hr;
+                if (isCreatorAdmin && !isRequesterAdminOrHr) {
+                    throw new SelectionConflictError(
+                        `${recipientName}'s meal selections were chosen by an administrator and cannot be modified.`
+                    );
+                }
+                throw new SelectionConflictError(`${recipientName} has already made meal selections for this week.`);
+            }
+        }
 
-                /*
-                * If the requester is the person the selection
-                * belongs to, they are now the person submitting it.
-                *
-                * If requester is only createdBy, createdFor remains
-                * untouched.
-                */
-                const updateData = {
-                    dayMealId: request.dayMealId ?? null,
-                    selectionType: request.selectionType ?? "MEAL",
-                    weekMenuScheduleId:
-                        request.weekMenuScheduleId,
-                    menuDayId: request.menuDayId,
+        /*
+        * 3. Writes only: a short all-or-nothing transaction.
+        * The connection is held just for the INSERT + UPDATEs, not for the validation reads.
+        */
+        await prisma.$transaction(async (tx) => {
+            if (newSelections.length > 0) {
+                await tx.selections.createMany({
+                    data: newSelections.map(selection => ({
+                        dayMealId: resolveDayMealId(selection),
+                        selectionType: selection.selectionType ?? "MEAL",
+                        createdBy: requesterId,
+                        createdFor: selection.createdFor,
+                        guestCount: selection.guestCount ?? 1,
+                        weekMenuScheduleId: selection.weekMenuScheduleId,
+                        menuDayId: selection.menuDayId,
+                        selectionStatus: "PENDING"
+                    }))
+                });
+            }
 
-                    ...(isCreatedForOwner
-                        ? {
-                            createdBy: requesterId
-                        }
-                        : {})
-                };
-
+            // Sequential on purpose: an interactive transaction runs on a single connection anyway.
+            for (const request of updateSelections) {
                 /*
                 * Re-check the important authorization conditions
                 * inside the UPDATE itself.
@@ -554,10 +570,15 @@ export const mealSelectionService = {
                     where: {
                         id: request.id!,
                         selectionStatus: "PENDING",
-
-                        createdFor: requesterId
+                        createdFor: requesterId,
+                        weekMenuScheduleId: request.weekMenuScheduleId,
+                        menuDayId: request.menuDayId
                     },
-                    data: updateData
+                    data: {
+                        dayMealId: resolveDayMealId(request),
+                        selectionType: request.selectionType ?? "MEAL",
+                        createdBy: requesterId
+                    }
                 });
 
                 if (updateResult.count !== 1) {
@@ -569,52 +590,47 @@ export const mealSelectionService = {
                     ]);
                 }
             }
-
-            const notifications = existingSelections
-                .filter(selection => selection.createdFor === requesterId && selection.createdBy !== requesterId)
-                .map(selection => ({
-                    to: selection.createdByUser.email ?? selection.createdByUser.referenceEmail,
-                    name: selection.createdByUser.name
-                }));
-
-            const recipientNotifications = newSelections
-                .filter(selection => selection.createdFor !== null && selection.createdFor !== requesterId)
-                .map(selection => selection.createdFor!);
-
-            const recipientsToNotify = recipientNotifications.length
-                ? await tx.users.findMany({
-                    where: { id: { in: [...new Set(recipientNotifications)] } },
-                    select: { name: true, email: true, referenceEmail: true }
-                })
-                : [];
-
-            return {
-                created: newSelections.length,
-                updated: updateSelections.length,
-                notifications,
-                recipientsToNotify
-            };
         });
 
-        for (const recipient of result.recipientsToNotify) {
-            void mailService.sendSelectionNotification(
-                recipient.email ?? recipient.referenceEmail,
-                recipient.name,
-                "A meal was selected for you",
-                "Someone selected a meal for you. You can review or replace it while it is pending."
-            );
-        }
+        // 4. Emails (fire-and-forget), deduplicated per address so nobody receives the same email twice.
+        const sendOncePerAddress = (
+            targets: { to: string; name: string }[],
+            subject: string,
+            message: string
+        ) => {
+            const seen = new Set<string>();
+            for (const { to, name } of targets) {
+                const key = to.trim().toLowerCase();
+                if (seen.has(key)) continue;
+                seen.add(key);
+                void mailService.sendSelectionNotification(to, name, subject, message);
+            }
+        };
 
-        for (const creator of result.notifications) {
-            void mailService.sendSelectionNotification(
-                creator.to,
-                creator.name,
-                "Your meal selection was replaced",
-                "The recipient replaced the pending meal selection you made for them."
-            );
-        }
+        // Recipients a colleague/admin selected a meal for.
+        sendOncePerAddress(
+            newSelections
+                .filter(s => s.createdFor !== null && s.createdFor !== requesterId)
+                .map(s => recipientMap.get(s.createdFor!))
+                .filter((r): r is NonNullable<typeof r> => Boolean(r))
+                .map(r => ({ to: r.email ?? r.referenceEmail, name: r.name })),
+            "A meal was selected for you",
+            "Someone selected a meal for you. You can review or replace it while it is pending."
+        );
 
-        return { created: result.created, updated: result.updated };
+        // Original creators whose pending picks were replaced by the recipient.
+        sendOncePerAddress(
+            existingSelections
+                .filter(s => s.createdFor === requesterId && s.createdBy !== requesterId)
+                .map(s => ({
+                    to: s.createdByUser.email ?? s.createdByUser.referenceEmail,
+                    name: s.createdByUser.name
+                })),
+            "Your meal selection was replaced",
+            "The recipient replaced the pending meal selection you made for them."
+        );
+
+        return { created: newSelections.length, updated: updateSelections.length };
     },
 
 
@@ -1143,78 +1159,53 @@ export const mealSelectionService = {
     },
 
     /**
-     * Notify food arrival and update fulfillment statuses:
-     * 1. Broadcasts the "Food is in!" push notification to users who ordered (excluding any unfulfilled selections).
-     * 2. Marks any selections in unfulfilledSelectionIds as NOT_FULFILLED.
-     * 3. Marks all other active meal selections for that schedule (and optional menuDayId) as FULFILLED with fulfilledAt timestamp.
+     * Update fulfillment statuses for a schedule day (for analytics & invoicing):
+     * 1. Marks any selections in unfulfilledSelectionIds as NOT_FULFILLED.
+     * 2. Marks all other active meal selections for that weekMenuScheduleId + menuDayId as FULFILLED.
+     * Completely independent of push notifications so admins can manage fulfillment for current or past weeks.
      */
-    notifyFoodArrivalAndFulfill: async (params?: FoodArrivalFulfillmentRequest) => {
-        let scheduleId = params?.weekMenuScheduleId;
+    fulfillSelections: async (params: FoodArrivalFulfillmentRequest) => {
+        const { weekMenuScheduleId, menuDayId, unfulfilledSelectionIds = [], note } = params;
 
-        if (!scheduleId) {
-            const activeSchedule = await prisma.weekMenuSchedule.findFirst({
-                where: { status: WeekMenuStatus.ACTIVE },
-                select: { id: true }
-            });
-            scheduleId = activeSchedule?.id;
-        }
-
-        if (!scheduleId) {
-            throw new Error("No active week menu schedule found for food arrival fulfillment");
-        }
-
-        const unfulfilledIds = params?.unfulfilledSelectionIds ?? [];
-
-        // 1. First, send the notification (excluding unfulfilled selections if any)
-        const notificationResult = await notificationService.notifyFoodArrived({
-            weekMenuScheduleId: scheduleId,
-            menuDayId: params?.menuDayId,
-            excludedSelectionIds: unfulfilledIds,
-        });
-
-        // 2. Do the fulfillment logic
-        const now = new Date();
         const baseWhere = {
-            weekMenuScheduleId: scheduleId,
+            weekMenuScheduleId,
+            menuDayId,
             selectionType: SelectionType.MEAL,
             selectionStatus: { not: SelectionStatus.CANCELLED },
-            ...(params?.menuDayId ? { menuDayId: params.menuDayId } : {}),
         };
 
-        let unfulfilledCount = 0;
-        if (unfulfilledIds.length > 0) {
-            const res = await prisma.selections.updateMany({
+        const now = new Date();
+
+        const [unfulfilledRes, fulfilledRes] = await Promise.all([
+            unfulfilledSelectionIds.length > 0
+                ? prisma.selections.updateMany({
+                      where: { ...baseWhere, id: { in: unfulfilledSelectionIds } },
+                      data: {
+                          fulfillmentStatus: FulfillmentStatus.NOT_FULFILLED,
+                          fulfilledAt: null,
+                          fulfillmentNote: note || "Not fulfilled upon food arrival",
+                      },
+                  })
+                : Promise.resolve({ count: 0 }),
+            prisma.selections.updateMany({
                 where: {
                     ...baseWhere,
-                    id: { in: unfulfilledIds },
+                    ...(unfulfilledSelectionIds.length > 0 ? { id: { notIn: unfulfilledSelectionIds } } : {}),
                 },
                 data: {
-                    fulfillmentStatus: FulfillmentStatus.NOT_FULFILLED,
-                    fulfilledAt: null,
-                    fulfillmentNote: params?.note || "Not fulfilled upon food arrival",
-                }
-            });
-            unfulfilledCount = res.count;
-        }
-
-        const fulfilledRes = await prisma.selections.updateMany({
-            where: {
-                ...baseWhere,
-                ...(unfulfilledIds.length > 0 ? { id: { notIn: unfulfilledIds } } : {}),
-            },
-            data: {
-                fulfillmentStatus: FulfillmentStatus.FULFILLED,
-                fulfilledAt: now,
-            }
-        });
+                    fulfillmentStatus: FulfillmentStatus.FULFILLED,
+                    fulfilledAt: now,
+                    fulfillmentNote: null,
+                },
+            }),
+        ]);
 
         return {
-            message: `Food arrival processed: ${fulfilledRes.count} selection(s) fulfilled, ${unfulfilledCount} selection(s) marked not fulfilled`,
-            weekMenuScheduleId: scheduleId,
-            menuDayId: params?.menuDayId,
+            message: `Fulfillment processed: ${fulfilledRes.count} selection(s) fulfilled, ${unfulfilledRes.count} selection(s) marked not fulfilled`,
+            weekMenuScheduleId,
+            menuDayId,
             fulfilledCount: fulfilledRes.count,
-            unfulfilledCount,
-            notification: notificationResult,
+            unfulfilledCount: unfulfilledRes.count,
         };
     },
 

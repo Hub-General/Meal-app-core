@@ -1,6 +1,7 @@
 import { prisma } from "../db/prisma";
 import { Prisma, SelectionStatus } from "../generated/prisma";
 import { tasteProfileHelper } from "../helpers/tasteProfileMetrics";
+import { buildTasteProfileRecap } from "../helpers/tasteProfileRecap";
 
 const tasteProfileSelectionShape = {
     dayMeal: {
@@ -69,6 +70,35 @@ export const tasteProfileService = {
             where: {calendarYear: year},
             orderBy: {calendarYear: "desc"}
         });
+    },
+
+    /**
+     * Generates a Spotify-Wrapped-style Meal Recap for a user in a single DB trip
+     * from the `taste_profiles` table for the target calendar year.
+     */
+    getUserTasteProfileRecap: async (userId: number, requestedYear?: number) => {
+        const targetYear = requestedYear ?? new Date().getFullYear();
+
+        const yearProfiles = await prisma.tasteProfile.findMany({
+            where: { calendarYear: targetYear },
+            select: {
+                userId: true,
+                calendarYear: true,
+                totalMealsSelected: true,
+                metrics: true,
+                personalityType: true,
+                favoriteProtein: true,
+                updatedAt: true,
+                user: {
+                    select: {
+                        id: true,
+                        name: true,
+                    },
+                },
+            },
+        });
+
+        return buildTasteProfileRecap(userId, targetYear, yearProfiles);
     },
     // addUserDislikes: async(userId:number, calendarYear: number, data: any)=>{
     //     return await prisma.tasteProfile.upsert({

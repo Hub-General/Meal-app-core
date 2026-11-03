@@ -10,7 +10,7 @@ export const createMealSelectionRequestSchema = z.object({
     dayMealId: z.number().nullable().optional(),
     selectionType: z.enum(SelectionType).optional().default("MEAL"),
     createdFor: z.number().int().positive().nullable(),
-    guestCount: z.number().int().positive().optional(),
+    guestCount: z.number().int().positive().max(99).optional(),
     weekMenuScheduleId: z.number(),
     menuDayId: z.number()
 }).superRefine((selection, context) => {
@@ -42,7 +42,8 @@ export const mealSelectionFilterSchema = z.object({
     menuId: z.coerce.number().optional()
 });
 
-export const createMealSelectionBatchRequestSchema = z.array(createMealSelectionRequestSchema);
+export const createMealSelectionBatchRequestSchema = z.array(createMealSelectionRequestSchema)
+    .min(1, { message: "At least one selection is required" });
 
 export const updateMealSelectionRequestSchema =
     createMealSelectionRequestSchema.safeExtend({
@@ -248,10 +249,10 @@ export type ReplaceWeeklyMealsBatchRequest = z.infer<typeof replaceWeeklyMealsBa
 export type WeeklyHistoryFilter = z.infer<typeof weeklyHistoryFilterSchema>;
 
 export const foodArrivalFulfillmentSchema = z.object({
-  weekMenuScheduleId: z.coerce.number().int().positive().optional(),
-  menuDayId: z.coerce.number().int().positive().optional(),
-  unfulfilledSelectionIds: z.array(z.coerce.number().int().positive()).optional().default([]),
-  note: z.string().trim().optional(),
+    weekMenuScheduleId: z.coerce.number().int().positive(),
+    menuDayId: z.coerce.number().int().positive(),
+    unfulfilledSelectionIds: z.array(z.coerce.number().int().positive()).optional().default([]),
+    note: z.string().trim().optional(),
 });
 
 export type FoodArrivalFulfillmentRequest = z.infer<typeof foodArrivalFulfillmentSchema>;
@@ -276,4 +277,4 @@ export const activateWeeklySelectionsRequestSchema = z.object({
     { message: "Either weekMenuScheduleId or both weekNumber and year must be provided" }
 );
 
-export type ActivateWeeklySelectionsRequest = z.infer<typeof activateWeeklySelectionsRequestSchema>;
+export type ActivateWeeklySelectionsRequest = z.infer<typeof activateWeeklySelectionsRequestSchema>;
