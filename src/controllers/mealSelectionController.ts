@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
-import { mealSelectionService, SelectionConflictError } from "../services/mealSelectionService";
+import { mealSelectionService, SelectionConflictError, SelectionPermissionError } from "../services/mealSelectionService";
+import { Prisma } from "../generated/prisma";
 import {
     activateWeeklySelectionsRequestSchema,
     bulkDeleteGuestSelectionsRequestSchema,
@@ -174,8 +175,11 @@ export const mealSelectionController = {
                 return res.status(400).json({ error: "Invalid selection batch payload", details: parsed.error.flatten() });
             }
 
-            const selectionsResponse = await mealSelectionService.submitSelections(parsed.data, 
-            req.user!.id);
+            const selectionsResponse = await mealSelectionService.submitSelections(
+                parsed.data,
+                req.user!.id,
+                req.user?.roleId
+            );
             res.status(201).json(selectionsResponse);
         }catch(error){
 
@@ -188,6 +192,15 @@ export const mealSelectionController = {
 
             if (error instanceof SelectionConflictError) {
                 return res.status(409).json({ message: error.message });
+            }
+
+            if (error instanceof SelectionPermissionError) {
+                return res.status(403).json({ message: error.message });
+            }
+
+            // Unique constraint (createdFor, weekMenuScheduleId, menuDayId) hit by a concurrent submit
+            if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+                return res.status(409).json({ message: "A meal selection already exists for this day." });
             }
 
             res.status(500).json({message:`${error}`})
@@ -349,7 +362,7 @@ export const mealSelectionController = {
                 });
             }
 
-            const result = await mealSelectionService.notifyFoodArrivalAndFulfill(parsed.data);
+            const result = await mealSelectionService.fulfillSelections(parsed.data);
             return res.status(200).json(result);
         } catch (error: any) {
             return res.status(500).json({

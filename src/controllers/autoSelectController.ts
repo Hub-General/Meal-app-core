@@ -10,9 +10,9 @@ const autoSelectQuerySchema = z.object({
 
 export const autoSelectController = {
     /**
-     * GET /selections/auto-select?menuId=&userId=
+     * GET /meal-selections/auto-select?menuId=&userId=&weekMenuScheduleId=
      *
-     * Returns a CreateMealSelectionRequest[] ready to POST to /selections/batch.
+     * Returns a CreateMealSelectionRequest[] ready to PUT to /meal-selections/batch.
      *
      * userId defaults to the authenticated user; admins may pass a different userId
      * to generate suggestions on someone else's behalf.
@@ -28,7 +28,7 @@ export const autoSelectController = {
         }
 
         const { menuId, weekMenuScheduleId } = parsed.data;
-        const userId = parsed.data.userId ?? (req.user as { id: number } | undefined)?.id;
+        const userId = parsed.data.userId ?? req.user?.id;
 
         if (!userId) {
             return res.status(400).json({ error: "userId is required" });

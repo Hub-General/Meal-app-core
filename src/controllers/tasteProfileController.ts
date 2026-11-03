@@ -4,12 +4,15 @@ import { tasteProfileService } from "../services/tasteProfileService";
 export const tasteProfileController = {
     getTasteProfileByUserIdController: async (req: Request, res: Response) => {
         try {
-            if (!req.params.id || isNaN(Number(req.params.id))) {
+            const rawId = req.params.id ?? (typeof req.query.userId === "string" ? req.query.userId : undefined);
+            const targetUserId = rawId ? Number(rawId) : req.user?.id;
+            if (!targetUserId || isNaN(targetUserId)) {
                 return res.status(400).json({
                     message: "Invalid User ID",
                 });
             }
-            const tasteProfile = await tasteProfileService.getTasteProfileByUserId(Number(req.params.id));
+            const year = req.query.year ? Number(req.query.year) : undefined;
+            const tasteProfile = await tasteProfileService.getTasteProfileByUserId(targetUserId, year);
             res.status(200).json(tasteProfile);
         } catch (error) {
             res.status(500).json({
@@ -30,14 +33,45 @@ export const tasteProfileController = {
         }
     },
 
-    updateUserTasteProfileController: async (req: Request, res: Response) => {
+    getUserTasteProfileRecapController: async (req: Request, res: Response) => {
         try {
-            if (!req.params.id || isNaN(Number(req.params.id))) {
+            const rawId = req.params.id ?? (typeof req.query.userId === "string" ? req.query.userId : undefined);
+            const targetUserId = rawId ? Number(rawId) : req.user?.id;
+
+            if (!targetUserId || isNaN(targetUserId)) {
                 return res.status(400).json({
                     message: "Invalid User ID",
                 });
             }
-            const tasteProfile = await tasteProfileService.updateUserTasteProfile(Number(req.params.id));
+
+            const year = req.query.year ? Number(req.query.year) : undefined;
+            if (year !== undefined && isNaN(year)) {
+                return res.status(400).json({
+                    message: "Invalid year parameter",
+                });
+            }
+
+            const recap = await tasteProfileService.getUserTasteProfileRecap(targetUserId, year);
+            return res.status(200).json(recap);
+        } catch (error) {
+            return res.status(500).json({
+                message: "Failed to generate Taste Profile Recap",
+                error,
+            });
+        }
+    },
+
+    updateUserTasteProfileController: async (req: Request, res: Response) => {
+        try {
+            const rawId = req.params.id ?? (typeof req.query.userId === "string" ? req.query.userId : undefined);
+            const targetUserId = rawId ? Number(rawId) : req.user?.id;
+            if (!targetUserId || isNaN(targetUserId)) {
+                return res.status(400).json({
+                    message: "Invalid User ID",
+                });
+            }
+            const year = req.query.year ? Number(req.query.year) : undefined;
+            const tasteProfile = await tasteProfileService.updateUserTasteProfile(targetUserId, year);
             res.status(200).json(tasteProfile);
         } catch (error) {
             res.status(500).json({
