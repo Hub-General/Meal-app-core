@@ -5,7 +5,10 @@ import {
   SelectionType,
   WeekMenuStatus,
 } from "../generated/prisma";
-import { getDateFromISOWeek } from "../helpers/dateFunctions";
+import {
+   getDateFromISOWeek,
+  getISOWeekInfo,
+} from "../helpers/dateFunctions";
 import {
   CustomNotificationRequest,
   NotificationSubscriptionRequest,
@@ -118,6 +121,15 @@ export const notificationService = {
     description?: string;
   }) => {
     let scheduleId = params?.weekMenuScheduleId;
+
+    if (!scheduleId) {
+      const currentWeek = getISOWeekInfo(new Date());
+      const currentSchedule = await prisma.weekMenuSchedule.findFirst({
+        where: { week: currentWeek.week, year: currentWeek.year },
+        select: { id: true },
+      });
+      scheduleId = currentSchedule?.id;
+    }
 
     if (!scheduleId) {
       const activeSchedule = await prisma.weekMenuSchedule.findFirst({

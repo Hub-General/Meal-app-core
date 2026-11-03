@@ -5,6 +5,7 @@ import { Roles } from "../enums/ERoles";
 
 const router = Router();
 
+router.get("/recap", authenticate, tasteProfileController.getUserTasteProfileRecapController);
 router.get("/by-user/:id", authenticate, tasteProfileController.getTasteProfileByUserIdController);
 router.get("/", authenticate, tasteProfileController.getTasteProfilesController);
 router.put("/by-user/:id", authenticate, tasteProfileController.updateUserTasteProfileController);
