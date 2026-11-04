@@ -1,5 +1,6 @@
 import { CreateMealRequest, UpdateMealBatchRequest, UpdateMealRequest } from "../schema/meal";
 import prisma from "../prisma/client";
+import { presetService } from "./presetService";
 import { userPreferenceService } from "./userPreferenceService";
 import { synthesizeMeals } from "../helpers/mealSynthesizer";
 
@@ -59,6 +60,10 @@ updateMealBatch: async (mealData: UpdateMealBatchRequest) => {
   );
 },
     deleteMeal: async(mealId: number)=>{
-        return await prisma.meals.update({where: {id: mealId}, data: {isActive: false}});
+        const res = await prisma.meals.update({where: {id: mealId}, data: {isActive: false}});
+        void presetService.handleMealInactivated(mealId).catch((err: unknown) => {
+            console.error("Failed to notify users of deleted meal in presets:", err);
+        });
+        return res;
     },
 }

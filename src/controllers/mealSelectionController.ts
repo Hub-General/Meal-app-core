@@ -3,6 +3,7 @@ import { mealSelectionService, SelectionConflictError, SelectionPermissionError 
 import { Prisma } from "../generated/prisma";
 import {
     activateWeeklySelectionsRequestSchema,
+    adminBatchUpdateSelectionsSchema,
     bulkDeleteGuestSelectionsRequestSchema,
     createMealSelectionBatchRequestSchema,
     deleteWeeklySelectionsRequestSchema,
@@ -352,6 +353,25 @@ export const mealSelectionController = {
         }
     },
 
+    adminBatchUpdateSelectionsController: async (req: Request, res: Response) => {
+        try {
+            const parsed = adminBatchUpdateSelectionsSchema.safeParse(req.body);
+            if (!parsed.success) {
+                return res.status(400).json({
+                    message: "Invalid admin batch update payload",
+                    errors: parsed.error.flatten(),
+                });
+            }
+
+            const result = await mealSelectionService.adminBatchUpdateSelections(parsed.data);
+            return res.status(200).json(result);
+        } catch (error: any) {
+            return res.status(500).json({
+                message: "Failed to update selections in batch",
+                error: error.message || error,
+            });
+        }
+    },
     foodArrivalFulfillmentController: async (req: Request, res: Response) => {
         try {
             const parsed = foodArrivalFulfillmentSchema.safeParse(req.body);

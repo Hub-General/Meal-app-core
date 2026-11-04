@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { GetUsersQueryRequestSchema, userRegisterRequestSchema, userUpdateSchema } from "../schema/user";
 import { userService } from "../services/userService";
 import { Status } from "../generated/prisma";
+import { Roles } from "../enums/ERoles";
 import { userPreferenceService } from "../services/userPreferenceService";
 import { updateUserPreferencesSchema } from "../schema/userPreference";
 
@@ -66,6 +67,32 @@ export const userController = {
         }
     },
     updateUserDetailsController: async (req: Request, res: Response) => {
+    },
+    createUserLeaveController: async (req: Request, res: Response) => {
+        try {
+            const targetUserId = Number(req.params.id || req.body?.userId || req.user?.id);
+            if (!targetUserId || isNaN(targetUserId)) {
+                return res.status(400).json({ message: "Invalid user ID" });
+            }
+            const isSelf = req.user?.id === targetUserId;
+            const isAdminOrHr = req.user?.roleId === Roles.admin || req.user?.roleId === Roles.hr;
+            if (!isSelf && !isAdminOrHr) {
+                return res.status(403).json({ message: "Unauthorized to set leave for this user" });
+            }
+            const payload = {
+                ...req.body,
+                userId: targetUserId,
+                startDate: new Date(req.body.startDate),
+                endDate: new Date(req.body.endDate),
+            };
+            const leave = await userService.createUserLeave(payload);
+            res.status(201).json(leave);
+        } catch (error) {
+            res.status(500).json({
+                message: "Failed to create user leave",
+                error: error instanceof Error ? error.message : error,
+            });
+        }
         try{
             const parsed = userUpdateSchema.safeParse(req.body);
             if(!parsed.success){

@@ -14,6 +14,8 @@ import {
   NotificationSubscriptionRequest,
 } from "../schema/notification";
 import { mealSelectionService } from "./mealSelectionService";
+import { mailService } from "./emailService";
+import { CustomNotifyUsersRequest } from "../schema/notification";
 import { pushService } from "./pushService";
 import { weekMenuScheduleService } from "./weekMenuScheduleService";
 
@@ -312,6 +314,122 @@ export const notificationService = {
   /**
    * Register or update a user's web push subscription.
    */
+  /**
+   * 5. Custom notify users via both Email and Web Push.
+   * Takes userIds and notificationType (or title/message overrides).
+   * Sends email to all resolved users regardless of user email preference setting.
+   * Also sends push notification to users who have active push subscriptions.
+   */
+  customNotifyUsers: async (request: CustomNotifyUsersRequest) => {
+    const { userIds, type, title: customTitle, message: customMessage, description: customDescription } = request;
+
+    const targetUsers = await prisma.users.findMany({
+      where: { id: { in: userIds } },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        referenceEmail: true,
+        status: true,
+      },
+    });
+
+    if (!targetUsers.length) {
+      return {
+        message: "No users found for the provided userIds",
+        usersTargeted: 0,
+        emails: { sent: 0, failed: 0 },
+        push: { subscriptionsCount: 0, sent: 0, failed: 0 },
+      };
+    }
+
+    const customBody = customMessage || customDescription;
+    let resolvedTitle = customTitle;
+    let resolvedBody = customBody;
+
+    switch (type) {
+      case NotificationType.MEAL_UNSELECTED_REMINDER:
+      case NotificationType.SELECTION_REMINDER:
+        resolvedTitle = resolvedTitle || "Selections closing soon";
+        resolvedBody = resolvedBody || "You haven't submitted your meal selections yet. Please make your selections before the window closes!";
+        break;
+      case NotificationType.FOOD_ARRIVED:
+      case NotificationType.MEAL_ARRIVAL:
+        resolvedTitle = resolvedTitle || "Food is in!";
+        resolvedBody = resolvedBody || "Your meal is ready for pickup.";
+        break;
+      case NotificationType.SELECTION_WINDOW_OPEN:
+        resolvedTitle = resolvedTitle || "Meal selection window open";
+        resolvedBody = resolvedBody || "The meal selection window is now open. You can select your meals now.";
+        break;
+      case NotificationType.SELECTION_WINDOW_CLOSED:
+        resolvedTitle = resolvedTitle || "Meal selection window closed";
+        resolvedBody = resolvedBody || "Meal selections for this week are now closed.";
+        break;
+      case NotificationType.PRESET_UPDATE:
+        resolvedTitle = resolvedTitle || "Preset Item Unavailable";
+        resolvedBody = resolvedBody || "A meal in your preset is no longer available. Please update your preset preferences.";
+        break;
+      default:
+        resolvedTitle = resolvedTitle || "Meal App Notification";
+        resolvedBody = resolvedBody || "You have an update regarding your meal selections.";
+        break;
+    }
+
+    // Always send emails (ignoring email notifications preference toggle as requested)
+    const emailPromises = targetUsers.map(async (user) => {
+      const email = user.email ?? user.referenceEmail;
+      if (!email) return false;
+      return await mailService.sendNotificationEmail(
+        email,
+        user.name,
+        resolvedTitle!,
+        resolvedBody!
+      );
+    });
+
+    const emailResults = await Promise.allSettled(emailPromises);
+    const emailsSent = emailResults.filter(
+      (r) => r.status === "fulfilled" && r.value === true
+    ).length;
+    const emailsFailed = targetUsers.length - emailsSent;
+
+    // Send push notification to active subscriptions
+    const foundUserIds = targetUsers.map((u) => u.id);
+    const subscriptions = await prisma.pushSubscription.findMany({
+      where: { userId: { in: foundUserIds } },
+      select: pushSubscriptionSelect,
+    });
+
+    let pushSent = 0;
+    let pushFailed = 0;
+
+    if (subscriptions.length > 0) {
+      const pushResult = await pushService.sendBatch(subscriptions, {
+        title: resolvedTitle!,
+        description: resolvedBody!,
+        type,
+        url: "/meal-selection",
+      });
+      pushSent = pushResult.sent;
+      pushFailed = pushResult.failed;
+    }
+
+    return {
+      message: `Notification processed for ${targetUsers.length} user(s): ${emailsSent} email(s) sent, ${pushSent} push notification(s) sent across ${subscriptions.length} active subscription(s)`,
+      type,
+      usersTargeted: targetUsers.length,
+      emails: {
+        sent: emailsSent,
+        failed: emailsFailed,
+      },
+      push: {
+        subscriptionsCount: subscriptions.length,
+        sent: pushSent,
+        failed: pushFailed,
+      },
+    };
+  },
   createSubscription: async (
     userId: number,
     data: NotificationSubscriptionRequest

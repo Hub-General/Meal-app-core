@@ -48,3 +48,13 @@ export type BroadcastFoodArrivedRequest = z.infer<
 export type UnselectedReminderRequest = z.infer<
   typeof UnselectedReminderSchema
 >;
+
+export const CustomNotifyUsersRequestSchema = z.object({
+  userIds: z.array(z.coerce.number().int().positive()).min(1, "At least one userId is required"),
+  type: z.nativeEnum(NotificationType),
+  title: z.string().trim().optional(),
+  message: z.string().trim().optional(),
+  description: z.string().trim().optional(),
+});
+
+export type CustomNotifyUsersRequest = z.infer<typeof CustomNotifyUsersRequestSchema>;

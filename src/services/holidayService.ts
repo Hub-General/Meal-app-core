@@ -7,6 +7,7 @@ import {
     AllHolidaysResponse,
 } from "../schema/holiday";
 import { prisma } from "../db/prisma";
+import { Days, SelectionType } from "../generated/prisma";
 import { getDateFromISOWeek } from "../helpers/dateFunctions";
 
 /**
@@ -60,6 +61,93 @@ export function normalizeHolidayTitle(title: string): string {
         .replace(/[^a-z0-9]/g, " ")
         .replace(/\s+/g, " ")
         .trim();
+}
+
+/**
+ * When a holiday is marked or adjusted for a date/range, updates any existing selections
+ * that fall on that day (by resolving the corresponding weekMenuSchedule and menuDayId)
+ * to selectionType = HOLIDAY and dayMealId = null.
+ */
+export async function syncHolidaySelectionsForDateRange(startDateStr: string, endDateStr?: string | null): Promise<number> {
+    try {
+        const [startY, startM, startD] = startDateStr.split("-").map(Number);
+        if (startY === undefined || startM === undefined || startD === undefined || isNaN(startY) || isNaN(startM) || isNaN(startD)) {
+            return 0;
+        }
+        const start = new Date(Date.UTC(startY, startM - 1, startD));
+        const endStr = endDateStr ?? startDateStr;
+        const [endY, endM, endD] = endStr.split("-").map(Number);
+        if (endY === undefined || endM === undefined || endD === undefined || isNaN(endY) || isNaN(endM) || isNaN(endD)) {
+            return 0;
+        }
+        const end = new Date(Date.UTC(endY, endM - 1, endD));
+
+        const dayMap: Record<number, Days> = {
+            1: Days.MONDAY,
+            2: Days.TUESDAY,
+            3: Days.WEDNESDAY,
+            4: Days.THURSDAY,
+            5: Days.FRIDAY,
+        };
+
+        let totalUpdated = 0;
+        const current = new Date(start);
+
+        while (current <= end) {
+            const dayOfWeek = current.getUTCDay();
+            const dayEnum = dayMap[dayOfWeek];
+
+            // Selections only exist for weekdays Monday–Friday
+            if (dayEnum) {
+                // Determine exact ISO week and ISO year for current date
+                const d = new Date(Date.UTC(current.getUTCFullYear(), current.getUTCMonth(), current.getUTCDate()));
+                const dayNum = d.getUTCDay() || 7;
+                d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+                const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+                const isoWeek = Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+                const isoYear = d.getUTCFullYear();
+
+                // Find matching weekMenuSchedule
+                const schedule = await prisma.weekMenuSchedule.findFirst({
+                    where: { week: isoWeek, year: isoYear },
+                    select: { id: true, menuId: true },
+                });
+
+                if (schedule) {
+                    // Find corresponding menuDayId
+                    const menuDay = await prisma.menuDays.findFirst({
+                        where: { menuId: schedule.menuId, day: dayEnum },
+                        select: { id: true },
+                    });
+
+                    if (menuDay) {
+                        const updateRes = await prisma.selections.updateMany({
+                            where: {
+                                weekMenuScheduleId: schedule.id,
+                                menuDayId: menuDay.id,
+                                OR: [
+                                    { selectionType: { not: SelectionType.HOLIDAY } },
+                                    { dayMealId: { not: null } },
+                                ],
+                            },
+                            data: {
+                                selectionType: SelectionType.HOLIDAY,
+                                dayMealId: null,
+                            },
+                        });
+                        totalUpdated += updateRes.count;
+                    }
+                }
+            }
+
+            current.setUTCDate(current.getUTCDate() + 1);
+        }
+
+        return totalUpdated;
+    } catch (err) {
+        console.error("Failed to sync holiday selections for date range:", err);
+        return 0;
+    }
 }
 
 export const holidayService = {
@@ -396,6 +484,11 @@ export const holidayService = {
             },
         });
 
+        if (!data.isIgnored) {
+            const effectiveDate = data.adjustedDate || data.originalDate;
+            await syncHolidaySelectionsForDateRange(effectiveDate);
+        }
+
         return override as HolidayRecord;
     },
 
@@ -579,6 +672,7 @@ export const holidayService = {
                 notes: data.notes ?? null,
             },
         });
+        await syncHolidaySelectionsForDateRange(record.startDate, record.endDate);
         return record;
     },
 
@@ -612,7 +706,7 @@ export const holidayService = {
             where: { id },
             data: updateData,
         });
-
+        await syncHolidaySelectionsForDateRange(record.startDate, record.endDate);
         return record;
     },
 
@@ -625,4 +719,6 @@ export const holidayService = {
         });
         return { id };
     },
+
+    syncHolidaySelectionsForDateRange,
 };

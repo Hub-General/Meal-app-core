@@ -289,10 +289,13 @@ export const selectionHelper = {
             const itemDay = item.menuDay.day
 
             if(!items[itemDay]){
+                const isItemActive = Boolean((item.menuDayMeals.isActive ?? true) && item.menuDayMeals.meal.isActive);
                 items[itemDay] = {
                     dayMealId: item.dayMealId,
                     meal: item.menuDayMeals.meal.name,
-                    isActive: item.menuDayMeals.meal.isActive,
+                    isActive: isItemActive,
+                    isAvailable: isItemActive,
+                    status: isItemActive ? "AVAILABLE" : "UNAVAILABLE",
                 }
             }
         }

@@ -199,6 +199,17 @@ export async function autoSubmitUserPreferences(targetScheduleId?: number) {
                                             day: true,
                                         },
                                     },
+                                    menuDayMeals: {
+                                        select: {
+                                            isActive: true,
+                                            meal: {
+                                                select: {
+                                                    name: true,
+                                                    isActive: true,
+                                                },
+                                            },
+                                        },
+                                    },
                                 },
                             },
                         },
@@ -228,6 +239,8 @@ export async function autoSubmitUserPreferences(targetScheduleId?: number) {
     }
 
     const selections = [];
+    const usersWithUnavailableMeals = new Map<number, { dayNames: string[]; mealNames: string[] }>();
+    const usersAllValid: number[] = [];
 
     for (const user of users) {
         const preset = user.user.presets[0];
@@ -242,10 +255,27 @@ export async function autoSubmitUserPreferences(targetScheduleId?: number) {
             user.user.userAvailability,
         );
 
+        let userHasUnavailableMeal = false;
+        const unavailableDaysList: string[] = [];
+        const unavailableMealsList: string[] = [];
+
         for (const item of preset.presetItems) {
-            const isUnavailable = unavailableDays.has(
+            const isUserUnavailable = unavailableDays.has(
                 item.menuDay.day,
             );
+            const isMealActive = Boolean(
+                (item.menuDayMeals?.isActive ?? true) && (item.menuDayMeals?.meal?.isActive ?? true)
+            );
+
+            if (!isMealActive) {
+                userHasUnavailableMeal = true;
+                unavailableDaysList.push(item.menuDay.day);
+                if (item.menuDayMeals?.meal?.name) {
+                    unavailableMealsList.push(item.menuDayMeals.meal.name);
+                }
+            }
+
+            const isUnavailable = isUserUnavailable || !isMealActive;
 
             selections.push({
                 menuDayId: item.menuDayId,
@@ -262,6 +292,15 @@ export async function autoSubmitUserPreferences(targetScheduleId?: number) {
                     : SelectionType.MEAL,
             });
         }
+
+        if (userHasUnavailableMeal) {
+            usersWithUnavailableMeals.set(user.userId, {
+                dayNames: unavailableDaysList,
+                mealNames: unavailableMealsList,
+            });
+        } else {
+            usersAllValid.push(user.userId);
+        }
     }
 
     if (selections.length === 0) {
@@ -273,9 +312,27 @@ export async function autoSubmitUserPreferences(targetScheduleId?: number) {
         skipDuplicates: true,
     });
 
-    if (users.length > 0) {
+    // 1. Notify users whose preset had an unavailable meal (both email & push)
+    if (usersWithUnavailableMeals.size > 0) {
+        const notifyPromises = Array.from(usersWithUnavailableMeals.entries()).map(([userId, details]) => {
+            const mealDetailStr = details.mealNames.length > 0
+                ? ` (${details.mealNames.join(", ")} on ${details.dayNames.join(", ")})`
+                : "";
+            return notificationService.customNotifyUsers({
+                userIds: [userId],
+                type: NotificationType.PRESET_UPDATE,
+                title: "Preset Auto-Submitted: Unavailable Meal Detected",
+                message: `Your preset was automatically submitted for this week, but an unavailable meal was detected${mealDetailStr}. The selection has been set to unavailable. Please check your meal selections to choose an alternative.`,
+                description: `Your preset was auto-submitted with an unavailable meal${mealDetailStr}. Please check your selections.`,
+            });
+        });
+        await Promise.allSettled(notifyPromises);
+    }
+
+    // 2. Notify users whose preset was completely valid (push notification confirmation)
+    if (usersAllValid.length > 0) {
         await notificationService.notifyUsers({
-            recipientIds: users.map((user) => user.userId),
+            recipientIds: usersAllValid,
             title: "Preset submitted",
             description: `Your preset was automatically submitted for this week.`,
             type: NotificationType.MEAL_SELECTED_CONFIRMATION,
@@ -283,7 +340,11 @@ export async function autoSubmitUserPreferences(targetScheduleId?: number) {
         });
     }
 
-    return `Auto-submitted ${created.count} preset selection(s) for ${users.length} user(s) on week ${activeWeekMenu.week}/${activeWeekMenu.year}`;
+    const unavailableNotice = usersWithUnavailableMeals.size > 0
+        ? ` (${usersWithUnavailableMeals.size} user(s) had unavailable meal(s) and were notified to check selections)`
+        : "";
+
+    return `Auto-submitted ${created.count} preset selection(s) for ${users.length} user(s) on week ${activeWeekMenu.week}/${activeWeekMenu.year}${unavailableNotice}`;
 }
 
 export async function updateBiWeeklyTasteProfiles() {
