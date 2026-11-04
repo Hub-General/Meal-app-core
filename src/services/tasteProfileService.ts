@@ -12,6 +12,7 @@ const tasteProfileSelectionShape = {
                     name: true,
                     calories: true,
                     foodCode: true,
+                    imagePath: true,
                 }
             }
         }
@@ -98,7 +99,30 @@ export const tasteProfileService = {
             },
         });
 
-        return buildTasteProfileRecap(userId, targetYear, yearProfiles);
+        const allTopMealIds = new Set<number>();
+        for (const p of yearProfiles) {
+            if (p.metrics && typeof p.metrics === "object") {
+                const m = p.metrics as any;
+                if (Array.isArray(m.topMeals)) {
+                    for (const tm of m.topMeals) {
+                        if (tm.id && !tm.imageUrl) {
+                            allTopMealIds.add(tm.id);
+                        }
+                    }
+                }
+            }
+        }
+
+        let mealImageMap = new Map<number, string | null>();
+        if (allTopMealIds.size > 0) {
+            const meals = await prisma.meals.findMany({
+                where: { id: { in: Array.from(allTopMealIds) } },
+                select: { id: true, imagePath: true },
+            });
+            mealImageMap = new Map(meals.map(m => [m.id, m.imagePath]));
+        }
+
+        return buildTasteProfileRecap(userId, targetYear, yearProfiles, null, mealImageMap);
     },
     // addUserDislikes: async(userId:number, calendarYear: number, data: any)=>{
     //     return await prisma.tasteProfile.upsert({

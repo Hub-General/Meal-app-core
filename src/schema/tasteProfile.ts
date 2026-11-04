@@ -62,7 +62,6 @@ export type TasteProfile = z.infer<typeof tasteProfileSchema>;
 export type RecapMetricKey =
     | "loyalty"
     | "explorer"
-    | "calories"
     | "swallow"
     | "spice"
     | "volume";
@@ -73,7 +72,6 @@ export type RecapCardCategory =
     | "TOP_MEAL"
     | "LOYALTY"
     | "EXPLORER"
-    | "CALORIES"
     | "SWALLOW"
     | "SPICE"
     | "TASTE_TWIN";
@@ -139,8 +137,6 @@ export interface RecapOfficeAverages {
     totalParticipants: number;
     averageMealsSelected: number;
     averageUniqueMeals: number;
-    averageCaloriesTotal: number;
-    averageCaloriesPerMeal: number;
     averageConsistencyScore: number;
     averageDiversityScore: number;
     averageSwallowCount: number;
