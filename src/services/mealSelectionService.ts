@@ -5,6 +5,7 @@ import { selectionHelper } from "../helpers/mealSelectionHelpers";
 import { SelectionValidationError, validateSelectionUpdates } from "../helpers/validateSelectionUpdate";
 import {
     ActivateWeeklySelectionsRequest,
+    AdminBatchUpdateSelectionsRequest,
     CreateMealSelectionRequest,
     DeleteWeeklySelectionsRequest,
     FoodArrivalFulfillmentRequest,
@@ -1164,6 +1165,124 @@ export const mealSelectionService = {
      * 2. Marks all other active meal selections for that weekMenuScheduleId + menuDayId as FULFILLED.
      * Completely independent of push notifications so admins can manage fulfillment for current or past weeks.
      */
+    /**
+     * Admin batch update of meal selections.
+     * Allows updating fulfillmentStatus, dayMealId, selectionType (MEAL, UNAVAILABLE, HOLIDAY),
+     * selectionStatus (PENDING, SUBMITTED, CANCELLED), guestCount, fulfillmentNote, etc.
+     * Supports either:
+     *   - Array of individual items (or { updates: [...] })
+     *   - Bulk update for selectionIds with common fields
+     */
+    adminBatchUpdateSelections: async (payload: AdminBatchUpdateSelectionsRequest) => {
+        const now = new Date();
+
+        // Pattern 1: bulk update across selectionIds with shared fields
+        if (!Array.isArray(payload) && "selectionIds" in payload) {
+            const { selectionIds, ...fields } = payload;
+            const dataToUpdate: any = {};
+
+            if (fields.selectionType !== undefined) {
+                dataToUpdate.selectionType = fields.selectionType;
+                if (fields.selectionType === "UNAVAILABLE" || fields.selectionType === "HOLIDAY") {
+                    dataToUpdate.dayMealId = null;
+                } else if (fields.dayMealId !== undefined) {
+                    dataToUpdate.dayMealId = fields.dayMealId;
+                }
+            } else if (fields.dayMealId !== undefined) {
+                dataToUpdate.dayMealId = fields.dayMealId;
+            }
+
+            if (fields.selectionStatus !== undefined) {
+                dataToUpdate.selectionStatus = fields.selectionStatus;
+            }
+
+            if (fields.guestCount !== undefined) {
+                dataToUpdate.guestCount = fields.guestCount;
+            }
+
+            if (fields.fulfillmentStatus !== undefined) {
+                dataToUpdate.fulfillmentStatus = fields.fulfillmentStatus;
+                dataToUpdate.fulfilledAt = fields.fulfillmentStatus === FulfillmentStatus.FULFILLED ? now : null;
+            }
+
+            if (fields.fulfillmentNote !== undefined) {
+                dataToUpdate.fulfillmentNote = fields.fulfillmentNote;
+            }
+
+            const result = await prisma.selections.updateMany({
+                where: { id: { in: selectionIds } },
+                data: dataToUpdate,
+            });
+
+            return {
+                message: `Successfully updated ${result.count} selection(s)`,
+                updatedCount: result.count,
+                selectionIds,
+            };
+        }
+
+        // Pattern 2: individual updates per selection item
+        const items = Array.isArray(payload) ? payload : payload.updates;
+
+        const updateResults = await prisma.$transaction(
+            items.map((item) => {
+                const data: any = {};
+
+                if (item.selectionType !== undefined) {
+                    data.selectionType = item.selectionType;
+                    if (item.selectionType === "UNAVAILABLE" || item.selectionType === "HOLIDAY") {
+                        data.dayMealId = null;
+                    } else if (item.dayMealId !== undefined) {
+                        data.dayMealId = item.dayMealId;
+                    }
+                } else if (item.dayMealId !== undefined) {
+                    data.dayMealId = item.dayMealId;
+                }
+
+                if (item.selectionStatus !== undefined) {
+                    data.selectionStatus = item.selectionStatus;
+                }
+
+                if (item.guestCount !== undefined) {
+                    data.guestCount = item.guestCount;
+                }
+
+                if (item.menuDayId !== undefined) {
+                    data.menuDayId = item.menuDayId;
+                }
+
+                if (item.fulfillmentStatus !== undefined) {
+                    data.fulfillmentStatus = item.fulfillmentStatus;
+                    data.fulfilledAt = item.fulfillmentStatus === FulfillmentStatus.FULFILLED ? now : null;
+                }
+
+                if (item.fulfillmentNote !== undefined) {
+                    data.fulfillmentNote = item.fulfillmentNote;
+                }
+
+                return prisma.selections.update({
+                    where: { id: item.id },
+                    data,
+                    select: {
+                        id: true,
+                        selectionType: true,
+                        selectionStatus: true,
+                        fulfillmentStatus: true,
+                        dayMealId: true,
+                        menuDayId: true,
+                        guestCount: true,
+                        fulfillmentNote: true,
+                    },
+                });
+            })
+        );
+
+        return {
+            message: `Successfully updated ${updateResults.length} selection(s)`,
+            updatedCount: updateResults.length,
+            selections: updateResults,
+        };
+    },
     fulfillSelections: async (params: FoodArrivalFulfillmentRequest) => {
         const { weekMenuScheduleId, menuDayId, unfulfilledSelectionIds = [], note } = params;
 

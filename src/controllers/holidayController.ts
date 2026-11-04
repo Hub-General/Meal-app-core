@@ -6,6 +6,7 @@ import {
     holidayQuerySchema,
     updateHolidaySchema,
     weekHolidayQuerySchema,
+    syncHolidaySelectionsSchema,
 } from "../schema/holiday";
 
 export const holidayController = {
@@ -102,6 +103,23 @@ export const holidayController = {
         }
     },
 
+    syncHolidaySelectionsController: async (req: Request, res: Response) => {
+        try {
+            const parsed = syncHolidaySelectionsSchema.safeParse(req.body);
+            if (!parsed.success) {
+                return res.status(400).json({ error: "Invalid date range payload", details: parsed.error.flatten() });
+            }
+            const updatedCount = await holidayService.syncHolidaySelectionsForDateRange(parsed.data.startDate, parsed.data.endDate);
+            res.json({
+                message: `Synced ${updatedCount} selection(s) to HOLIDAY for date range`,
+                updatedCount,
+                startDate: parsed.data.startDate,
+                endDate: parsed.data.endDate ?? parsed.data.startDate,
+            });
+        } catch (error) {
+            res.status(500).json({ error: "Failed to sync holiday selections", message: `${error}` });
+        }
+    },
     deleteOverrideController: async (req: Request, res: Response) => {
         try {
             const id = Number(req.params.id);

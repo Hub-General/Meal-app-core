@@ -68,6 +68,7 @@ export interface PresetItem {
     };
     dayMealId: number;
     menuDayMeals: {
+        isActive?: boolean;
         meal: {
             id: number;
             name: string;

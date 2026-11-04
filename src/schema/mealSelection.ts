@@ -1,5 +1,5 @@
 import z from "zod";
-import { Days, SelectionStatus } from "../generated/prisma";
+import { Days, FulfillmentStatus, SelectionStatus } from "../generated/prisma";
 
 export const SelectionType = ["MEAL", "UNAVAILABLE", "HOLIDAY"] as const;
 export type SelectionType = (typeof SelectionType)[number];
@@ -278,3 +278,34 @@ export const activateWeeklySelectionsRequestSchema = z.object({
 );
 
 export type ActivateWeeklySelectionsRequest = z.infer<typeof activateWeeklySelectionsRequestSchema>;
+
+
+export const adminBatchSelectionItemSchema = z.object({
+    id: z.coerce.number().int().positive(),
+    dayMealId: z.coerce.number().int().positive().nullable().optional(),
+    selectionType: z.enum(["MEAL", "UNAVAILABLE", "HOLIDAY"]).optional(),
+    selectionStatus: z.enum(SelectionStatus).optional(),
+    fulfillmentStatus: z.enum(FulfillmentStatus).optional(),
+    fulfillmentNote: z.string().nullable().optional(),
+    guestCount: z.coerce.number().int().min(1).max(99).optional(),
+    menuDayId: z.coerce.number().int().positive().optional(),
+});
+
+export const adminBatchUpdateSelectionsSchema = z.union([
+    z.array(adminBatchSelectionItemSchema).min(1, "At least one selection update is required"),
+    z.object({
+        updates: z.array(adminBatchSelectionItemSchema).min(1, "At least one selection update is required"),
+    }),
+    z.object({
+        selectionIds: z.array(z.coerce.number().int().positive()).min(1, "At least one selectionId is required"),
+        dayMealId: z.coerce.number().int().positive().nullable().optional(),
+        selectionType: z.enum(["MEAL", "UNAVAILABLE", "HOLIDAY"]).optional(),
+        selectionStatus: z.enum(SelectionStatus).optional(),
+        fulfillmentStatus: z.enum(FulfillmentStatus).optional(),
+        fulfillmentNote: z.string().nullable().optional(),
+        guestCount: z.coerce.number().int().min(1).max(99).optional(),
+    }),
+]);
+
+export type AdminBatchSelectionItem = z.infer<typeof adminBatchSelectionItemSchema>;
+export type AdminBatchUpdateSelectionsRequest = z.infer<typeof adminBatchUpdateSelectionsSchema>;

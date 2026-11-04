@@ -5,10 +5,30 @@ import {
   NotificationSubscriptionRequestSchema,
   UnsubscribeRequestSchema,
   UnselectedReminderSchema,
+  CustomNotifyUsersRequestSchema,
 } from "../schema/notification";
 import { notificationService } from "../services/notificationService";
 
 export const notificationController = {
+  customNotifyUsersController: async (req: Request, res: Response) => {
+    try {
+      const parsed = CustomNotifyUsersRequestSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({
+          message: "Invalid custom notify users payload",
+          errors: parsed.error.flatten(),
+        });
+      }
+
+      const result = await notificationService.customNotifyUsers(parsed.data);
+      return res.status(200).json(result);
+    } catch (error: any) {
+      return res.status(500).json({
+        message: "Failed to send notifications to users",
+        error: error.message || error,
+      });
+    }
+  },
   subscribeController: async (req: Request, res: Response) => {
     try {
       const userId = req.user?.id;

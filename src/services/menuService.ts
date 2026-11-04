@@ -1,4 +1,5 @@
 import prisma from "../prisma/client";
+import { presetService } from "./presetService";
 import { CreateMenuDayMealsRequest, CreateMenuRequest, UpdateMenuRequest } from "../schema/menu";
 import { userPreferenceService } from "./userPreferenceService";
 
@@ -153,6 +154,12 @@ export const menuServices = {
     },
 
     updateMenuMeals: async(id: number, isActive: boolean)=>{
-        return await prisma.menuDayMeals.update({where:{id}, data:{isActive}})
+        const updated = await prisma.menuDayMeals.update({where:{id}, data:{isActive}});
+        if (!isActive) {
+            void presetService.handleMenuMealInactivated(id).catch((err: unknown) => {
+                console.error("Failed to notify users of inactivated menu meal:", err);
+            });
+        }
+        return updated;
     }
 }

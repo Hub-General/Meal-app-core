@@ -14,6 +14,7 @@ router.get("/overrides", authenticate, holidayController.getOverridesController)
 router.post("/", authenticate, authorize([Roles.admin, Roles.hr]), holidayController.createHolidayController);
 router.put("/:id", authenticate, authorize([Roles.admin, Roles.hr]), holidayController.updateHolidayController);
 router.delete("/:id", authenticate, authorize([Roles.admin, Roles.hr]), holidayController.deleteHolidayController);
+router.post("/sync-selections", authenticate, authorize([Roles.admin, Roles.hr]), holidayController.syncHolidaySelectionsController);
 
 // Admin-only holiday overrides
 router.post("/override", authenticate, authorize([Roles.admin, Roles.hr]), holidayController.createOrUpdateOverrideController);
