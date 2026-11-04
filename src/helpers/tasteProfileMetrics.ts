@@ -8,6 +8,7 @@ interface TasteProfileSelection {
             name?: string;
             calories: number | null;
             foodCode: string;
+            imagePath?: string | null;
         }
     } | null;
 }
@@ -50,6 +51,7 @@ export interface TopMealDetail {
     name: string;
     foodCode: string;
     count: number;
+    imageUrl?: string | null;
 }
 
 export type StoredTasteProfileMetrics = TasteProfileMetrics &
@@ -143,12 +145,16 @@ export const tasteProfileHelper = {
             const existingMeal = mealDetails.get(mealObj.id);
             if (existingMeal) {
                 existingMeal.count += 1;
+                if (!existingMeal.imageUrl && mealObj.imagePath) {
+                    existingMeal.imageUrl = mealObj.imagePath;
+                }
             } else {
                 mealDetails.set(mealObj.id, {
                     id: mealObj.id,
                     name: mealObj.name || parts?.bases[0] || `Meal #${mealObj.id}`,
                     foodCode: mealObj.foodCode,
                     count: 1,
+                    imageUrl: mealObj.imagePath ?? null,
                 });
             }
 

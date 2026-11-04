@@ -31,4 +31,11 @@ router.post(
   notificationController.sendCustomNotificationController
 );
 
+router.post(
+  "/custom-notify",
+  authenticate,
+  authorize([Roles.admin, Roles.manager, Roles.hr]),
+  notificationController.customNotifyUsersController
+);
+
 export default router;

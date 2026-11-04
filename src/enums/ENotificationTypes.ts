@@ -6,6 +6,12 @@ export enum NotificationType {
   MEAL_UNSELECTED_FINAL = "MEAL_UNSELECTED_FINAL",
   FEEDBACK_REPLY = "FEEDBACK_REPLY",
   FOOD_ARRIVED = "FOOD_ARRIVED",
+  // Aliases for intuitive API integration:
+  SELECTION_REMINDER = "SELECTION_REMINDER",
+  MEAL_ARRIVAL = "MEAL_ARRIVAL",
+  CUSTOM = "CUSTOM",
+  PRESET_UPDATE = "PRESET_UPDATE",
+  MENU_UPDATE = "MENU_UPDATE",
 }
 
 export enum NotificationChannel {

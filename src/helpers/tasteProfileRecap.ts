@@ -47,11 +47,16 @@ const EMPTY_METRICS: StoredTasteProfileMetrics = {
     swallowRatio: 0,
 };
 
-function parseMetrics(raw: unknown): StoredTasteProfileMetrics {
+function parseMetrics(raw: unknown, mealImageMap?: Map<number, string | null>): StoredTasteProfileMetrics {
     if (!raw || typeof raw !== "object") {
         return { ...EMPTY_METRICS };
     }
     const obj = raw as Partial<StoredTasteProfileMetrics>;
+    const rawTopMeals = Array.isArray(obj.topMeals) ? obj.topMeals : [];
+    const topMeals = rawTopMeals.map((tm: any) => ({
+        ...tm,
+        imageUrl: tm.imageUrl ?? (mealImageMap && tm.id ? mealImageMap.get(tm.id) : null) ?? null,
+    }));
     return {
         supergroups: obj.supergroups ?? {},
         bases: obj.bases ?? {},
@@ -69,7 +74,7 @@ function parseMetrics(raw: unknown): StoredTasteProfileMetrics {
         diversityScore: obj.diversityScore ?? 0,
         consistencyScore: obj.consistencyScore ?? 0,
         uniqueMealIds: Array.isArray(obj.uniqueMealIds) ? obj.uniqueMealIds : [],
-        topMeals: Array.isArray(obj.topMeals) ? obj.topMeals : [],
+        topMeals,
         swallowCount: obj.swallowCount ?? obj.supergroups?.S ?? 0,
         swallowRatio: obj.swallowRatio ?? 0,
     };
@@ -116,11 +121,12 @@ export function buildTasteProfileRecap(
     targetUserId: number,
     calendarYear: number,
     allProfiles: RawTasteProfileRow[],
-    fallbackUserName: string | null = null
+    fallbackUserName: string | null = null,
+    mealImageMap?: Map<number, string | null>
 ): TasteProfileRecapResponse {
     const parsedProfiles = allProfiles.map((row) => ({
         ...row,
-        parsedMetrics: parseMetrics(row.metrics),
+        parsedMetrics: parseMetrics(row.metrics, mealImageMap),
         resolvedPersonality: ((row.personalityType && row.personalityType in tastePersonalities
             ? row.personalityType
             : "BALANCED") as TastePersonality),
@@ -156,8 +162,6 @@ export function buildTasteProfileRecap(
     const personalityBreakdown: Record<string, number> = {};
     let sumMeals = 0;
     let sumUnique = 0;
-    let sumCalories = 0;
-    let sumAvgCalories = 0;
     let sumConsistency = 0;
     let sumDiversity = 0;
     let sumSwallow = 0;
@@ -168,8 +172,6 @@ export function buildTasteProfileRecap(
             (personalityBreakdown[p.resolvedPersonality] ?? 0) + 1;
         sumMeals += p.totalMealsSelected;
         sumUnique += p.parsedMetrics.uniqueMeals;
-        sumCalories += p.parsedMetrics.totalCalories;
-        sumAvgCalories += p.parsedMetrics.averageCalories;
         sumConsistency += p.parsedMetrics.consistencyScore;
         sumDiversity += p.parsedMetrics.diversityScore;
         sumSwallow += p.parsedMetrics.swallowCount ?? 0;
@@ -180,8 +182,6 @@ export function buildTasteProfileRecap(
         totalParticipants,
         averageMealsSelected: Math.round(sumMeals / totalParticipants),
         averageUniqueMeals: Math.round(sumUnique / totalParticipants),
-        averageCaloriesTotal: Math.round(sumCalories / totalParticipants),
-        averageCaloriesPerMeal: Math.round(sumAvgCalories / totalParticipants),
         averageConsistencyScore: Math.round(sumConsistency / totalParticipants),
         averageDiversityScore: Math.round(sumDiversity / totalParticipants),
         averageSwallowCount: Math.round(sumSwallow / totalParticipants),
@@ -297,23 +297,6 @@ export function buildTasteProfileRecap(
         })
     );
 
-    const caloriesRank = computeRanking(
-        "calories",
-        "Calorie Leaderboard",
-        "kcal",
-        officeAverages.averageCaloriesTotal,
-        (p) => p.parsedMetrics.totalCalories,
-        (p) => p.parsedMetrics.averageCalories,
-        ({ rank, total, value, officeAverage }) => ({
-            title:
-                rank === 1 && value > 0
-                    ? `You have consumed the most calories in the office (${value.toLocaleString()} kcal)!`
-                    : `Ranked #${rank} on the Calorie Leaderboard`,
-            subtitle: `Calorie Rank #${rank} of ${total} (${userMetrics.averageCalories} kcal/meal avg)`,
-            description: `You consumed ${value.toLocaleString()} total kcal across ${calendarYear} compared to the office average of ${officeAverage.toLocaleString()} kcal.`,
-        })
-    );
-
     const swallowRank = computeRanking(
         "swallow",
         "Swallow Heavyweight Ranking",
@@ -372,7 +355,6 @@ export function buildTasteProfileRecap(
     const rankings: Record<RecapMetricKey, RecapRankingStat> = {
         loyalty: loyaltyRank,
         explorer: explorerRank,
-        calories: caloriesRank,
         swallow: swallowRank,
         spice: spiceRank,
         volume: volumeRank,
@@ -381,7 +363,6 @@ export function buildTasteProfileRecap(
     const rankingList: RecapRankingStat[] = [
         loyaltyRank,
         explorerRank,
-        caloriesRank,
         swallowRank,
         spiceRank,
         volumeRank,
@@ -585,28 +566,9 @@ export function buildTasteProfileRecap(
             },
         },
         {
-            id: "slide-calories",
-            category: "CALORIES",
-            slideOrder: 6,
-            title: caloriesRank.title,
-            subtitle: caloriesRank.subtitle,
-            description: caloriesRank.description,
-            value: caloriesRank.value,
-            unit: caloriesRank.unit,
-            rank: caloriesRank.rank,
-            totalParticipants: caloriesRank.totalParticipants,
-            percentile: caloriesRank.percentile,
-            officeAverage: caloriesRank.officeAverage,
-            metadata: {
-                totalCalories: userMetrics.totalCalories,
-                averageCalories: userMetrics.averageCalories,
-                officeAverageCaloriesPerMeal: officeAverages.averageCaloriesPerMeal,
-            },
-        },
-        {
             id: "slide-swallow",
             category: "SWALLOW",
-            slideOrder: 7,
+            slideOrder: 6,
             title: swallowRank.title,
             subtitle: swallowRank.subtitle,
             description: swallowRank.description,
@@ -624,7 +586,7 @@ export function buildTasteProfileRecap(
         {
             id: "slide-spice",
             category: "SPICE",
-            slideOrder: 8,
+            slideOrder: 7,
             title: spiceRank.title,
             subtitle: spiceRank.subtitle,
             description: spiceRank.description,
@@ -638,7 +600,7 @@ export function buildTasteProfileRecap(
         {
             id: "slide-taste-twin",
             category: "TASTE_TWIN",
-            slideOrder: 9,
+            slideOrder: 8,
             title: tasteTwin ? tasteTwin.title : "One of a Kind Palate",
             subtitle: tasteTwin
                 ? tasteTwin.subtitle

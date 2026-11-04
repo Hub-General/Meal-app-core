@@ -1,4 +1,6 @@
 import { prisma } from "../db/prisma";
+import { NotificationType } from "../enums/ENotificationTypes";
+import { notificationService } from "./notificationService";
 import { selectionHelper } from "../helpers/mealSelectionHelpers";
 import { CreatePresetItemDataRequest, CreatePresetRequest, UpdatePresetItemDataRequest, UpdatePresetRequest } from "../schema/preset";
 
@@ -208,6 +210,7 @@ export const presetService = {
                 dayMealId: true,
                 menuDayMeals: {
                     select: {
+                        isActive: true,
                         meal: {
                             select: {
                                 id: true,
@@ -225,4 +228,109 @@ export const presetService = {
 
         return selectionHelper.formatPresetResponse(presetDetails, preset);
     },
+    /**
+     * Parallel handler invoked when a meal is made inactive in a menu (menuDayMeals.isActive = false).
+     * 1. Resolves the menuDayMeal, meal name, menu title, and day.
+     * 2. Finds all preset items referencing this dayMealId.
+     * 3. Dispatches both an email and web push notification to each affected user specifying
+     *    which menu and meal were affected, and that the item is now unavailable so they can update it.
+     */
+    handleMenuMealInactivated: async (menuDayMealId: number): Promise<{ usersNotified: number }> => {
+        try {
+            const mealItem = await prisma.menuDayMeals.findUnique({
+                where: { id: menuDayMealId },
+                include: {
+                    meal: { select: { id: true, name: true } },
+                    menuDay: {
+                        include: {
+                            menu: { select: { id: true, title: true } },
+                        },
+                    },
+                },
+            });
+
+            if (!mealItem) {
+                return { usersNotified: 0 };
+            }
+
+            const mealName = mealItem.meal?.name ?? "a meal";
+            const menuTitle = mealItem.menuDay?.menu?.title ?? "current menu";
+            const day = mealItem.menuDay?.day ?? "scheduled day";
+
+            const affectedPresetItems = await prisma.presetItems.findMany({
+                where: { dayMealId: menuDayMealId },
+                include: {
+                    preset: {
+                        include: {
+                            user: {
+                                select: {
+                                    id: true,
+                                    name: true,
+                                    email: true,
+                                    status: true,
+                                },
+                            },
+                        },
+                    },
+                },
+            });
+
+            if (!affectedPresetItems.length) {
+                return { usersNotified: 0 };
+            }
+
+            const affectedUsers = new Map<number, { id: number; name: string | null; email: string }>();
+            for (const item of affectedPresetItems) {
+                const user = item.preset?.user;
+                if (user && user.status === "ACTIVE" && user.email) {
+                    affectedUsers.set(user.id, {
+                        id: user.id,
+                        name: user.name,
+                        email: user.email,
+                    });
+                }
+            }
+
+            const userIds = Array.from(affectedUsers.keys());
+            if (!userIds.length) {
+                return { usersNotified: 0 };
+            }
+
+            const title = `Preset Update: Meal Unavailable in ${menuTitle}`;
+            const message = `The meal "${mealName}" scheduled for ${day} in menu "${menuTitle}" has been made inactive by an administrator. Your preset item for ${day} has been marked as unavailable. Please update your preset preferences to choose an alternative meal.`;
+            const description = `The meal "${mealName}" in menu "${menuTitle}" (${day}) is no longer available. Your preset has been marked as unavailable. Please update your preset.`;
+
+            await notificationService.customNotifyUsers({
+                userIds,
+                type: NotificationType.PRESET_UPDATE,
+                title,
+                message,
+                description,
+            });
+
+            return { usersNotified: userIds.length };
+        } catch (err) {
+            console.error("Failed to process preset notifications for inactivated menu meal:", err);
+            return { usersNotified: 0 };
+        }
+    },
+
+    /**
+     * When a meal is deleted or made inactive globally, handles preset notifications
+     * across all menus where that meal is scheduled.
+     */
+    handleMealInactivated: async (mealId: number) => {
+        try {
+            const menuDayMeals = await prisma.menuDayMeals.findMany({
+                where: { mealId },
+                select: { id: true },
+            });
+            for (const mdm of menuDayMeals) {
+                await presetService.handleMenuMealInactivated(mdm.id);
+            }
+        } catch (err) {
+            console.error("Failed to handle meal inactivated for presets:", err);
+        }
+    },
+
 };

@@ -92,3 +92,9 @@ export interface AllHolidaysResponse {
     overrides: HolidayRecord[];
 }
 
+
+export const syncHolidaySelectionsSchema = z.object({
+    startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date format (expected YYYY-MM-DD)"),
+    endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date format (expected YYYY-MM-DD)").optional(),
+});
+export type SyncHolidaySelectionsRequest = z.infer<typeof syncHolidaySelectionsSchema>;
