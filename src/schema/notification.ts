@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { foodArrivalSchema, FoodArrivalRequest } from "./mealSelection";
 import { NotificationType } from "../enums/ENotificationTypes";
 
 export const NotificationSubscriptionRequestSchema = z.object({
@@ -20,13 +21,8 @@ export const CustomNotificationRequestSchema = z.object({
   preFiltered: z.boolean().optional(),
 });
 
-export const BroadcastFoodArrivedSchema = z.object({
-  weekMenuScheduleId: z.coerce.number().int().positive().optional(),
-  menuDayId: z.coerce.number().int().positive().optional(),
-  excludedSelectionIds: z.array(z.coerce.number().int().positive()).optional(),
-  title: z.string().trim().default("Food is in!"),
-  description: z.string().trim().default("Your meal is ready for pickup."),
-});
+export const BroadcastFoodArrivedSchema = foodArrivalSchema;
+export type BroadcastFoodArrivedRequest = FoodArrivalRequest;
 
 export const UnselectedReminderSchema = z.object({
   weekMenuScheduleId: z.coerce.number().int().positive().optional(),
@@ -41,9 +37,6 @@ export type NotificationSubscriptionRequest = z.infer<
 export type UnsubscribeRequest = z.infer<typeof UnsubscribeRequestSchema>;
 export type CustomNotificationRequest = z.infer<
   typeof CustomNotificationRequestSchema
->;
-export type BroadcastFoodArrivedRequest = z.infer<
-  typeof BroadcastFoodArrivedSchema
 >;
 export type UnselectedReminderRequest = z.infer<
   typeof UnselectedReminderSchema

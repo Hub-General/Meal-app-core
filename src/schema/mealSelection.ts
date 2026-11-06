@@ -248,14 +248,26 @@ export type ReplaceWeeklyMealRequest = z.infer<typeof replaceWeeklyMealRequestSc
 export type ReplaceWeeklyMealsBatchRequest = z.infer<typeof replaceWeeklyMealsBatchRequestSchema>;
 export type WeeklyHistoryFilter = z.infer<typeof weeklyHistoryFilterSchema>;
 
-export const foodArrivalFulfillmentSchema = z.object({
+export const foodFulfillmentSchema = z.object({
     weekMenuScheduleId: z.coerce.number().int().positive(),
-    menuDayId: z.coerce.number().int().positive(),
-    unfulfilledSelectionIds: z.array(z.coerce.number().int().positive()).optional().default([]),
+    menuDayId: z.coerce.number().int().positive().optional(),
+    unfulfilledSelectionIds: z.array(z.coerce.number().int().positive()).optional(),
     note: z.string().trim().optional(),
 });
+export type FoodFulfillmentRequest = z.infer<typeof foodFulfillmentSchema>;
 
-export type FoodArrivalFulfillmentRequest = z.infer<typeof foodArrivalFulfillmentSchema>;
+export const foodArrivalSchema = z.object({
+    weekMenuScheduleId: z.coerce.number().int().positive().optional(),
+    menuDayId: z.coerce.number().int().positive().optional(),
+    unfulfilledSelectionIds: z.array(z.coerce.number().int().positive()).optional(),
+    excludedSelectionIds: z.array(z.coerce.number().int().positive()).optional(),
+    note: z.string().trim().optional(),
+    sendNotification: z.boolean().optional(),
+    title: z.string().trim().optional(),
+    description: z.string().trim().optional(),
+});
+export type FoodArrivalRequest = z.infer<typeof foodArrivalSchema>;
+
 
 export const deleteWeeklySelectionsRequestSchema = z.object({
     weekNumber: z.coerce.number().int().min(1).max(53).optional(),
