@@ -42,7 +42,8 @@ router.patch("/submit",authenticate, mealSelectionController.submitSelectionsCon
 // ADMIN Batch Update Selections
 router.patch("/admin/batch", authenticate, authorize([Roles.admin, Roles.hr, Roles.manager]), mealSelectionController.adminBatchUpdateSelectionsController);
 router.put("/admin/batch", authenticate, authorize([Roles.admin, Roles.hr, Roles.manager]), mealSelectionController.adminBatchUpdateSelectionsController);
-router.post("/food-arrival", authenticate, authorize([Roles.admin, Roles.manager, Roles.hr]), mealSelectionController.foodArrivalFulfillmentController);
+router.post("/food-arrival", authenticate, authorize([Roles.admin, Roles.manager, Roles.hr]), mealSelectionController.foodArrivalController);
+router.post("/fulfillment", authenticate, authorize([Roles.admin, Roles.manager, Roles.hr]), mealSelectionController.foodFulfillmentController);
 router.patch("/submit-weekly",authenticate, authorize([Roles.admin, Roles.hr]), mealSelectionController.updateWeeklySelectionsStatusController);
 router.put("/override", authenticate,
     authorize([Roles.admin,Roles.hr]),

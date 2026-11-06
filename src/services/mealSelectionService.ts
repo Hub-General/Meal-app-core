@@ -1,5 +1,5 @@
 import { prisma } from "../db/prisma";
-import { FulfillmentStatus, SelectionStatus, SelectionType, WeekMenuStatus } from "../generated/prisma";
+import { Days, FulfillmentStatus, SelectionStatus, SelectionType, WeekMenuStatus } from "../generated/prisma";
 import { getISOWeekInfo, getISOWeekRange } from "../helpers/dateFunctions";
 import { selectionHelper } from "../helpers/mealSelectionHelpers";
 import { SelectionValidationError, validateSelectionUpdates } from "../helpers/validateSelectionUpdate";
@@ -8,7 +8,8 @@ import {
     AdminBatchUpdateSelectionsRequest,
     CreateMealSelectionRequest,
     DeleteWeeklySelectionsRequest,
-    FoodArrivalFulfillmentRequest,
+    FoodArrivalRequest,
+    FoodFulfillmentRequest,
     MealSelection,
     MealSelectionFilter,
     ReplaceWeeklyMealRequest,
@@ -1283,12 +1284,12 @@ export const mealSelectionService = {
             selections: updateResults,
         };
     },
-    fulfillSelections: async (params: FoodArrivalFulfillmentRequest) => {
+    fulfillSelections: async (params: FoodFulfillmentRequest) => {
         const { weekMenuScheduleId, menuDayId, unfulfilledSelectionIds = [], note } = params;
 
         const baseWhere = {
             weekMenuScheduleId,
-            menuDayId,
+            ...(menuDayId ? { menuDayId } : {}),
             selectionType: SelectionType.MEAL,
             selectionStatus: { not: SelectionStatus.CANCELLED },
         };
@@ -1322,9 +1323,121 @@ export const mealSelectionService = {
         return {
             message: `Fulfillment processed: ${fulfilledRes.count} selection(s) fulfilled, ${unfulfilledRes.count} selection(s) marked not fulfilled`,
             weekMenuScheduleId,
-            menuDayId,
+            menuDayId: menuDayId ?? null,
             fulfilledCount: fulfilledRes.count,
             unfulfilledCount: unfulfilledRes.count,
+            totalProcessed: fulfilledRes.count + unfulfilledRes.count,
+        };
+    },
+
+    /**
+     * Consolidated Food Arrival:
+     * Combines fulfillment recording with the arrival notification broadcast.
+     * 1. Marks unfulfilled selections as NOT_FULFILLED and remaining selections for the day as FULFILLED.
+     * 2. Broadcasts Food Arrival notification to all fulfilled recipients (excluding unfulfilled).
+     */
+    processFoodArrival: async (params: FoodArrivalRequest) => {
+        const {
+            weekMenuScheduleId,
+            menuDayId,
+            unfulfilledSelectionIds = [],
+            excludedSelectionIds = [],
+            note,
+            sendNotification = true,
+            title,
+            description,
+        } = params;
+
+        // Resolve schedule if not passed
+        let scheduleId = weekMenuScheduleId;
+        let scheduleMenuId: number | undefined;
+
+        if (!scheduleId) {
+            const currentWeek = getISOWeekInfo(new Date());
+            const currentSchedule = await prisma.weekMenuSchedule.findFirst({
+                where: { week: currentWeek.week, year: currentWeek.year },
+                select: { id: true, menuId: true },
+            });
+            scheduleId = currentSchedule?.id;
+            scheduleMenuId = currentSchedule?.menuId;
+
+            if (!scheduleId) {
+                const activeSchedule = await prisma.weekMenuSchedule.findFirst({
+                    where: { status: WeekMenuStatus.ACTIVE },
+                    select: { id: true, menuId: true },
+                });
+                scheduleId = activeSchedule?.id;
+                scheduleMenuId = activeSchedule?.menuId;
+            }
+        } else {
+            const foundSchedule = await prisma.weekMenuSchedule.findUnique({
+                where: { id: scheduleId },
+                select: { menuId: true },
+            });
+            scheduleMenuId = foundSchedule?.menuId;
+        }
+
+        if (!scheduleId) {
+            throw new Error("No active week menu schedule found for food arrival");
+        }
+
+        // Resolve menuDayId if not passed (default to today's weekday)
+        let resolvedMenuDayId = menuDayId;
+        if (!resolvedMenuDayId && scheduleMenuId) {
+            const dayNames: Days[] = [
+                Days.SUNDAY,
+                Days.MONDAY,
+                Days.TUESDAY,
+                Days.WEDNESDAY,
+                Days.THURSDAY,
+                Days.FRIDAY,
+                Days.SATURDAY,
+            ];
+            const todayDay = dayNames[new Date().getDay()];
+            if (todayDay && todayDay !== Days.SUNDAY && todayDay !== Days.SATURDAY) {
+                const menuDay = await prisma.menuDays.findFirst({
+                    where: { menuId: scheduleMenuId, day: todayDay },
+                    select: { id: true },
+                });
+                resolvedMenuDayId = menuDay?.id;
+            }
+        }
+
+        const effectiveUnfulfilledIds = Array.from(new Set([
+            ...unfulfilledSelectionIds,
+            ...excludedSelectionIds,
+        ]));
+
+        // 1. Perform fulfillment
+        const fulfillmentResult = await mealSelectionService.fulfillSelections({
+            weekMenuScheduleId: scheduleId,
+            menuDayId: resolvedMenuDayId,
+            unfulfilledSelectionIds: effectiveUnfulfilledIds,
+            note: note || "Not fulfilled upon food arrival",
+        });
+
+        // 2. Broadcast Food Arrival notification to fulfilled users
+        let notificationResult = null;
+        if (sendNotification !== false) {
+            notificationResult = await notificationService.notifyFoodArrived({
+                weekMenuScheduleId: scheduleId,
+                menuDayId: resolvedMenuDayId,
+                excludedSelectionIds: effectiveUnfulfilledIds,
+                title,
+                description,
+            });
+        }
+
+        return {
+            message: notificationResult
+                ? `Food arrival processed and notifications sent: ${fulfillmentResult.fulfilledCount} selection(s) fulfilled, ${fulfillmentResult.unfulfilledCount} selection(s) marked not fulfilled`
+                : `Food arrival fulfillment processed: ${fulfillmentResult.fulfilledCount} selection(s) fulfilled, ${fulfillmentResult.unfulfilledCount} selection(s) marked not fulfilled`,
+            weekMenuScheduleId: scheduleId,
+            menuDayId: resolvedMenuDayId ?? null,
+            fulfilledCount: fulfillmentResult.fulfilledCount,
+            notFulfilledCount: fulfillmentResult.unfulfilledCount,
+            totalProcessed: fulfillmentResult.totalProcessed,
+            notification: notificationResult,
         };
     },
 

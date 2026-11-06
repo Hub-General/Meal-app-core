@@ -7,7 +7,8 @@ import {
     bulkDeleteGuestSelectionsRequestSchema,
     createMealSelectionBatchRequestSchema,
     deleteWeeklySelectionsRequestSchema,
-    foodArrivalFulfillmentSchema,
+    foodArrivalSchema,
+    foodFulfillmentSchema,
     getUsersWithoutSelectionsRequestSchema,
     getUsersWithSelectionsRequestSchema,
     mealSelectionFilterSchema,
@@ -372,12 +373,32 @@ export const mealSelectionController = {
             });
         }
     },
-    foodArrivalFulfillmentController: async (req: Request, res: Response) => {
+    foodArrivalController: async (req: Request, res: Response) => {
         try {
-            const parsed = foodArrivalFulfillmentSchema.safeParse(req.body);
+            const parsed = foodArrivalSchema.safeParse(req.body);
             if (!parsed.success) {
                 return res.status(400).json({
-                    message: "Invalid food arrival fulfillment payload",
+                    message: "Invalid food arrival payload",
+                    errors: parsed.error.flatten(),
+                });
+            }
+
+            const result = await mealSelectionService.processFoodArrival(parsed.data);
+            return res.status(200).json(result);
+        } catch (error: any) {
+            return res.status(500).json({
+                message: "Failed to process food arrival",
+                error: error.message || error,
+            });
+        }
+    },
+
+    foodFulfillmentController: async (req: Request, res: Response) => {
+        try {
+            const parsed = foodFulfillmentSchema.safeParse(req.body);
+            if (!parsed.success) {
+                return res.status(400).json({
+                    message: "Invalid food fulfillment payload",
                     errors: parsed.error.flatten(),
                 });
             }
@@ -386,11 +407,13 @@ export const mealSelectionController = {
             return res.status(200).json(result);
         } catch (error: any) {
             return res.status(500).json({
-                message: "Failed to process food arrival fulfillment",
+                message: "Failed to process food fulfillment",
                 error: error.message || error,
             });
         }
     },
+
+    foodArrivalFulfillmentController: (req: Request, res: Response) => mealSelectionController.foodArrivalController(req, res),
 
     deleteWeeklySelectionsController: async (req: Request, res: Response) => {
         try {
