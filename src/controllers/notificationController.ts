@@ -8,6 +8,7 @@ import {
   CustomNotifyUsersRequestSchema,
 } from "../schema/notification";
 import { notificationService } from "../services/notificationService";
+import { mealSelectionController } from "./mealSelectionController";
 
 export const notificationController = {
   customNotifyUsersController: async (req: Request, res: Response) => {
@@ -91,25 +92,7 @@ export const notificationController = {
     }
   },
 
-  broadcastFoodArrivedController: async (req: Request, res: Response) => {
-    try {
-      const parsed = BroadcastFoodArrivedSchema.safeParse(req.body);
-      if (!parsed.success) {
-        return res.status(400).json({
-          message: "Invalid broadcast payload",
-          errors: parsed.error.flatten(),
-        });
-      }
-
-      const result = await notificationService.notifyFoodArrived(parsed.data);
-      return res.status(200).json(result);
-    } catch (error: any) {
-      return res.status(500).json({
-        message: "Failed to broadcast food arrival",
-        error: error.message || error,
-      });
-    }
-  },
+  broadcastFoodArrivedController: mealSelectionController.foodArrivalController,
 
   sendUnselectedReminderController: async (req: Request, res: Response) => {
     try {
