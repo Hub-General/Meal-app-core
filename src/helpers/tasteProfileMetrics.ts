@@ -1,12 +1,16 @@
 import { TastePersonality } from "../enums/EPersonalities";
 import { parseAnyFoodCode } from "./foodCodeParser";
 
+export const SPICE_MODIFIER = "PP";
+export const SWALLOW_SUPERGROUP = "S";
+export const SALAD_CODE = "SL";
+
 interface TasteProfileSelection {
     dayMeal: {
         meal: {
             id: number;
             name?: string;
-            calories: number | null;
+            calories?: number | null;
             foodCode: string;
             imagePath?: string | null;
         }
@@ -37,8 +41,6 @@ interface TasteProfileCounts {
     totalSelections: number;
     uniqueMeals: number;
     repeatedMeals: number;
-    totalCalories: number;
-    averageCalories: number;
 }
 
 interface TasteProfileScores {
@@ -74,7 +76,6 @@ export interface GeneratedTasteProfile {
 interface PersonalityContext {
     diversity: number;
     consistency: number;
-    avgCalories: number;
     proteinRatio: number;
     isSpicy: boolean;
     swallowRatio: number;
@@ -93,7 +94,7 @@ const PERSONALITY_RULES: Array<{ type: TastePersonality; test: (c: PersonalityCo
         test: (c) =>
             c.saladRatio >= 0.05 ||
             c.isTopBaseSalad ||
-            (c.avgCalories > 0 && c.avgCalories <= 550 && c.saladCount >= 2),
+            c.saladCount >= 2,
     },
     { type: "HEAVY_EATER", test: (c) => c.swallowRatio >= 0.35 },
     { type: "EXPLORER", test: (c) => c.isExplorer },
@@ -133,14 +134,13 @@ export const tasteProfileHelper = {
         const uniqueMealIds = new Set<number>();
         const mealDetails = new Map<number, TopMealDetail>();
         let totalSelections = 0;
-        let totalCalories = 0;
 
         for (const selection of selections) {
             if (!selection.dayMeal) continue;
             const mealObj = selection.dayMeal.meal;
             const parts = parseAnyFoodCode(mealObj.foodCode);
             uniqueMealIds.add(mealObj.id);
-            totalCalories += mealObj.calories ?? 0;
+            this.increment(meals, String(mealObj.id));
 
             const existingMeal = mealDetails.get(mealObj.id);
             if (existingMeal) {
@@ -160,10 +160,7 @@ export const tasteProfileHelper = {
 
             if (parts) {
                 for (const value of parts.supergroups) this.increment(supergroups, value);
-                for (const value of parts.bases) {
-                    this.increment(bases, value);
-                    this.increment(meals, value);
-                }
+                for (const value of parts.bases) this.increment(bases, value);
                 for (const value of parts.variations) this.increment(variations, value);
                 for (const value of parts.proteins) this.increment(proteins, value);
                 for (const value of parts.accompaniments) this.increment(accompaniments, value);
@@ -199,8 +196,6 @@ export const tasteProfileHelper = {
             totalSelections,
             uniqueMeals: uniqueMealIds.size,
             repeatedMeals: totalSelections - uniqueMealIds.size,
-            totalCalories,
-            averageCalories: totalSelections > 0 ? Math.round(totalCalories / totalSelections) : 0,
         };
         return { counts, metrics, uniqueMealIds: Array.from(uniqueMealIds), topMeals };
     },
@@ -236,15 +231,15 @@ export const tasteProfileHelper = {
         metrics: TasteProfileMetrics,
         topMeals: TopMealDetail[]
     ): TastePersonality {
-        const saladCount = (metrics.bases.SL ?? 0) + (metrics.accompaniments?.SL ?? 0);
+        const saladCount = (metrics.bases[SALAD_CODE] ?? 0) + (metrics.accompaniments?.[SALAD_CODE] ?? 0);
         const saladRatio = counts.totalSelections > 0 ? saladCount / counts.totalSelections : 0;
         const favoriteBaseEntry = this.findFavoriteEntry(metrics.bases);
-        const isTopBaseSalad = favoriteBaseEntry?.[0] === "SL" && favoriteBaseEntry[1] > 0;
+        const isTopBaseSalad = favoriteBaseEntry?.[0] === SALAD_CODE && favoriteBaseEntry[1] > 0;
 
-        const swallowCount = metrics.supergroups.S ?? 0;
+        const swallowCount = metrics.supergroups[SWALLOW_SUPERGROUP] ?? 0;
         const swallowRatio = counts.totalSelections > 0 ? swallowCount / counts.totalSelections : 0;
 
-        const pepperedCount = metrics.modifiers.PP ?? 0;
+        const pepperedCount = metrics.modifiers[SPICE_MODIFIER] ?? 0;
         const pepperedRatio = counts.totalSelections > 0 ? pepperedCount / counts.totalSelections : 0;
 
         const favoriteProteinEntry = this.findFavoriteEntry(metrics.proteins);
@@ -260,7 +255,6 @@ export const tasteProfileHelper = {
         const ctx: PersonalityContext = {
             diversity: scores.diversityScore,
             consistency: scores.consistencyScore,
-            avgCalories: counts.averageCalories,
             proteinRatio,
             isSpicy: pepperedRatio >= 0.3,
             swallowRatio,
@@ -289,7 +283,7 @@ export const tasteProfileHelper = {
             ? { id: topMeals[0].id, name: topMeals[0].name, count: topMeals[0].count }
             : undefined;
 
-        const swallowCount = metrics.supergroups.S ?? 0;
+        const swallowCount = metrics.supergroups[SWALLOW_SUPERGROUP] ?? 0;
         const swallowRatio = counts.totalSelections > 0 ? Number((swallowCount / counts.totalSelections).toFixed(2)) : 0;
 
         return {
@@ -298,8 +292,6 @@ export const tasteProfileHelper = {
                 ...metrics,
                 uniqueMeals: counts.uniqueMeals,
                 repeatedMeals: counts.repeatedMeals,
-                totalCalories: counts.totalCalories,
-                averageCalories: counts.averageCalories,
                 uniqueMealIds,
                 topMeals,
                 swallowCount,
