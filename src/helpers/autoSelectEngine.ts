@@ -154,7 +154,7 @@ export function autoSelectWeek(
     const randomizer = deriveRandomizer(personality);
 
     // Build normalised frequency maps once — O(unique codes), reused for all days
-    const normMeals       = normalise(metrics?.meals        ?? {});
+    const normMeals       = normalise(metrics?.bases        ?? metrics?.meals ?? {});
     const normProteins    = normalise(metrics?.proteins     ?? {});
     const normPreps       = normalise(metrics?.preparations ?? {});
     const normSupergroups = normalise(metrics?.supergroups  ?? {});
@@ -164,7 +164,7 @@ export function autoSelectWeek(
         normProteins,
         normPreps,
         normSupergroups,
-        averageCalories: metrics?.averageCalories ?? 0,
+        averageCalories: (metrics as { averageCalories?: number } | null)?.averageCalories ?? 0,
         personality,
         randomizer,
         maxBaseScore: 1, // floor at 1 to avoid zero-noise when profile is empty

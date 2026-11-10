@@ -25,8 +25,6 @@ export interface TasteProfileMetrics {
 
     uniqueMeals: number;
     repeatedMeals: number;
-    totalCalories: number;
-    averageCalories: number;
 
     diversityScore: number;
     consistencyScore: number;
@@ -69,12 +67,17 @@ export type RecapMetricKey =
 export type RecapCardCategory =
     | "OVERVIEW"
     | "PERSONALITY"
+    | "PERSONALITY_MAP"
     | "TOP_MEAL"
+    | "OFFICE_CROWN"
+    | "PROTEIN_CHAMPION"
+    | "CONTRARIAN"
     | "LOYALTY"
     | "EXPLORER"
     | "SWALLOW"
     | "SPICE"
-    | "TASTE_TWIN";
+    | "TASTE_TWIN"
+    | "TASTE_OPPOSITE";
 
 /**
  * Shared base contract across all Recap sections, rankings, and story slides.
@@ -93,11 +96,13 @@ export interface RecapStatBase {
  */
 export interface RecapRankingStat extends RecapStatBase {
     key: RecapMetricKey;
-    label: string;                // e.g. "Loyalty Ranking", "Explorer Ranking", "Calorie Leaderboard"
-    rank: number;                 // 1-based rank in the office (1 = highest)
+    label: string;                // e.g. "Loyalty Ranking", "Explorer Ranking"
+    rank: number;                 // 1-based competition rank in the office (1 = highest)
     value: number;                // User's numeric score/count for this metric
-    unit: string;                 // "%", "unique meals", "kcal", "meals", "spicy meals"
-    percentile: number;           // 1–100
+    unit: string;                 // "%", "unique meals", "meals", "spicy meals"
+    percentile: number;           // Top percentage (1–100, e.g. ceil(rank / total * 100); rank 1 of 50 => 2)
+    topPercent: number;           // Top percentage (1–100, e.g. ceil(rank / total * 100))
+    beatsPercentage: number;      // Percentage of peers beaten or tied (0–100)
     officeAverage: number;        // Office-wide average for this metric
 }
 
@@ -111,6 +116,15 @@ export interface RecapPersonalitySummary extends RecapStatBase {
     cohortPercentage: number;     // % of office with this personality
 }
 
+export interface RecapPersonalityCohortItem {
+    type: TastePersonality;
+    name: string;
+    pluralName: string;
+    count: number;
+    percentage: number;
+    isUserCohort: boolean;
+}
+
 /**
  * Standardized Top Meal sub-recap (includes office fan rank for that dish).
  */
@@ -119,15 +133,56 @@ export interface RecapTopMealHighlight extends RecapStatBase, TopMealDetail {
 }
 
 /**
+ * Standardized Office Crown sub-recap (#1 most popular dish across the entire office).
+ */
+export interface RecapOfficeCrown extends RecapStatBase, TopMealDetail {
+    totalOfficeOrders: number;
+    totalOfficeFans: number;
+    userOrderCount: number;
+    isUserTopMeal: boolean;
+}
+
+/**
+ * Standardized Protein Champion sub-recap (user's #1 protein + office rank for that protein).
+ */
+export interface RecapProteinChampion extends RecapStatBase {
+    proteinCode: string;
+    proteinName: string;
+    userCount: number;
+    shareOfPlatesPercentage: number;
+    officeAverageCount: number;
+}
+
+/**
+ * Standardized Contrarian / Hidden Gem sub-recap (a dish the user loved that few colleagues ordered).
+ */
+export interface RecapContrarianHighlight extends RecapStatBase, TopMealDetail {
+    totalOfficeFans: number;
+    totalOfficeOrders: number;
+}
+
+/**
  * Standardized Office Taste Twin sub-recap.
  */
 export interface RecapTasteTwin extends RecapStatBase {
     userId: number;
     name: string;
-    similarityScore: number;      // 0–100 palate match percentage
+    similarityScore: number;      // 30–99 palate match percentage
     personalityType: TastePersonality;
     sharedTopMeal: string | null;
     sharedFavoriteProtein: string | null;
+}
+
+/**
+ * Standardized Office Taste Opposite sub-recap (lowest palate overlap).
+ */
+export interface RecapTasteOpposite extends RecapStatBase {
+    userId: number;
+    name: string;
+    similarityScore: number;      // 0–25 palate overlap percentage
+    personalityType: TastePersonality;
+    peerTopMeal: string | null;
+    peerFavoriteProtein: string | null;
 }
 
 /**
@@ -140,6 +195,7 @@ export interface RecapOfficeAverages {
     averageConsistencyScore: number;
     averageDiversityScore: number;
     averageSwallowCount: number;
+    averageSpiceCount: number;
     personalityBreakdown: Record<string, number>;
 }
 
@@ -150,14 +206,15 @@ export interface RecapSlideCard<TMetadata = Record<string, unknown>> extends Rec
     id: string;
     category: RecapCardCategory;
     slideOrder: number;
-    value: string | number;       // Hero display value, e.g. 31, 27900, "Explorer"
-    unit: string;                 // Label/unit for hero value, e.g. "unique meals", "kcal", "%"
+    value: string | number;       // Hero display value, e.g. 31, "Explorer", "Chicken"
+    unit: string;                 // Label/unit for hero value, e.g. "unique meals", "%"
     percentile: number | null;
     officeAverage: number | null;
     metadata?: TMetadata;
 }
 
 export interface TasteProfileRecapResponse {
+    message?: string;
     userId: number;
     userName: string | null;
     calendarYear: number;
@@ -165,12 +222,16 @@ export interface TasteProfileRecapResponse {
     totalMealsSelected: number;
     favoriteProtein: string | null;
     favoriteCombination: string | null;
-    personality: RecapPersonalitySummary;
+    personality: RecapPersonalitySummary | null;
     topMealHighlight: RecapTopMealHighlight | null;
+    officeCrown: RecapOfficeCrown | null;
+    proteinChampion: RecapProteinChampion | null;
+    contrarian: RecapContrarianHighlight | null;
     topMeals: TopMealDetail[];
-    rankings: Record<RecapMetricKey, RecapRankingStat>;
+    rankings: Record<RecapMetricKey, RecapRankingStat> | null;
     rankingList: RecapRankingStat[];
     tasteTwin: RecapTasteTwin | null;
+    tasteOpposite: RecapTasteOpposite | null;
     officeAverages: RecapOfficeAverages;
     metrics: StoredTasteProfileMetrics;
     cards: RecapSlideCard[];
