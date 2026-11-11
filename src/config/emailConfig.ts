@@ -11,6 +11,14 @@ export const mailTransporter = nodemailer.createTransport({
     user: process.env.SMTP_USER,
     pass: process.env.SMTP_PASSWORD,
   },
+  // Reuse connections so bulk sends don't hit the provider's limits
+  pool: true,
+  maxConnections: 3,
+  maxMessages: 50,
+  // Fail fast instead of hanging the request
+  connectionTimeout: 10_000,
+  greetingTimeout: 10_000,
+  socketTimeout: 15_000,
   logger: true,
   debug: true
 });

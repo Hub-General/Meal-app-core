@@ -6,6 +6,43 @@ import { mailService } from "./emailService";
 import { LoginRequest, RegisterRequest, ResetPasswordRequest, VerifyResetPasswordOTPSchema } from "../schema/auth";
 import { generateOtp } from "../helpers/otpGenerator";
 
+// Wait for the email to send, and fail the request if it doesn't
+const sendOrThrow = async (send: () => Promise<unknown>, context: string) => {
+    try {
+        await send();
+    } catch (error) {
+        console.error(`[MAIL] ${context} failed`, error);
+        throw new Error("We couldn't send the verification email. Please try again in a moment.");
+    }
+};
+
+// Same as the mail pool size
+const EMAIL_SEND_CONCURRENCY = 3;
+
+// Email a few at a time and report who didn't get it
+const sendOnboardingEmails = async (items: { user: { id: number; name: string; referenceEmail: string }; token: string }[]) => {
+    const sent: string[] = [];
+    const failed: string[] = [];
+
+    for (let i = 0; i < items.length; i += EMAIL_SEND_CONCURRENCY) {
+        const chunk = items.slice(i, i + EMAIL_SEND_CONCURRENCY);
+        const results = await Promise.allSettled(
+            chunk.map(item => mailService.sendOnboardingEmail(item.user.referenceEmail, item.user.name, item.token))
+        );
+        results.forEach((result, index) => {
+            const item = chunk[index]!;
+            if (result.status === "fulfilled") {
+                sent.push(item.user.referenceEmail);
+            } else {
+                console.error(`[MAIL] Onboarding email to user ${item.user.id} failed`, result.reason);
+                failed.push(item.user.referenceEmail);
+            }
+        });
+    }
+
+    return { sent, failed };
+};
+
 export const authService = {
     register: async (registerRequest: RegisterRequest) => { 
         const existing = await prisma.users.findFirst({
@@ -94,7 +131,10 @@ export const authService = {
         }
         });
 
-        mailService.sendOnboardingEmail(email,existing.name,token)
+        await sendOrThrow(
+            () => mailService.sendOnboardingEmail(email, existing.name, token),
+            `Onboarding email to user ${existing.id}`
+        );
         return ({message:"Succesfully onboarded. Please wait for Email"})
 
     },
@@ -196,17 +236,13 @@ export const authService = {
             )
             );
 
-            workItems.forEach(item => {
-            mailService.sendOnboardingEmail(
-                item.user.referenceEmail,
-                item.user.name,
-                item.token
-            );
-            });
+            const { sent, failed } = await sendOnboardingEmails(workItems);
             return {
             message: 'Batch onboarding processed',
             processed: workItems.length,
             emails: workItems.map(i => i.user.referenceEmail),
+            sent,
+            failed,
             };
     },
 
@@ -244,17 +280,13 @@ export const authService = {
             )
             );
 
-            workItems.forEach(item => {
-            mailService.sendOnboardingEmail(
-                item.user.referenceEmail,
-                item.user.name,
-                item.token
-            );
-            });
+            const { sent, failed } = await sendOnboardingEmails(workItems);
             return {
             message: 'Batch onboarding processed',
             processed: workItems.length,
             emails: workItems.map(i => i.user.referenceEmail),
+            sent,
+            failed,
             };
     },
 
@@ -294,7 +326,10 @@ export const authService = {
             expiresAt: new Date(Date.now() + 2 * 60 * 60 * 1000)
         }
         });
-        mailService.sendPasswordResetMail(email.trim(), user.name, token)
+        await sendOrThrow(
+            () => mailService.sendPasswordResetMail(email.trim(), user.name, token),
+            `Password reset email to user ${user.id}`
+        );
         return ({message:"Succesfully sent Reset Password Mail to", token})
     },
 
