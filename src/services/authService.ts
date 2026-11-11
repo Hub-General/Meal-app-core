@@ -324,7 +324,7 @@ export const authService = {
             () => mailService.sendPasswordResetMail(email.trim(), user.name, token),
             `Password reset email to user ${user.id}`
         );
-        return ({message:"Succesfully sent Reset Password Mail to", token})
+        return ({message:"Succesfully sent Reset Password Mail"})
     },
 
     resetPassword: async(resetPasswordRequest: ResetPasswordRequest)=>{
@@ -346,7 +346,7 @@ export const authService = {
         if(!resetToken || resetToken.token == null){
             throw new Error("Invalid Token")
         }
-        const isValid = authService.verifyResetPasswordOTP({email: resetPasswordRequest.email, token: resetPasswordRequest.token})
+        const isValid = await authService.verifyResetPasswordOTP({email: resetPasswordRequest.email, token: resetPasswordRequest.token})
 
         if(!isValid){
             throw new Error("Invalid Token")
@@ -552,11 +552,19 @@ export const authService = {
         if(!passwordToken){
             throw new Error("Invalid OTP")
         }
+        if (passwordToken.usedAt){
+            throw new Error("OTP already used")
+        }
         if (passwordToken?.expiresAt < new Date){
             throw new Error("OTP Expired, request a new one")
         }
 
-        return await argon2.verify(passwordToken.token, token)
+
+        const matches = await argon2.verify(passwordToken.token, token)
+        if (!matches) {
+            throw new Error("Invalid OTP")
+        }
+        return true
     },
 
     changePassword: async (userId: number, currentPassword: string, newPassword: string) => {
