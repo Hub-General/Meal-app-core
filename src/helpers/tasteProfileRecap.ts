@@ -1,18 +1,10 @@
 import { TastePersonality, tastePersonalities } from "../enums/EPersonalities";
 import {
     RecapCardCategory,
-    RecapContrarianHighlight,
     RecapMetricKey,
-    RecapOfficeAverages,
-    RecapOfficeCrown,
     RecapPersonalityCohortItem,
-    RecapPersonalitySummary,
-    RecapProteinChampion,
     RecapRankingStat,
     RecapSlideCard,
-    RecapTasteOpposite,
-    RecapTasteTwin,
-    RecapTopMealHighlight,
     TasteProfileRecapResponse,
 } from "../schema/tasteProfile";
 import {
@@ -51,11 +43,22 @@ interface OfficeMealAggregate {
     fanCounts: Map<number, number>;
 }
 
+interface OfficeAveragesInternal {
+    totalParticipants: number;
+    averageMealsSelected: number;
+    averageUniqueMeals: number;
+    averageConsistencyScore: number;
+    averageDiversityScore: number;
+    averageSwallowCount: number;
+    averageSpiceCount: number;
+    personalityBreakdown: Record<string, number>;
+}
+
 interface CachedOfficeYearData {
     signature: string;
     activePool: ParsedProfileRow[];
     profileByUserId: Map<number, ParsedProfileRow>;
-    officeAverages: RecapOfficeAverages;
+    officeAverages: OfficeAveragesInternal;
     officeMealStats: Map<number, OfficeMealAggregate>;
     officeCrownMeal: OfficeMealAggregate | null;
 }
@@ -68,31 +71,6 @@ const TWIN_WEIGHT_BASES = 0.20;
 const TWIN_WEIGHT_PERSONALITY = 0.10;
 const TWIN_MIN_SIMILARITY_PERCENT = 30;
 const OPPOSITE_MAX_SIMILARITY_PERCENT = 25;
-
-const DEFAULT_PROTEIN_NAMES: Record<string, string> = {
-    CK: "Chicken",
-    BF: "Beef",
-    FS: "Fish",
-    GT: "Goat",
-    TK: "Turkey",
-    EG: "Egg",
-    PK: "Pork",
-    SH: "Shrimp",
-    PR: "Prawn",
-    MT: "Mutton",
-    LB: "Lamb",
-    SN: "Snail",
-    GC: "Gizzard",
-    CB: "Crab",
-    SL: "Salmon",
-    TN: "Tuna",
-    TL: "Tilapia",
-    CF: "Catfish",
-    MC: "Mackerel",
-    SC: "Sausage",
-    TO: "Tofu",
-    BN: "Beans",
-};
 
 const EMPTY_METRICS: StoredTasteProfileMetrics = {
     supergroups: {},
@@ -123,11 +101,7 @@ function resolvePersonality(rawType: string | null | undefined): TastePersonalit
 
 function resolveProteinName(code: string, proteinNameMap?: Map<string, string>): string {
     const normalized = code.trim().toUpperCase();
-    return (
-        proteinNameMap?.get(normalized) ??
-        DEFAULT_PROTEIN_NAMES[normalized] ??
-        normalized
-    );
+    return proteinNameMap?.get(normalized) ?? normalized;
 }
 
 function parseMetrics(raw: unknown): StoredTasteProfileMetrics {
@@ -336,7 +310,7 @@ function getOrBuildOfficeYearData(
         }
     }
 
-    const officeAverages: RecapOfficeAverages = {
+    const officeAverages: OfficeAveragesInternal = {
         totalParticipants,
         averageMealsSelected: totalParticipants > 0 ? Math.round(sumMeals / denominator) : 0,
         averageUniqueMeals: totalParticipants > 0 ? Math.round(sumUnique / denominator) : 0,
@@ -374,12 +348,12 @@ interface RankingDefinition {
     }) => { title: string; subtitle: string; description: string };
 }
 
-type UnorderedSlideCard<TMetadata = Record<string, unknown>> = Omit<
+type UnorderedSlideCard<TMetadata = unknown> = Omit<
     RecapSlideCard<TMetadata>,
     "slideOrder"
 >;
 
-function rankingToCard<TMetadata = Record<string, unknown>>(
+function rankingToCard<TMetadata = unknown>(
     stat: RecapRankingStat,
     id: string,
     category: RecapCardCategory,
@@ -423,25 +397,6 @@ export function buildTasteProfileRecap(
     if (!existingUserProfile || existingUserProfile.totalMealsSelected === 0) {
         return {
             message: "No meals selected",
-            userId: targetUserId,
-            userName: existingUserProfile?.user?.name ?? fallbackUserName,
-            calendarYear,
-            updatedAt: existingUserProfile?.updatedAt ?? new Date(),
-            totalMealsSelected: 0,
-            favoriteProtein: null,
-            favoriteCombination: null,
-            personality: null,
-            topMealHighlight: null,
-            officeCrown: null,
-            proteinChampion: null,
-            contrarian: null,
-            topMeals: [],
-            rankings: null,
-            rankingList: [],
-            tasteTwin: null,
-            tasteOpposite: null,
-            officeAverages,
-            metrics: { ...EMPTY_METRICS },
             cards: [],
         };
     }
@@ -464,24 +419,14 @@ export function buildTasteProfileRecap(
     const personalityMeta = tastePersonalities[userPersonality] ?? tastePersonalities.BALANCED;
     const { personalityBreakdown } = officeAverages;
 
-    // ── 1. Personality Cohort Summary ("You are 1 of 6 Explorers") ───────────
+    // ── 1. Personality Cohort Summary ────────────────────────────────────────
     const cohortCount = personalityBreakdown[userPersonality] ?? 1;
     const cohortPercentage = Math.round((cohortCount / totalParticipants) * 100);
-
-    const personality: RecapPersonalitySummary = {
-        type: userPersonality,
-        name: personalityMeta.name,
-        title: `You are ${/^[aeiou]/i.test(personalityMeta.name) ? "an" : "a"} ${personalityMeta.name}`,
-        subtitle:
-            cohortCount === 1
-                ? `You are the only ${personalityMeta.name} in the office this year!`
-                : `You are 1 of ${cohortCount} ${personalityMeta.pluralName} in the office (${cohortPercentage}% of the team)`,
-        description: personalityMeta.description,
-        rank: null,
-        totalParticipants,
-        cohortCount,
-        cohortPercentage,
-    };
+    const personalityTitle = `You are ${/^[aeiou]/i.test(personalityMeta.name) ? "an" : "a"} ${personalityMeta.name}`;
+    const personalitySubtitle =
+        cohortCount === 1
+            ? `You are the only ${personalityMeta.name} in the office this year!`
+            : `You are 1 of ${cohortCount} ${personalityMeta.pluralName} in the office (${cohortPercentage}% of the team)`;
 
     // ── 2. O(N) Competition Rankings ─────────────────────────────────────────
     function computeRanking(def: RankingDefinition): RecapRankingStat {
@@ -603,19 +548,9 @@ export function buildTasteProfileRecap(
         }),
     });
 
-    const rankings: Record<RecapMetricKey, RecapRankingStat> = {
-        loyalty: loyaltyRank,
-        explorer: explorerRank,
-        swallow: swallowRank,
-        spice: spiceRank,
-        volume: volumeRank,
-    };
-
-    const rankingList: RecapRankingStat[] = Object.values(rankings);
-
-    // ── 3. Top Meal Highlight (RecapTopMealHighlight) ────────────────────────
-    let topMealHighlight: RecapTopMealHighlight | null = null;
+    // ── 3. Top Meal Highlight ────────────────────────────────────────────────
     const favMeal: TopMealDetail | undefined = userMetrics.topMeals[0];
+    let topMealCard: UnorderedSlideCard | null = null;
 
     if (favMeal && favMeal.count > 0) {
         const mealStat = officeMealStats.get(favMeal.id);
@@ -636,8 +571,9 @@ export function buildTasteProfileRecap(
             (favMeal.count / userProfile.totalMealsSelected) * 100
         );
 
-        topMealHighlight = {
-            ...favMeal,
+        topMealCard = {
+            id: "slide-top-meal",
+            category: "TOP_MEAL",
             title: favMeal.name,
             subtitle:
                 officeFanRank === 1 && totalOfficeFans > 1
@@ -646,14 +582,23 @@ export function buildTasteProfileRecap(
                     ? `You ordered ${favMeal.name} ${favMeal.count} times — you're its #1 fan in the office!`
                     : `You ordered ${favMeal.name} ${favMeal.count} times — #${officeFanRank} among ${totalOfficeFans} office fans!`,
             description: `It accounted for ${shareOfYearPercentage}% of all your meals in ${calendarYear}.`,
+            value: favMeal.count,
+            unit: "orders",
             rank: officeFanRank,
             totalParticipants: totalOfficeFans,
-            shareOfYearPercentage,
+            percentile: null,
+            officeAverage: null,
+            metadata: userMetrics.topMeals.map(({ id, name, count, imageUrl }) => ({
+                id,
+                name,
+                count,
+                imageUrl: imageUrl ?? null,
+            })),
         };
     }
 
     // ── 4. Office Crown (#1 Most Popular Dish in the Office) ─────────────────
-    let officeCrown: RecapOfficeCrown | null = null;
+    let officeCrownCard: UnorderedSlideCard | null = null;
     if (officeCrownMeal) {
         const userOrderCount = getPeerMealOrderCount(userMetrics, officeCrownMeal.id);
         const isUserTopMeal = favMeal?.id === officeCrownMeal.id;
@@ -662,67 +607,74 @@ export function buildTasteProfileRecap(
         const crownImageUrl =
             officeCrownMeal.imageUrl ?? mealImageMap?.get(officeCrownMeal.id) ?? null;
 
-        let strictlyBetterCrownFans = 0;
-        if (userOrderCount > 0) {
-            for (const count of officeCrownMeal.fanCounts.values()) {
-                if (count > userOrderCount) {
-                    strictlyBetterCrownFans++;
+        if (totalOfficeFans >= 2 || userOrderCount > 0) {
+            let strictlyBetterCrownFans = 0;
+            if (userOrderCount > 0) {
+                for (const count of officeCrownMeal.fanCounts.values()) {
+                    if (count > userOrderCount) {
+                        strictlyBetterCrownFans++;
+                    }
                 }
             }
+            const userCrownRank = userOrderCount > 0 ? 1 + strictlyBetterCrownFans : null;
+
+            let title: string;
+            let subtitle: string;
+            let description: string;
+
+            if (isUserTopMeal) {
+                title = `${officeCrownMeal.name} Took the Office Crown — And Yours!`;
+                subtitle = `#1 dish in the office (${totalOfficeOrders} plates across ${totalOfficeFans} colleagues)`;
+                description = `Your #1 favourite was also the office's undisputed champion — you ordered ${userOrderCount} of those plates!`;
+            } else if (userOrderCount > 0) {
+                title = `The Office Crown: ${officeCrownMeal.name}`;
+                subtitle = `#1 most ordered dish in the office (${totalOfficeOrders} plates across ${totalOfficeFans} colleagues)`;
+                description = `You joined the ${officeCrownMeal.name} wave ${userOrderCount} ${
+                    userOrderCount === 1 ? "time" : "times"
+                } this year, while ${favMeal?.name ?? "another dish"} stayed your personal #1.`;
+            } else {
+                title = `You Dodged the Office Obsession: ${officeCrownMeal.name}`;
+                subtitle = `The office ordered it ${totalOfficeOrders} times (${totalOfficeFans} fans) — you ordered it 0 times!`;
+                description = `While ${officeCrownMeal.name} ruled the office tables in ${calendarYear}, you charted your own path.`;
+            }
+
+            officeCrownCard = {
+                id: "slide-office-crown",
+                category: "OFFICE_CROWN",
+                title,
+                subtitle,
+                description,
+                value: totalOfficeOrders,
+                unit: "office orders",
+                rank: userCrownRank,
+                totalParticipants: totalOfficeFans,
+                percentile: null,
+                officeAverage: null,
+                metadata: {
+                    mealId: officeCrownMeal.id,
+                    mealName: officeCrownMeal.name,
+                    imageUrl: crownImageUrl,
+                    userOrderCount,
+                    isUserTopMeal,
+                },
+            };
         }
-        const userCrownRank = userOrderCount > 0 ? 1 + strictlyBetterCrownFans : null;
-
-        let title: string;
-        let subtitle: string;
-        let description: string;
-
-        if (isUserTopMeal) {
-            title = `${officeCrownMeal.name} Took the Office Crown — And Yours!`;
-            subtitle = `#1 dish in the office (${totalOfficeOrders} plates across ${totalOfficeFans} colleagues)`;
-            description = `Your #1 favourite was also the office's undisputed champion — you ordered ${userOrderCount} of those plates!`;
-        } else if (userOrderCount > 0) {
-            title = `The Office Crown: ${officeCrownMeal.name}`;
-            subtitle = `#1 most ordered dish in the office (${totalOfficeOrders} plates across ${totalOfficeFans} colleagues)`;
-            description = `You joined the ${officeCrownMeal.name} wave ${userOrderCount} ${
-                userOrderCount === 1 ? "time" : "times"
-            } this year, while ${favMeal?.name ?? "another dish"} stayed your personal #1.`;
-        } else {
-            title = `You Dodged the Office Obsession: ${officeCrownMeal.name}`;
-            subtitle = `The office ordered it ${totalOfficeOrders} times (${totalOfficeFans} fans) — you ordered it 0 times!`;
-            description = `While ${officeCrownMeal.name} ruled the office tables in ${calendarYear}, you charted your own path.`;
-        }
-
-        officeCrown = {
-            id: officeCrownMeal.id,
-            name: officeCrownMeal.name,
-            foodCode: officeCrownMeal.foodCode,
-            count: totalOfficeOrders,
-            imageUrl: crownImageUrl,
-            totalOfficeOrders,
-            totalOfficeFans,
-            userOrderCount,
-            isUserTopMeal,
-            title,
-            subtitle,
-            description,
-            rank: userCrownRank,
-            totalParticipants: totalOfficeFans,
-        };
     }
 
     // ── 5. Protein Champion (User's Top Protein + Office Rank) ───────────────
     const topProteinEntry = tasteProfileHelper.findFavoriteEntry(userMetrics.proteins);
     const favoriteProtein =
         userProfile.favoriteProtein ?? topProteinEntry?.[0] ?? null;
-    const favoriteCombination =
-        tasteProfileHelper.findFavorite(userMetrics.combinations) ?? null;
 
-    let proteinChampion: RecapProteinChampion | null = null;
+    let proteinChampionCard: UnorderedSlideCard | null = null;
     if (favoriteProtein) {
         const userProteinCount =
             userMetrics.proteins[favoriteProtein] ?? topProteinEntry?.[1] ?? 0;
+        const shareOfPlatesPercentage = Math.round(
+            (userProteinCount / userProfile.totalMealsSelected) * 100
+        );
 
-        if (userProteinCount > 0) {
+        if (userProteinCount >= 2 && shareOfPlatesPercentage >= 20) {
             const proteinName = resolveProteinName(favoriteProtein, proteinNameMap);
             let betterProteinPeers = 0;
             let sumProteinAcrossOffice = 0;
@@ -736,33 +688,36 @@ export function buildTasteProfileRecap(
             }
 
             const proteinRank = 1 + betterProteinPeers;
-            const shareOfPlatesPercentage = Math.round(
-                (userProteinCount / userProfile.totalMealsSelected) * 100
-            );
             const officeAverageCount = Math.round(
                 sumProteinAcrossOffice / totalParticipants
             );
 
-            proteinChampion = {
-                proteinCode: favoriteProtein,
-                proteinName,
-                userCount: userProteinCount,
-                shareOfPlatesPercentage,
-                officeAverageCount,
+            proteinChampionCard = {
+                id: "slide-protein-champion",
+                category: "PROTEIN_CHAMPION",
                 title:
                     proteinRank === 1
                         ? `You are the #1 ${proteinName} Champion in the Office!`
                         : `${proteinName} Powered ${shareOfPlatesPercentage}% of Your Plates`,
                 subtitle: `#${proteinRank} ${proteinName} lover in the office (${userProteinCount} plates)`,
                 description: `You chose ${proteinName}-based meals ${userProteinCount} times this year compared to the office average of ${officeAverageCount}.`,
+                value: proteinName,
+                unit: `${shareOfPlatesPercentage}% of plates`,
                 rank: proteinRank,
                 totalParticipants,
+                percentile: Math.max(1, Math.ceil((proteinRank / totalParticipants) * 100)),
+                officeAverage: officeAverageCount,
+                metadata: {
+                    proteinCode: favoriteProtein,
+                    userCount: userProteinCount,
+                    shareOfPlatesPercentage,
+                },
             };
         }
     }
 
     // ── 6. Contrarian / Hidden Gem Highlight ─────────────────────────────────
-    let contrarian: RecapContrarianHighlight | null = null;
+    let contrarianCard: UnorderedSlideCard | null = null;
     if (totalParticipants >= 3 && userMetrics.topMeals.length > 0) {
         const maxContrarianFans = Math.max(2, Math.floor(totalParticipants * 0.25));
         const candidates = userMetrics.topMeals
@@ -780,8 +735,7 @@ export function buildTasteProfileRecap(
             .filter(
                 (c) =>
                     c.totalOfficeFans <= maxContrarianFans &&
-                    c.meal.id !== officeCrown?.id &&
-                    // Avoid repeating the user's #1 meal unless they are literally 1 of <=2 fans in the office
+                    c.meal.id !== officeCrownMeal?.id &&
                     (c.meal.id !== favMeal?.id || c.totalOfficeFans <= 2)
             )
             .sort(
@@ -796,10 +750,9 @@ export function buildTasteProfileRecap(
             const { meal, totalOfficeFans, totalOfficeOrders } = winner;
             const otherFansCount = Math.max(0, totalOfficeFans - 1);
 
-            contrarian = {
-                ...meal,
-                totalOfficeFans,
-                totalOfficeOrders,
+            contrarianCard = {
+                id: "slide-contrarian",
+                category: "CONTRARIAN",
                 title:
                     totalOfficeFans === 1
                         ? `Your Secret Menu Pick: ${meal.name}`
@@ -813,15 +766,25 @@ export function buildTasteProfileRecap(
                 description: `You ordered ${meal.name} ${meal.count} times while ${
                     totalParticipants - totalOfficeFans
                 } of your colleagues slept on it.`,
+                value: meal.count,
+                unit: "orders",
                 rank: 1,
                 totalParticipants: totalOfficeFans,
+                percentile: null,
+                officeAverage: null,
+                metadata: {
+                    mealId: meal.id,
+                    mealName: meal.name,
+                    imageUrl: meal.imageUrl ?? null,
+                    totalOfficeOrders,
+                },
             };
         }
     }
 
     // ── 7. Office Taste Twin & Taste Opposite ────────────────────────────────
-    let tasteTwin: RecapTasteTwin | null = null;
-    let tasteOpposite: RecapTasteOpposite | null = null;
+    let tasteTwinCard: UnorderedSlideCard | null = null;
+    let tasteOppositeCard: UnorderedSlideCard | null = null;
     const otherPeers = activePool.filter((p) => p.userId !== targetUserId);
 
     if (otherPeers.length > 0) {
@@ -858,7 +821,6 @@ export function buildTasteProfileRecap(
                 peer.parsedMetrics.bases
             );
 
-            // Gate personality bonus on actual meal or protein overlap (A3-26)
             const hasPalateOverlap = mealSim > 0 || proteinSim > 0;
             const personalityBonus =
                 hasPalateOverlap && peer.resolvedPersonality === userPersonality ? 1 : 0;
@@ -877,7 +839,6 @@ export function buildTasteProfileRecap(
                 favoriteProtein && peerFavProtein && favoriteProtein === peerFavProtein
             );
 
-            // Deterministic tie-breaker for Taste Twin (highest match)
             const isBetterTwin =
                 weighted > bestScore + 1e-9 ||
                 (Math.abs(weighted - bestScore) <= 1e-9 &&
@@ -900,7 +861,6 @@ export function buildTasteProfileRecap(
                 bestSharedMealName = sharedMeal?.name ?? null;
             }
 
-            // Deterministic tie-breaker for Taste Opposite (lowest match)
             const isBetterOpposite =
                 weighted < lowestScore - 1e-9 ||
                 (Math.abs(weighted - lowestScore) <= 1e-9 &&
@@ -920,9 +880,11 @@ export function buildTasteProfileRecap(
             }
         }
 
+        let twinUserId: number | null = null;
         if (bestPeer) {
             const rawTwinScore = Math.min(99, Math.round(bestScore * 100));
             if (rawTwinScore >= TWIN_MIN_SIMILARITY_PERCENT) {
+                twinUserId = bestPeer.userId;
                 const peerName = bestPeer.user?.name ?? `User #${bestPeer.userId}`;
                 const peerFavProtein =
                     bestPeer.favoriteProtein ??
@@ -933,25 +895,32 @@ export function buildTasteProfileRecap(
                         ? resolveProteinName(favoriteProtein, proteinNameMap)
                         : null;
 
-                tasteTwin = {
-                    userId: bestPeer.userId,
-                    name: peerName,
-                    similarityScore: rawTwinScore,
-                    personalityType: bestPeer.resolvedPersonality,
-                    sharedTopMeal: bestSharedMealName,
-                    sharedFavoriteProtein,
+                tasteTwinCard = {
+                    id: "slide-taste-twin",
+                    category: "TASTE_TWIN",
                     title: `Your Office Taste Twin is ${peerName}`,
                     subtitle: `${rawTwinScore}% palate similarity${
                         bestSharedMealName ? ` · You both love ${bestSharedMealName}` : ""
                     }`,
                     description: `Matched across your top meals, protein picks, and lunch habits.`,
+                    value: rawTwinScore,
+                    unit: "%",
                     rank: 1,
                     totalParticipants,
+                    percentile: rawTwinScore,
+                    officeAverage: null,
+                    metadata: {
+                        userId: bestPeer.userId,
+                        name: peerName,
+                        personalityType: bestPeer.resolvedPersonality,
+                        sharedTopMeal: bestSharedMealName,
+                        sharedFavoriteProtein,
+                    },
                 };
             }
         }
 
-        if (lowestPeer && lowestPeer.userId !== tasteTwin?.userId) {
+        if (lowestPeer && lowestPeer.userId !== twinUserId) {
             const rawOppositeScore = Math.max(0, Math.round(lowestScore * 100));
             if (rawOppositeScore <= OPPOSITE_MAX_SIMILARITY_PERCENT) {
                 const peerName = lowestPeer.user?.name ?? `User #${lowestPeer.userId}`;
@@ -967,13 +936,9 @@ export function buildTasteProfileRecap(
                     tastePersonalities[lowestPeer.resolvedPersonality] ??
                     tastePersonalities.BALANCED;
 
-                tasteOpposite = {
-                    userId: lowestPeer.userId,
-                    name: peerName,
-                    similarityScore: rawOppositeScore,
-                    personalityType: lowestPeer.resolvedPersonality,
-                    peerTopMeal,
-                    peerFavoriteProtein,
+                tasteOppositeCard = {
+                    id: "slide-taste-opposite",
+                    category: "TASTE_OPPOSITE",
                     title: `Your Palate Opposite is ${peerName}`,
                     subtitle:
                         rawOppositeScore === 0
@@ -991,15 +956,26 @@ export function buildTasteProfileRecap(
                               } ${personalityMeta.name}, ${peerName} went full ${
                                   peerPersonalityMeta.name
                               }.`,
+                    value: rawOppositeScore,
+                    unit: "% overlap",
                     rank: null,
                     totalParticipants,
+                    percentile: rawOppositeScore,
+                    officeAverage: null,
+                    metadata: {
+                        userId: lowestPeer.userId,
+                        name: peerName,
+                        personalityType: lowestPeer.resolvedPersonality,
+                        peerTopMeal,
+                        peerFavoriteProtein,
+                    },
                 };
             }
         }
     }
 
-    // ── 8. Personality Map Cohort Distribution ───────────────────────────────
-    const personalityDistribution: RecapPersonalityCohortItem[] = Object.entries(
+    // ── 8. Personality Map Cohort Distribution (Sorted Descending) ───────────
+    const officeProfiles: RecapPersonalityCohortItem[] = Object.entries(
         personalityBreakdown
     )
         .filter(([, count]) => count > 0)
@@ -1009,18 +985,15 @@ export function buildTasteProfileRecap(
             return {
                 type,
                 name: meta.name,
-                pluralName: meta.pluralName,
                 count,
                 percentage: Math.round((count / totalParticipants) * 100),
-                isUserCohort: type === userPersonality,
+                isUser: type === userPersonality,
             };
         })
         .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
 
-    const dominantCohort = personalityDistribution[0];
     const userCohortRank =
-        1 +
-        personalityDistribution.filter((item) => item.count > cohortCount).length;
+        1 + officeProfiles.filter((item) => item.count > cohortCount).length;
 
     // ── 9. Conditional Story Slides (filtered & dynamically ordered) ─────────
     const spiceCount = userMetrics.modifiers?.[SPICE_MODIFIER] ?? 0;
@@ -1031,164 +1004,50 @@ export function buildTasteProfileRecap(
     const swallowCount = userMetrics.swallowCount ?? 0;
 
     const candidateCards: Array<UnorderedSlideCard | null> = [
-        // 1. Overview (always shown for active users with >0 meals)
+        // 1. Overview
         rankingToCard(volumeRank, "slide-overview", "OVERVIEW", {
             uniqueMeals: userMetrics.uniqueMeals,
             repeatedMeals: userMetrics.repeatedMeals,
         }),
 
-        // 2. User Personality
+        // 2. Personality & Office Palate Breakdown (single unified slide with descending office profiles array)
         {
             id: "slide-personality",
             category: "PERSONALITY",
-            title: personality.title,
-            subtitle: personality.subtitle,
-            description: personality.description,
-            value: personality.name,
+            title: personalityTitle,
+            subtitle: personalitySubtitle,
+            description: personalityMeta.description,
+            value: personalityMeta.name,
             unit: "personality",
-            rank: null,
-            totalParticipants: personality.totalParticipants,
-            percentile: personality.cohortPercentage,
+            rank: userCohortRank,
+            totalParticipants,
+            percentile: cohortPercentage,
             officeAverage: null,
-            metadata: {
-                personalityType: personality.type,
-                cohortCount: personality.cohortCount,
-                cohortPercentage: personality.cohortPercentage,
-                personalityBreakdown,
-            },
+            metadata: officeProfiles,
         },
 
-        // 3. Office Personality Map (only when at least 2 distinct personalities exist in the office)
-        totalParticipants >= 2 && personalityDistribution.length >= 2 && dominantCohort
-            ? {
-                  id: "slide-personality-map",
-                  category: "PERSONALITY_MAP",
-                  title: `The ${calendarYear} Office Palate Map`,
-                  subtitle:
-                      dominantCohort.type === userPersonality
-                          ? `${dominantCohort.pluralName} lead the office (${dominantCohort.percentage}%) — and you're right at the heart of it!`
-                          : `${dominantCohort.pluralName} lead the office (${dominantCohort.percentage}%), while your ${personalityMeta.name} crew makes up ${cohortPercentage}%`,
-                  description: `Across ${totalParticipants} active colleagues, the office split into ${personalityDistribution.length} distinct taste personalities this year.`,
-                  value: personalityDistribution.length,
-                  unit: "personalities",
-                  rank: userCohortRank,
-                  totalParticipants,
-                  percentile: cohortPercentage,
-                  officeAverage: null,
-                  metadata: {
-                      userPersonality,
-                      userPersonalityName: personality.name,
-                      dominantPersonality: dominantCohort.type,
-                      dominantPersonalityName: dominantCohort.name,
-                      dominantCount: dominantCohort.count,
-                      dominantPercentage: dominantCohort.percentage,
-                      distribution: personalityDistribution,
-                      personalityBreakdown,
-                  },
-              }
-            : null,
+        // 3. Top Meal
+        topMealCard,
 
-        // 4. Top Meal (only when user has a top meal)
-        topMealHighlight
-            ? {
-                  id: "slide-top-meal",
-                  category: "TOP_MEAL",
-                  title: topMealHighlight.title,
-                  subtitle: topMealHighlight.subtitle,
-                  description: topMealHighlight.description,
-                  value: topMealHighlight.count,
-                  unit: "orders",
-                  rank: topMealHighlight.rank,
-                  totalParticipants: topMealHighlight.totalParticipants,
-                  percentile: null,
-                  officeAverage: null,
-                  metadata: {
-                      topMeal: topMealHighlight,
-                      topMeals: userMetrics.topMeals,
-                  },
-              }
-            : null,
+        // 5. Office Crown
+        officeCrownCard,
 
-        // 5. Office Crown (only when the office crown is shared by >=2 fans or ordered by this user)
-        officeCrown && (officeCrown.totalOfficeFans >= 2 || officeCrown.userOrderCount > 0)
-            ? {
-                  id: "slide-office-crown",
-                  category: "OFFICE_CROWN",
-                  title: officeCrown.title,
-                  subtitle: officeCrown.subtitle,
-                  description: officeCrown.description,
-                  value: officeCrown.totalOfficeOrders,
-                  unit: "office orders",
-                  rank: officeCrown.rank,
-                  totalParticipants: officeCrown.totalParticipants,
-                  percentile: null,
-                  officeAverage: null,
-                  metadata: {
-                      officeCrown,
-                      userOrderCount: officeCrown.userOrderCount,
-                      isUserTopMeal: officeCrown.isUserTopMeal,
-                  },
-              }
-            : null,
+        // 6. Protein Champion
+        proteinChampionCard,
 
-        // 6. Protein Champion (only when user ordered their top protein >= 2 times and >= 20% of plates)
-        proteinChampion &&
-        proteinChampion.userCount >= 2 &&
-        proteinChampion.shareOfPlatesPercentage >= 20
-            ? {
-                  id: "slide-protein-champion",
-                  category: "PROTEIN_CHAMPION",
-                  title: proteinChampion.title,
-                  subtitle: proteinChampion.subtitle,
-                  description: proteinChampion.description,
-                  value: proteinChampion.proteinName,
-                  unit: `${proteinChampion.shareOfPlatesPercentage}% of plates`,
-                  rank: proteinChampion.rank,
-                  totalParticipants: proteinChampion.totalParticipants,
-                  percentile: Math.max(
-                      1,
-                      Math.ceil((proteinChampion.rank! / totalParticipants) * 100)
-                  ),
-                  officeAverage: proteinChampion.officeAverageCount,
-                  metadata: {
-                      proteinChampion,
-                      proteins: userMetrics.proteins,
-                  },
-              }
-            : null,
+        // 7. Contrarian / Hidden Gem
+        contrarianCard,
 
-        // 7. Contrarian / Hidden Gem (only when user has a qualifying rare pick)
-        contrarian
-            ? {
-                  id: "slide-contrarian",
-                  category: "CONTRARIAN",
-                  title: contrarian.title,
-                  subtitle: contrarian.subtitle,
-                  description: contrarian.description,
-                  value: contrarian.count,
-                  unit: "orders",
-                  rank: contrarian.rank,
-                  totalParticipants: contrarian.totalParticipants,
-                  percentile: null,
-                  officeAverage: null,
-                  metadata: {
-                      contrarian,
-                  },
-              }
-            : null,
-
-        // 8. Loyalty (only when user actually repeated meals)
+        // 8. Loyalty (only when user repeated meals)
         userMetrics.repeatedMeals > 0
             ? rankingToCard(loyaltyRank, "slide-loyalty", "LOYALTY", {
                   repeatedMeals: userMetrics.repeatedMeals,
-                  consistencyScore: userMetrics.consistencyScore,
               })
             : null,
 
         // 9. Explorer (only when user tried >= 2 unique meals)
         userMetrics.uniqueMeals >= 2
             ? rankingToCard(explorerRank, "slide-explorer", "EXPLORER", {
-                  uniqueMeals: userMetrics.uniqueMeals,
                   diversityScore: userMetrics.diversityScore,
               })
             : null,
@@ -1196,7 +1055,6 @@ export function buildTasteProfileRecap(
         // 10. Swallow (only when user ordered at least 1 swallow meal)
         swallowCount > 0
             ? rankingToCard(swallowRank, "slide-swallow", "SWALLOW", {
-                  swallowCount,
                   swallowRatio: userMetrics.swallowRatio ?? 0,
               })
             : null,
@@ -1204,52 +1062,15 @@ export function buildTasteProfileRecap(
         // 11. Spice (only when user ordered at least 1 peppered/spicy meal)
         spiceCount > 0
             ? rankingToCard(spiceRank, "slide-spice", "SPICE", {
-                  spiceCount,
                   spiceRatio,
               })
             : null,
 
-        // 12. Taste Twin (only when similarityScore >= 30%)
-        tasteTwin
-            ? {
-                  id: "slide-taste-twin",
-                  category: "TASTE_TWIN",
-                  title: tasteTwin.title,
-                  subtitle: tasteTwin.subtitle,
-                  description: tasteTwin.description,
-                  value: tasteTwin.similarityScore,
-                  unit: "%",
-                  rank: tasteTwin.rank,
-                  totalParticipants,
-                  percentile: tasteTwin.similarityScore,
-                  officeAverage: null,
-                  metadata: {
-                      tasteTwin,
-                      favoriteProtein,
-                      favoriteCombination,
-                  },
-              }
-            : null,
+        // 12. Taste Twin
+        tasteTwinCard,
 
-        // 13. Taste Opposite (only when a true opposite <= 25% similarity exists)
-        tasteOpposite
-            ? {
-                  id: "slide-taste-opposite",
-                  category: "TASTE_OPPOSITE",
-                  title: tasteOpposite.title,
-                  subtitle: tasteOpposite.subtitle,
-                  description: tasteOpposite.description,
-                  value: tasteOpposite.similarityScore,
-                  unit: "% overlap",
-                  rank: null,
-                  totalParticipants,
-                  percentile: tasteOpposite.similarityScore,
-                  officeAverage: null,
-                  metadata: {
-                      tasteOpposite,
-                  },
-              }
-            : null,
+        // 13. Taste Opposite
+        tasteOppositeCard,
     ];
 
     const cards: RecapSlideCard[] = candidateCards
@@ -1260,25 +1081,6 @@ export function buildTasteProfileRecap(
         }));
 
     return {
-        userId: targetUserId,
-        userName: userProfile.user?.name ?? fallbackUserName,
-        calendarYear,
-        updatedAt: userProfile.updatedAt,
-        totalMealsSelected: userProfile.totalMealsSelected,
-        favoriteProtein,
-        favoriteCombination,
-        personality,
-        topMealHighlight,
-        officeCrown,
-        proteinChampion,
-        contrarian,
-        topMeals: userMetrics.topMeals,
-        rankings,
-        rankingList,
-        tasteTwin,
-        tasteOpposite,
-        officeAverages,
-        metrics: userMetrics,
         cards,
     };
 }

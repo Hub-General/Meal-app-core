@@ -17,8 +17,6 @@ export const CustomNotificationRequestSchema = z.object({
   title: z.string().trim().min(1, "Title is required"),
   description: z.string().trim().optional(),
   recipientIds: z.array(z.coerce.number().int().positive()).optional(),
-  allActiveUsers: z.boolean().optional(),
-  preFiltered: z.boolean().optional(),
 });
 
 export const BroadcastFoodArrivedSchema = foodArrivalSchema;
@@ -27,8 +25,8 @@ export type BroadcastFoodArrivedRequest = FoodArrivalRequest;
 export const UnselectedReminderSchema = z.object({
   weekMenuScheduleId: z.coerce.number().int().positive().optional(),
   date: z.coerce.date().optional(),
-  title: z.string().trim().default("Selections closing soon"),
-  description: z.string().trim().default("Select your meals now!"),
+  title: z.string().trim().optional(),
+  description: z.string().trim().optional(),
 });
 
 export type NotificationSubscriptionRequest = z.infer<

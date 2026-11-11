@@ -97,6 +97,7 @@ model WeekMenuSchedule {
   menuId Int @db.SmallInt
   status WeekMenuStatus @default(DRAFT)
   closedAt DateTime?
+  arrivalDate Int @db.SmallInt @default(0)
 
   menu Menus @relation(fields: [menuId], references: [id])
   selections Selections[]

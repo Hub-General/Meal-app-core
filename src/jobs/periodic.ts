@@ -118,7 +118,6 @@ export async function activateWeeklyMenu(targetWeek: { week: number; year: numbe
     await weekMenuScheduleService.switchActiveWeekMenuSchedule(correctWeekMenu.id);
 
     await notificationService.notifyUsers({
-        allActiveUsers: true,
         title: "Meal selection window open",
         description: `The meal selection window is now open. You can select your meals now.`,
         type: NotificationType.SELECTION_WINDOW_OPEN,
@@ -336,7 +335,6 @@ export async function autoSubmitUserPreferences(targetScheduleId?: number) {
             title: "Preset submitted",
             description: `Your preset was automatically submitted for this week.`,
             type: NotificationType.MEAL_SELECTED_CONFIRMATION,
-            preFiltered: true,
         });
     }
 

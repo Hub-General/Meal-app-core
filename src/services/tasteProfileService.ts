@@ -1,5 +1,5 @@
 import { prisma } from "../db/prisma";
-import { Prisma, SelectionStatus } from "../generated/prisma";
+import { FoodGroup, Prisma, SelectionStatus } from "../generated/prisma";
 import { tasteProfileHelper } from "../helpers/tasteProfileMetrics";
 import { buildTasteProfileRecap } from "../helpers/tasteProfileRecap";
 
@@ -10,7 +10,6 @@ const tasteProfileSelectionShape = {
                 select: {
                     id: true,
                     name: true,
-                    calories: true,
                     foodCode: true,
                     imagePath: true,
                 }
@@ -18,6 +17,26 @@ const tasteProfileSelectionShape = {
         }
     },
 } as const;
+
+const ONE_WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+let cachedProteinNameMap: Map<string, string> | null = null;
+let cachedProteinMapExpiresAt = 0;
+
+async function getProteinNameMap(): Promise<Map<string, string>> {
+    const now = Date.now();
+    if (cachedProteinNameMap && now < cachedProteinMapExpiresAt) {
+        return cachedProteinNameMap;
+    }
+    const items = await prisma.foodLibrary.findMany({
+        where: { foodGroup: FoodGroup.PROTEIN },
+        select: { foodCode: true, name: true },
+    });
+    cachedProteinNameMap = new Map(
+        items.map((item) => [item.foodCode.trim().toUpperCase(), item.name])
+    );
+    cachedProteinMapExpiresAt = now + ONE_WEEK_MS;
+    return cachedProteinNameMap;
+}
 
 type TasteProfileSelection = Parameters<typeof tasteProfileHelper.generateProfile>[0][number];
 
@@ -99,39 +118,42 @@ export const tasteProfileService = {
             },
         });
 
-        const allTopMealIds = new Set<number>();
-        for (const p of yearProfiles) {
-            if (p.metrics && typeof p.metrics === "object") {
-                const m = p.metrics as any;
-                if (Array.isArray(m.topMeals)) {
-                    for (const tm of m.topMeals) {
-                        if (tm.id && !tm.imageUrl) {
-                            allTopMealIds.add(tm.id);
-                        }
+        const targetProfile = yearProfiles.find((p) => p.userId === userId);
+        const missingImageMealIds = new Set<number>();
+        if (targetProfile?.metrics && typeof targetProfile.metrics === "object") {
+            const m = targetProfile.metrics as { topMeals?: Array<{ id?: number; imageUrl?: string | null }> };
+            if (Array.isArray(m.topMeals)) {
+                for (const tm of m.topMeals) {
+                    if (tm.id && !tm.imageUrl) {
+                        missingImageMealIds.add(tm.id);
                     }
                 }
             }
         }
 
-        let mealImageMap = new Map<number, string | null>();
-        if (allTopMealIds.size > 0) {
-            const meals = await prisma.meals.findMany({
-                where: { id: { in: Array.from(allTopMealIds) } },
-                select: { id: true, imagePath: true },
-            });
-            mealImageMap = new Map(meals.map(m => [m.id, m.imagePath]));
-        }
+        const [meals, proteinNameMap] = await Promise.all([
+            missingImageMealIds.size > 0
+                ? prisma.meals.findMany({
+                      where: { id: { in: Array.from(missingImageMealIds) } },
+                      select: { id: true, imagePath: true },
+                  })
+                : Promise.resolve([]),
+            getProteinNameMap(),
+        ]);
 
-        return buildTasteProfileRecap(userId, targetYear, yearProfiles, null, mealImageMap);
+        const mealImageMap = new Map<number, string | null>(
+            meals.map((m) => [m.id, m.imagePath])
+        );
+
+        return buildTasteProfileRecap(
+            userId,
+            targetYear,
+            yearProfiles,
+            null,
+            mealImageMap,
+            proteinNameMap
+        );
     },
-    // addUserDislikes: async(userId:number, calendarYear: number, data: any)=>{
-    //     return await prisma.tasteProfile.upsert({
-    //         where:{
-    //             userId: userId,
-    //             calendarYear: calendarYear,
-    //         },
-    //     })
-    // },
 
     //Advanced Taste Profile Operations
     getYearlySubmittedSelectionsByUser: async (userId: number, calendarYear: number) => {
