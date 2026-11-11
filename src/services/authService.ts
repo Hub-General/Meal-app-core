@@ -16,29 +16,23 @@ const sendOrThrow = async (send: () => Promise<unknown>, context: string) => {
     }
 };
 
-// Same as the mail pool size
-const EMAIL_SEND_CONCURRENCY = 3;
-
-// Email a few at a time and report who didn't get it
+// Send all and report failures
 const sendOnboardingEmails = async (items: { user: { id: number; name: string; referenceEmail: string }; token: string }[]) => {
     const sent: string[] = [];
     const failed: string[] = [];
 
-    for (let i = 0; i < items.length; i += EMAIL_SEND_CONCURRENCY) {
-        const chunk = items.slice(i, i + EMAIL_SEND_CONCURRENCY);
-        const results = await Promise.allSettled(
-            chunk.map(item => mailService.sendOnboardingEmail(item.user.referenceEmail, item.user.name, item.token))
-        );
-        results.forEach((result, index) => {
-            const item = chunk[index]!;
-            if (result.status === "fulfilled") {
-                sent.push(item.user.referenceEmail);
-            } else {
-                console.error(`[MAIL] Onboarding email to user ${item.user.id} failed`, result.reason);
-                failed.push(item.user.referenceEmail);
-            }
-        });
-    }
+    const results = await Promise.allSettled(
+        items.map(item => mailService.sendOnboardingEmail(item.user.referenceEmail, item.user.name, item.token))
+    );
+    results.forEach((result, index) => {
+        const item = items[index]!;
+        if (result.status === "fulfilled") {
+            sent.push(item.user.referenceEmail);
+        } else {
+            console.error(`[MAIL] Onboarding email to user ${item.user.id} failed`, result.reason);
+            failed.push(item.user.referenceEmail);
+        }
+    });
 
     return { sent, failed };
 };
