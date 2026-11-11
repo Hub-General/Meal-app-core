@@ -413,8 +413,6 @@ export const mealSelectionController = {
         }
     },
 
-    foodArrivalFulfillmentController: (req: Request, res: Response) => mealSelectionController.foodArrivalController(req, res),
-
     deleteWeeklySelectionsController: async (req: Request, res: Response) => {
         try {
             const payload = {

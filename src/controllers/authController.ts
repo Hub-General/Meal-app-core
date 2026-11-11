@@ -175,7 +175,7 @@ export const authController = {
             await authService.verifyResetPasswordOTP(parsed.data)
             res.status(200).json({message:"OTP is valid"})
         }catch(error){
-            res.status(500).json({message:"Failed to verifyOTP"})
+            res.status(500).json({message:"Failed to verify OTP"})
         }
     },
 

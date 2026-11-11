@@ -6,6 +6,37 @@ import { mailService } from "./emailService";
 import { LoginRequest, RegisterRequest, ResetPasswordRequest, VerifyResetPasswordOTPSchema } from "../schema/auth";
 import { generateOtp } from "../helpers/otpGenerator";
 
+// Wait for the email to send, and fail the request if it doesn't
+const sendOrThrow = async (send: () => Promise<unknown>, context: string) => {
+    try {
+        await send();
+    } catch (error) {
+        console.error(`[MAIL] ${context} failed`, error);
+        throw new Error("We couldn't send the verification email. Please try again in a moment.");
+    }
+};
+
+// Send all and report failures
+const sendOnboardingEmails = async (items: { user: { id: number; name: string; referenceEmail: string }; token: string }[]) => {
+    const sent: string[] = [];
+    const failed: string[] = [];
+
+    const results = await Promise.allSettled(
+        items.map(item => mailService.sendOnboardingEmail(item.user.referenceEmail, item.user.name, item.token))
+    );
+    results.forEach((result, index) => {
+        const item = items[index]!;
+        if (result.status === "fulfilled") {
+            sent.push(item.user.referenceEmail);
+        } else {
+            console.error(`[MAIL] Onboarding email to user ${item.user.id} failed`, result.reason);
+            failed.push(item.user.referenceEmail);
+        }
+    });
+
+    return { sent, failed };
+};
+
 export const authService = {
     register: async (registerRequest: RegisterRequest) => { 
         const existing = await prisma.users.findFirst({
@@ -94,7 +125,10 @@ export const authService = {
         }
         });
 
-        mailService.sendOnboardingEmail(email,existing.name,token)
+        await sendOrThrow(
+            () => mailService.sendOnboardingEmail(email, existing.name, token),
+            `Onboarding email to user ${existing.id}`
+        );
         return ({message:"Succesfully onboarded. Please wait for Email"})
 
     },
@@ -196,17 +230,13 @@ export const authService = {
             )
             );
 
-            workItems.forEach(item => {
-            mailService.sendOnboardingEmail(
-                item.user.referenceEmail,
-                item.user.name,
-                item.token
-            );
-            });
+            const { sent, failed } = await sendOnboardingEmails(workItems);
             return {
             message: 'Batch onboarding processed',
             processed: workItems.length,
             emails: workItems.map(i => i.user.referenceEmail),
+            sent,
+            failed,
             };
     },
 
@@ -244,17 +274,13 @@ export const authService = {
             )
             );
 
-            workItems.forEach(item => {
-            mailService.sendOnboardingEmail(
-                item.user.referenceEmail,
-                item.user.name,
-                item.token
-            );
-            });
+            const { sent, failed } = await sendOnboardingEmails(workItems);
             return {
             message: 'Batch onboarding processed',
             processed: workItems.length,
             emails: workItems.map(i => i.user.referenceEmail),
+            sent,
+            failed,
             };
     },
 
@@ -294,8 +320,11 @@ export const authService = {
             expiresAt: new Date(Date.now() + 2 * 60 * 60 * 1000)
         }
         });
-        mailService.sendPasswordResetMail(email.trim(), user.name, token)
-        return ({message:"Succesfully sent Reset Password Mail to", token})
+        await sendOrThrow(
+            () => mailService.sendPasswordResetMail(email.trim(), user.name, token),
+            `Password reset email to user ${user.id}`
+        );
+        return ({message:"Succesfully sent Reset Password Mail"})
     },
 
     resetPassword: async(resetPasswordRequest: ResetPasswordRequest)=>{
@@ -317,7 +346,7 @@ export const authService = {
         if(!resetToken || resetToken.token == null){
             throw new Error("Invalid Token")
         }
-        const isValid = authService.verifyResetPasswordOTP({email: resetPasswordRequest.email, token: resetPasswordRequest.token})
+        const isValid = await authService.verifyResetPasswordOTP({email: resetPasswordRequest.email, token: resetPasswordRequest.token})
 
         if(!isValid){
             throw new Error("Invalid Token")
@@ -523,11 +552,19 @@ export const authService = {
         if(!passwordToken){
             throw new Error("Invalid OTP")
         }
+        if (passwordToken.usedAt){
+            throw new Error("OTP already used")
+        }
         if (passwordToken?.expiresAt < new Date){
             throw new Error("OTP Expired, request a new one")
         }
 
-        return await argon2.verify(passwordToken.token, token)
+
+        const matches = await argon2.verify(passwordToken.token, token)
+        if (!matches) {
+            throw new Error("Invalid OTP")
+        }
+        return true
     },
 
     changePassword: async (userId: number, currentPassword: string, newPassword: string) => {

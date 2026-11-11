@@ -61,11 +61,10 @@ export const mailService = {
             console.error("Failed to send selection notification:", error);
         }
     },
+    // Throws if the email can't be sent
     sendOnboardingEmail: async (to: string, name: string ,token: string) => {
-        try{
         const firstName = name.split(' ')[0];
-        
-            await mailTransporter.sendMail({
+        const info = await mailTransporter.sendMail({
                 from: `"Meal App" <${process.env.MAIL_FROM}>`,
                 to,
                 subject: "Join the Meal App!",
@@ -135,15 +134,13 @@ export const mailService = {
                     </div>
                 `
             });
-            console.log("===== SEND EMAIL FINISHED =====");
-        }catch(error){
-            console.error("Failed to send mail:", error)
-        }
+        console.log("[MAIL] Onboarding code sent", { to, messageId: info.messageId });
     },
+
+    // Throws if the email can't be sent
     sendPasswordResetMail: async(to:string, name: string, token: string)=>{
-        try{
         const firstName = name.split(' ')[0];
-        await mailTransporter.sendMail({
+        const info = await mailTransporter.sendMail({
             from: `"Meal App" <${process.env.MAIL_FROM}>`,
             to,
             subject: "Oops! You Forgot Your Password",
@@ -213,9 +210,7 @@ export const mailService = {
                 </div>
             `
         });
-        }catch(error){
-            console.error("Failed to send PasswordReset Mail")
-        }
+        console.log("[MAIL] Password reset code sent", { to, messageId: info.messageId });
     }
 };
 
