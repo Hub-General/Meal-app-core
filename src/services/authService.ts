@@ -324,7 +324,7 @@ export const authService = {
             () => mailService.sendPasswordResetMail(email.trim(), user.name, token),
             `Password reset email to user ${user.id}`
         );
-        return ({message:"Succesfully sent Reset Password Mail to", token})
+        return ({message:"Succesfully sent Reset Password Mail"})
     },
 
     resetPassword: async(resetPasswordRequest: ResetPasswordRequest)=>{
@@ -551,6 +551,9 @@ export const authService = {
 
         if(!passwordToken){
             throw new Error("Invalid OTP")
+        }
+        if (passwordToken.usedAt){
+            throw new Error("OTP already used")
         }
         if (passwordToken?.expiresAt < new Date){
             throw new Error("OTP Expired, request a new one")
