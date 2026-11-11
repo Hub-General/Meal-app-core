@@ -346,7 +346,7 @@ export const authService = {
         if(!resetToken || resetToken.token == null){
             throw new Error("Invalid Token")
         }
-        const isValid = authService.verifyResetPasswordOTP({email: resetPasswordRequest.email, token: resetPasswordRequest.token})
+        const isValid = await authService.verifyResetPasswordOTP({email: resetPasswordRequest.email, token: resetPasswordRequest.token})
 
         if(!isValid){
             throw new Error("Invalid Token")
@@ -556,7 +556,12 @@ export const authService = {
             throw new Error("OTP Expired, request a new one")
         }
 
-        return await argon2.verify(passwordToken.token, token)
+
+        const matches = await argon2.verify(passwordToken.token, token)
+        if (!matches) {
+            throw new Error("Invalid OTP")
+        }
+        return true
     },
 
     changePassword: async (userId: number, currentPassword: string, newPassword: string) => {
