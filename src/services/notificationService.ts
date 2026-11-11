@@ -1,23 +1,19 @@
 import { prisma } from "../db/prisma";
 import { NotificationType } from "../enums/ENotificationTypes";
 import {
+  FulfillmentStatus,
   SelectionStatus,
   SelectionType,
-  WeekMenuStatus,
 } from "../generated/prisma";
 import {
-   getDateFromISOWeek,
-  getISOWeekInfo,
-} from "../helpers/dateFunctions";
-import {
   CustomNotificationRequest,
+  CustomNotifyUsersRequest,
   NotificationSubscriptionRequest,
+  UnselectedReminderRequest,
 } from "../schema/notification";
-import { mealSelectionService } from "./mealSelectionService";
 import { mailService } from "./emailService";
-import { CustomNotifyUsersRequest } from "../schema/notification";
+import { mealSelectionService } from "./mealSelectionService";
 import { pushService } from "./pushService";
-import { weekMenuScheduleService } from "./weekMenuScheduleService";
 
 const pushSubscriptionSelect = {
   id: true,
@@ -34,39 +30,108 @@ const activePushUsersFilter = {
   },
 } as const;
 
-const getActivePushSubscriptionsForUsers = async (userIds?: number[]) =>
-  prisma.pushSubscription.findMany({
+const DEFAULT_TEMPLATE = {
+  title: "Meal App Notification",
+  body: "You have an update regarding your meal selections.",
+};
+
+const NOTIFICATION_TEMPLATES: Partial<
+  Record<NotificationType, { title: string; body: string }>
+> = {
+  [NotificationType.MEAL_UNSELECTED_REMINDER]: {
+    title: "Selections closing soon",
+    body: "Select your meals now!",
+  },
+  [NotificationType.SELECTION_REMINDER]: {
+    title: "Selections closing soon",
+    body: "You haven't submitted your meal selections yet. Please make your selections before the window closes!",
+  },
+  [NotificationType.FOOD_ARRIVED]: {
+    title: "Food is in!",
+    body: "Your meal is ready for pickup.",
+  },
+  [NotificationType.MEAL_ARRIVAL]: {
+    title: "Food is in!",
+    body: "Your meal is ready for pickup.",
+  },
+  [NotificationType.SELECTION_WINDOW_OPEN]: {
+    title: "Meal selection window open",
+    body: "The meal selection window is now open. You can select your meals now.",
+  },
+  [NotificationType.SELECTION_WINDOW_CLOSED]: {
+    title: "Selections Closed",
+    body: "Selections have been closed for this week you can no longer submit meal selections.",
+  },
+  [NotificationType.PRESET_UPDATE]: {
+    title: "Preset Item Unavailable",
+    body: "A meal in your preset is no longer available. Please update your preset preferences.",
+  },
+};
+
+function resolveTemplate(
+  type: NotificationType,
+  customTitle?: string,
+  customBody?: string
+) {
+  const base = NOTIFICATION_TEMPLATES[type] ?? DEFAULT_TEMPLATE;
+  return {
+    title: customTitle || base.title,
+    body: customBody || base.body,
+  };
+}
+
+async function getActivePushSubscriptionsForUsers(userIds?: number[]) {
+  return prisma.pushSubscription.findMany({
     where: {
       ...(userIds && userIds.length > 0 ? { userId: { in: userIds } } : {}),
       user: activePushUsersFilter,
     },
     select: pushSubscriptionSelect,
   });
+}
+
+async function dispatchPushToUsers(
+  userIds: number[] | undefined,
+  payload: {
+    title: string;
+    description?: string;
+    type: NotificationType;
+    url?: string;
+  }
+) {
+  const subscriptions = await getActivePushSubscriptionsForUsers(userIds);
+  if (!subscriptions.length) {
+    return {
+      subscriptionsCount: 0,
+      uniqueRecipientsCount: 0,
+      sent: 0,
+      failed: 0,
+      expired: 0,
+    };
+  }
+
+  const result = await pushService.sendBatch(subscriptions, payload);
+  return {
+    subscriptionsCount: subscriptions.length,
+    uniqueRecipientsCount: new Set(subscriptions.map((s) => s.userId)).size,
+    sent: result.sent,
+    failed: result.failed,
+    expired: result.expired,
+  };
+}
 
 export const notificationService = {
   /**
    * 1. Notify all active users who haven't selected their meals for the week.
-   * Default title: "Selections closing soon", description: "Select your meals now!"
    */
-  notifyUnselectedUsers: async (params?: {
-    weekMenuScheduleId?: number;
-    date?: Date;
-    title?: string;
-    description?: string;
-  }) => {
-    let targetDate = params?.date ? new Date(params.date) : new Date();
+  notifyUnselectedUsers: async (params?: UnselectedReminderRequest) => {
+    const targetDate = params?.date ? new Date(params.date) : new Date();
+    const unselectedUsers = await mealSelectionService.getUsersWithoutSelections(
+      targetDate,
+      5,
+      params?.weekMenuScheduleId
+    );
 
-    if (params?.weekMenuScheduleId) {
-      const schedule = await weekMenuScheduleService.getWeekMenuScheduleById(
-        params.weekMenuScheduleId
-      );
-      if (schedule) {
-        targetDate = getDateFromISOWeek(schedule.week, schedule.year);
-      }
-    }
-
-    // Get active users who haven't selected meals
-    const unselectedUsers = await mealSelectionService.getUsersWithoutSelections(targetDate);
     if (!unselectedUsers.length) {
       return {
         message: "No unselected users found to notify",
@@ -77,11 +142,21 @@ export const notificationService = {
       };
     }
 
+    const { title, body: description } = resolveTemplate(
+      NotificationType.MEAL_UNSELECTED_REMINDER,
+      params?.title,
+      params?.description
+    );
+
     const unselectedUserIds = unselectedUsers.map((u) => u.id);
+    const result = await dispatchPushToUsers(unselectedUserIds, {
+      title,
+      description,
+      type: NotificationType.MEAL_UNSELECTED_REMINDER,
+      url: "/meal-selection",
+    });
 
-    const subscriptions = await getActivePushSubscriptionsForUsers(unselectedUserIds);
-
-    if (!subscriptions.length) {
+    if (!result.subscriptionsCount) {
       return {
         message: `Found ${unselectedUsers.length} unselected user(s), but none have active push subscriptions with notifications enabled`,
         targetUsersCount: unselectedUsers.length,
@@ -91,20 +166,10 @@ export const notificationService = {
       };
     }
 
-    const title = params?.title || "Selections closing soon";
-    const description = params?.description || "Select your meals now!";
-
-    const result = await pushService.sendBatch(subscriptions, {
-      title,
-      description,
-      type: NotificationType.MEAL_UNSELECTED_REMINDER,
-      url: "/meal-selection",
-    });
-
     return {
       message: `Sent unselected reminders to ${result.sent} subscription(s) across ${unselectedUsers.length} user(s)`,
       targetUsersCount: unselectedUsers.length,
-      subscriptionsCount: subscriptions.length,
+      subscriptionsCount: result.subscriptionsCount,
       sent: result.sent,
       failed: result.failed,
       expired: result.expired,
@@ -113,51 +178,23 @@ export const notificationService = {
 
   /**
    * 2. Broadcast that meals are ready / food is in.
-   * Only targets users who have selected food within the week/schedule and have push notifications enabled.
+   * Targets users who have fulfilled meal selections for the given schedule/day and have push notifications enabled.
    */
-  notifyFoodArrived: async (params?: {
-    weekMenuScheduleId?: number;
+  notifyFoodArrived: async (params: {
+    weekMenuScheduleId: number;
     menuDayId?: number;
     excludedSelectionIds?: number[];
     title?: string;
     description?: string;
   }) => {
-    let scheduleId = params?.weekMenuScheduleId;
-
-    if (!scheduleId) {
-      const currentWeek = getISOWeekInfo(new Date());
-      const currentSchedule = await prisma.weekMenuSchedule.findFirst({
-        where: { week: currentWeek.week, year: currentWeek.year },
-        select: { id: true },
-      });
-      scheduleId = currentSchedule?.id;
-    }
-
-    if (!scheduleId) {
-      const activeSchedule = await prisma.weekMenuSchedule.findFirst({
-        where: { status: WeekMenuStatus.ACTIVE },
-        select: { id: true },
-      });
-      scheduleId = activeSchedule?.id;
-    }
-
-    if (!scheduleId) {
-      return {
-        message: "No active week menu schedule found to broadcast food arrival",
-        recipientsCount: 0,
-        sent: 0,
-        failed: 0,
-      };
-    }
-
-    // Find all users who have meal selections for this week schedule (excluding unfulfilled meals if specified)
     const selections = await prisma.selections.findMany({
       where: {
-        weekMenuScheduleId: scheduleId,
+        weekMenuScheduleId: params.weekMenuScheduleId,
         selectionType: SelectionType.MEAL,
         selectionStatus: { not: SelectionStatus.CANCELLED },
-        ...(params?.menuDayId ? { menuDayId: params.menuDayId } : {}),
-        ...(params?.excludedSelectionIds?.length
+        fulfillmentStatus: { not: FulfillmentStatus.NOT_FULFILLED },
+        ...(params.menuDayId ? { menuDayId: params.menuDayId } : {}),
+        ...(params.excludedSelectionIds?.length
           ? { id: { notIn: params.excludedSelectionIds } }
           : {}),
       },
@@ -167,13 +204,14 @@ export const notificationService = {
       },
     });
 
-    const userIdsSet = new Set<number>();
-    for (const sel of selections) {
-      if (sel.createdFor) userIdsSet.add(sel.createdFor);
-      else if (sel.createdBy) userIdsSet.add(sel.createdBy);
-    }
+    const recipientUserIds = Array.from(
+      new Set(
+        selections
+          .map((sel) => sel.createdFor ?? sel.createdBy)
+          .filter((id): id is number => Boolean(id))
+      )
+    );
 
-    const recipientUserIds = Array.from(userIdsSet);
     if (!recipientUserIds.length) {
       return {
         message: "No users have active meal selections for this schedule",
@@ -183,9 +221,20 @@ export const notificationService = {
       };
     }
 
-    const subscriptions = await getActivePushSubscriptionsForUsers(recipientUserIds);
+    const { title, body: description } = resolveTemplate(
+      NotificationType.FOOD_ARRIVED,
+      params.title,
+      params.description
+    );
 
-    if (!subscriptions.length) {
+    const result = await dispatchPushToUsers(recipientUserIds, {
+      title,
+      description,
+      type: NotificationType.FOOD_ARRIVED,
+      url: "/meal-selection",
+    });
+
+    if (!result.subscriptionsCount) {
       return {
         message: `Found ${recipientUserIds.length} user(s) with meal selections, but none have active push subscriptions`,
         recipientsCount: recipientUserIds.length,
@@ -194,20 +243,10 @@ export const notificationService = {
       };
     }
 
-    const title = params?.title || "Food is in!";
-    const description = params?.description || "Your meal is ready for pickup.";
-
-    const result = await pushService.sendBatch(subscriptions, {
-      title,
-      description,
-      type: NotificationType.FOOD_ARRIVED,
-      url: "/meal-selection",
-    });
-
     return {
       message: `Food arrival broadcast sent to ${result.sent} subscription(s) for ${recipientUserIds.length} recipient(s)`,
       recipientsCount: recipientUserIds.length,
-      subscriptionsCount: subscriptions.length,
+      subscriptionsCount: result.subscriptionsCount,
       sent: result.sent,
       failed: result.failed,
       expired: result.expired,
@@ -216,9 +255,6 @@ export const notificationService = {
 
   /**
    * 3. Notify users that meal selections have been closed.
-   * If closedAt is null (first close), sends to all active users with push notifications enabled.
-   * If closedAt is not null (re-close after reopen), sends only to users who submitted or updated
-   * selections after the recorded closedAt timestamp.
    */
   notifySelectionsClosed: async (params: {
     weekMenuScheduleId: number;
@@ -235,51 +271,48 @@ export const notificationService = {
         select: { createdFor: true, createdBy: true },
       });
 
-      const userIds = [...new Set(recent.flatMap((s) => [s.createdFor, s.createdBy].filter(Boolean) as number[]))];
+      const userIds = [
+        ...new Set(
+          recent
+            .flatMap((s) => [s.createdFor, s.createdBy])
+            .filter((id): id is number => Boolean(id))
+        ),
+      ];
       if (!userIds.length) return { sent: 0 };
       recipientUserIds = userIds;
     }
 
-    const subscriptions = await prisma.pushSubscription.findMany({
-      where: {
-        ...(recipientUserIds ? { userId: { in: recipientUserIds } } : {}),
-        user: activePushUsersFilter,
-      },
-      select: {
-        endpoint: true,
-        p256dh: true,
-        auth: true,
-      },
-    });
+    const { title, body: description } = resolveTemplate(
+      NotificationType.SELECTION_WINDOW_CLOSED
+    );
 
-    if (!subscriptions.length) return { sent: 0 };
-
-    return await pushService.sendBatch(subscriptions, {
-      title: "Selections Closed",
-      description: "Selections have been closed for this week you can no longer submit meal selections.",
+    return dispatchPushToUsers(recipientUserIds, {
+      title,
+      description,
       type: NotificationType.SELECTION_WINDOW_CLOSED,
       url: "/meal-selection",
     });
   },
 
   /**
-   * 4. Send custom notification with custom title & description.
-   * If recipientIds are provided, sends to only those recipient IDs.
-   * If no recipientIds are provided, assumes internal filter and sends to all active users who have push notifications enabled.
+   * 4. Send custom push notification.
+   * If recipientIds are provided, targets only those active users with push notifications enabled;
+   * otherwise broadcasts to all active users with push notifications enabled.
    */
   notifyUsers: async (request: CustomNotificationRequest) => {
     const { recipientIds, title, description, type } = request;
-
     const hasRecipientIds = Boolean(recipientIds && recipientIds.length > 0);
 
-    const subscriptions = hasRecipientIds
-      ? await prisma.pushSubscription.findMany({
-          where: { userId: { in: recipientIds! } },
-          select: pushSubscriptionSelect,
-        })
-      : await getActivePushSubscriptionsForUsers();
+    const result = await dispatchPushToUsers(
+      hasRecipientIds ? recipientIds : undefined,
+      {
+        title,
+        description,
+        type: type || NotificationType.FEEDBACK_REPLY,
+      }
+    );
 
-    if (!subscriptions.length) {
+    if (!result.subscriptionsCount) {
       return {
         message: hasRecipientIds
           ? `Found ${recipientIds!.length} target user(s), but none have active push subscriptions`
@@ -291,20 +324,14 @@ export const notificationService = {
       };
     }
 
-    const result = await pushService.sendBatch(subscriptions, {
-      title,
-      description,
-      type: type || NotificationType.FEEDBACK_REPLY,
-    });
-
     const targetCount = hasRecipientIds
       ? recipientIds!.length
-      : new Set(subscriptions.map((s) => s.userId)).size;
+      : result.uniqueRecipientsCount;
 
     return {
       message: `Notification sent to ${result.sent} subscription(s) for ${targetCount} user(s)`,
       recipientsCount: targetCount,
-      subscriptionsCount: subscriptions.length,
+      subscriptionsCount: result.subscriptionsCount,
       sent: result.sent,
       failed: result.failed,
       expired: result.expired,
@@ -312,27 +339,34 @@ export const notificationService = {
   },
 
   /**
-   * Register or update a user's web push subscription.
-   */
-  /**
-   * 5. Custom notify users via both Email and Web Push.
-   * Takes userIds and notificationType (or title/message overrides).
-   * Sends email to all resolved users regardless of user email preference setting.
-   * Also sends push notification to users who have active push subscriptions.
+   * 5. Custom notify users via both Email and Web Push in parallel.
+   * Sends email to all resolved users regardless of user email preference setting,
+   * and push notifications to their active push subscriptions.
    */
   customNotifyUsers: async (request: CustomNotifyUsersRequest) => {
-    const { userIds, type, title: customTitle, message: customMessage, description: customDescription } = request;
+    const {
+      userIds,
+      type,
+      title: customTitle,
+      message: customMessage,
+      description: customDescription,
+    } = request;
 
-    const targetUsers = await prisma.users.findMany({
-      where: { id: { in: userIds } },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        referenceEmail: true,
-        status: true,
-      },
-    });
+    const [targetUsers, subscriptions] = await Promise.all([
+      prisma.users.findMany({
+        where: { id: { in: userIds } },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          referenceEmail: true,
+        },
+      }),
+      prisma.pushSubscription.findMany({
+        where: { userId: { in: userIds } },
+        select: pushSubscriptionSelect,
+      }),
+    ]);
 
     if (!targetUsers.length) {
       return {
@@ -343,80 +377,47 @@ export const notificationService = {
       };
     }
 
-    const customBody = customMessage || customDescription;
-    let resolvedTitle = customTitle;
-    let resolvedBody = customBody;
+    const { title: resolvedTitle, body: emailBody } = resolveTemplate(
+      type,
+      customTitle,
+      customMessage || customDescription
+    );
+    const { body: pushBody } = resolveTemplate(
+      type,
+      customTitle,
+      customDescription || customMessage
+    );
 
-    switch (type) {
-      case NotificationType.MEAL_UNSELECTED_REMINDER:
-      case NotificationType.SELECTION_REMINDER:
-        resolvedTitle = resolvedTitle || "Selections closing soon";
-        resolvedBody = resolvedBody || "You haven't submitted your meal selections yet. Please make your selections before the window closes!";
-        break;
-      case NotificationType.FOOD_ARRIVED:
-      case NotificationType.MEAL_ARRIVAL:
-        resolvedTitle = resolvedTitle || "Food is in!";
-        resolvedBody = resolvedBody || "Your meal is ready for pickup.";
-        break;
-      case NotificationType.SELECTION_WINDOW_OPEN:
-        resolvedTitle = resolvedTitle || "Meal selection window open";
-        resolvedBody = resolvedBody || "The meal selection window is now open. You can select your meals now.";
-        break;
-      case NotificationType.SELECTION_WINDOW_CLOSED:
-        resolvedTitle = resolvedTitle || "Meal selection window closed";
-        resolvedBody = resolvedBody || "Meal selections for this week are now closed.";
-        break;
-      case NotificationType.PRESET_UPDATE:
-        resolvedTitle = resolvedTitle || "Preset Item Unavailable";
-        resolvedBody = resolvedBody || "A meal in your preset is no longer available. Please update your preset preferences.";
-        break;
-      default:
-        resolvedTitle = resolvedTitle || "Meal App Notification";
-        resolvedBody = resolvedBody || "You have an update regarding your meal selections.";
-        break;
-    }
+    const [emailResults, pushResult] = await Promise.all([
+      Promise.allSettled(
+        targetUsers.map(async (user) => {
+          const email = user.email ?? user.referenceEmail;
+          if (!email) return false;
+          return mailService.sendNotificationEmail(
+            email,
+            user.name,
+            resolvedTitle,
+            emailBody
+          );
+        })
+      ),
+      subscriptions.length > 0
+        ? pushService.sendBatch(subscriptions, {
+            title: resolvedTitle,
+            description: pushBody,
+            type,
+            url: "/meal-selection",
+          })
+        : Promise.resolve({ total: 0, sent: 0, failed: 0, expired: 0 }),
+    ]);
 
-    // Always send emails (ignoring email notifications preference toggle as requested)
-    const emailPromises = targetUsers.map(async (user) => {
-      const email = user.email ?? user.referenceEmail;
-      if (!email) return false;
-      return await mailService.sendNotificationEmail(
-        email,
-        user.name,
-        resolvedTitle!,
-        resolvedBody!
-      );
-    });
-
-    const emailResults = await Promise.allSettled(emailPromises);
     const emailsSent = emailResults.filter(
       (r) => r.status === "fulfilled" && r.value === true
     ).length;
     const emailsFailed = targetUsers.length - emailsSent;
 
-    // Send push notification to active subscriptions
-    const foundUserIds = targetUsers.map((u) => u.id);
-    const subscriptions = await prisma.pushSubscription.findMany({
-      where: { userId: { in: foundUserIds } },
-      select: pushSubscriptionSelect,
-    });
-
-    let pushSent = 0;
-    let pushFailed = 0;
-
-    if (subscriptions.length > 0) {
-      const pushResult = await pushService.sendBatch(subscriptions, {
-        title: resolvedTitle!,
-        description: resolvedBody!,
-        type,
-        url: "/meal-selection",
-      });
-      pushSent = pushResult.sent;
-      pushFailed = pushResult.failed;
-    }
-
     return {
-      message: `Notification processed for ${targetUsers.length} user(s): ${emailsSent} email(s) sent, ${pushSent} push notification(s) sent across ${subscriptions.length} active subscription(s)`,
+      message: `Notification processed for ${targetUsers.length} user(s): ${emailsSent} email(s) sent, ${pushResult.sent} push notification(s) sent across ${subscriptions.length} active subscription(s)`,
       type,
       usersTargeted: targetUsers.length,
       emails: {
@@ -425,11 +426,15 @@ export const notificationService = {
       },
       push: {
         subscriptionsCount: subscriptions.length,
-        sent: pushSent,
-        failed: pushFailed,
+        sent: pushResult.sent,
+        failed: pushResult.failed,
       },
     };
   },
+
+  /**
+   * Register or update a user's web push subscription.
+   */
   createSubscription: async (
     userId: number,
     data: NotificationSubscriptionRequest

@@ -119,90 +119,15 @@ export interface RecapPersonalitySummary extends RecapStatBase {
 export interface RecapPersonalityCohortItem {
     type: TastePersonality;
     name: string;
-    pluralName: string;
     count: number;
     percentage: number;
-    isUserCohort: boolean;
-}
-
-/**
- * Standardized Top Meal sub-recap (includes office fan rank for that dish).
- */
-export interface RecapTopMealHighlight extends RecapStatBase, TopMealDetail {
-    shareOfYearPercentage: number;// % of user's total meals that were this dish
-}
-
-/**
- * Standardized Office Crown sub-recap (#1 most popular dish across the entire office).
- */
-export interface RecapOfficeCrown extends RecapStatBase, TopMealDetail {
-    totalOfficeOrders: number;
-    totalOfficeFans: number;
-    userOrderCount: number;
-    isUserTopMeal: boolean;
-}
-
-/**
- * Standardized Protein Champion sub-recap (user's #1 protein + office rank for that protein).
- */
-export interface RecapProteinChampion extends RecapStatBase {
-    proteinCode: string;
-    proteinName: string;
-    userCount: number;
-    shareOfPlatesPercentage: number;
-    officeAverageCount: number;
-}
-
-/**
- * Standardized Contrarian / Hidden Gem sub-recap (a dish the user loved that few colleagues ordered).
- */
-export interface RecapContrarianHighlight extends RecapStatBase, TopMealDetail {
-    totalOfficeFans: number;
-    totalOfficeOrders: number;
-}
-
-/**
- * Standardized Office Taste Twin sub-recap.
- */
-export interface RecapTasteTwin extends RecapStatBase {
-    userId: number;
-    name: string;
-    similarityScore: number;      // 30–99 palate match percentage
-    personalityType: TastePersonality;
-    sharedTopMeal: string | null;
-    sharedFavoriteProtein: string | null;
-}
-
-/**
- * Standardized Office Taste Opposite sub-recap (lowest palate overlap).
- */
-export interface RecapTasteOpposite extends RecapStatBase {
-    userId: number;
-    name: string;
-    similarityScore: number;      // 0–25 palate overlap percentage
-    personalityType: TastePersonality;
-    peerTopMeal: string | null;
-    peerFavoriteProtein: string | null;
-}
-
-/**
- * Office-wide benchmark averages for the calendar year.
- */
-export interface RecapOfficeAverages {
-    totalParticipants: number;
-    averageMealsSelected: number;
-    averageUniqueMeals: number;
-    averageConsistencyScore: number;
-    averageDiversityScore: number;
-    averageSwallowCount: number;
-    averageSpiceCount: number;
-    personalityBreakdown: Record<string, number>;
+    isUser: boolean;
 }
 
 /**
  * Standardized Spotify-Wrapped story slide card (extends `RecapStatBase`).
  */
-export interface RecapSlideCard<TMetadata = Record<string, unknown>> extends RecapStatBase {
+export interface RecapSlideCard<TMetadata = unknown> extends RecapStatBase {
     id: string;
     category: RecapCardCategory;
     slideOrder: number;
@@ -215,24 +140,5 @@ export interface RecapSlideCard<TMetadata = Record<string, unknown>> extends Rec
 
 export interface TasteProfileRecapResponse {
     message?: string;
-    userId: number;
-    userName: string | null;
-    calendarYear: number;
-    updatedAt: Date | string;
-    totalMealsSelected: number;
-    favoriteProtein: string | null;
-    favoriteCombination: string | null;
-    personality: RecapPersonalitySummary | null;
-    topMealHighlight: RecapTopMealHighlight | null;
-    officeCrown: RecapOfficeCrown | null;
-    proteinChampion: RecapProteinChampion | null;
-    contrarian: RecapContrarianHighlight | null;
-    topMeals: TopMealDetail[];
-    rankings: Record<RecapMetricKey, RecapRankingStat> | null;
-    rankingList: RecapRankingStat[];
-    tasteTwin: RecapTasteTwin | null;
-    tasteOpposite: RecapTasteOpposite | null;
-    officeAverages: RecapOfficeAverages;
-    metrics: StoredTasteProfileMetrics;
     cards: RecapSlideCard[];
 }
