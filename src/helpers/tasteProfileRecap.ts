@@ -32,6 +32,23 @@ export interface RawTasteProfileRow {
 interface ParsedProfileRow extends RawTasteProfileRow {
     parsedMetrics: StoredTasteProfileMetrics;
     resolvedPersonality: TastePersonality;
+    resolvedFavoriteProtein: string | null;
+    mealFreq: Record<string, number>;
+    mealNorm: number;
+    proteinNorm: number;
+    baseNorm: number;
+}
+
+interface CachedPeerCandidate {
+    peer: ParsedProfileRow;
+    score: number;
+    sharedMealsCount: number;
+    sharesFavProtein: boolean;
+}
+
+interface CachedPeerMatchPair {
+    twin: CachedPeerCandidate | null;
+    opposite: CachedPeerCandidate | null;
 }
 
 interface OfficeMealAggregate {
@@ -61,6 +78,7 @@ interface CachedOfficeYearData {
     officeAverages: OfficeAveragesInternal;
     officeMealStats: Map<number, OfficeMealAggregate>;
     officeCrownMeal: OfficeMealAggregate | null;
+    peerMatchesByUserId: Map<number, CachedPeerMatchPair>;
 }
 
 const officeRecapCache = new Map<number, CachedOfficeYearData>();
@@ -70,7 +88,7 @@ const TWIN_WEIGHT_PROTEINS = 0.30;
 const TWIN_WEIGHT_BASES = 0.20;
 const TWIN_WEIGHT_PERSONALITY = 0.10;
 const TWIN_MIN_SIMILARITY_PERCENT = 30;
-const OPPOSITE_MAX_SIMILARITY_PERCENT = 25;
+const OPPOSITE_MAX_SIMILARITY_PERCENT = 50;
 
 const EMPTY_METRICS: StoredTasteProfileMetrics = {
     supergroups: {},
@@ -182,22 +200,61 @@ function getPeerMealOrderCount(metrics: StoredTasteProfileMetrics, mealId: numbe
     return 0;
 }
 
-function computeCosineSimilarity(a: Record<string, number>, b: Record<string, number>): number {
-    const keys = new Set([...Object.keys(a), ...Object.keys(b)]);
-    if (keys.size === 0) return 0;
-
-    let dot = 0;
-    let magA = 0;
-    let magB = 0;
-    for (const k of keys) {
-        const va = a[k] ?? 0;
-        const vb = b[k] ?? 0;
-        dot += va * vb;
-        magA += va * va;
-        magB += vb * vb;
+function computeVectorNorm(vec: Record<string, number>): number {
+    let sumSq = 0;
+    for (const v of Object.values(vec)) {
+        if (v > 0) sumSq += v * v;
     }
-    if (magA === 0 || magB === 0) return 0;
-    return dot / (Math.sqrt(magA) * Math.sqrt(magB));
+    return Math.sqrt(sumSq);
+}
+
+function computeFastCosineSimilarity(
+    a: Record<string, number>,
+    normA: number,
+    b: Record<string, number>,
+    normB: number
+): number {
+    if (normA === 0 || normB === 0) return 0;
+    let dot = 0;
+    for (const [k, va] of Object.entries(a)) {
+        const vb = b[k];
+        if (va && vb) {
+            dot += va * vb;
+        }
+    }
+    return dot / (normA * normB);
+}
+
+function isBetterTwinCandidate(
+    candidate: CachedPeerCandidate,
+    current: CachedPeerCandidate | null
+): boolean {
+    if (!current) return true;
+    if (candidate.score > current.score + 1e-9) return true;
+    if (Math.abs(candidate.score - current.score) > 1e-9) return false;
+    if (candidate.sharedMealsCount !== current.sharedMealsCount) {
+        return candidate.sharedMealsCount > current.sharedMealsCount;
+    }
+    if (candidate.sharesFavProtein !== current.sharesFavProtein) {
+        return candidate.sharesFavProtein;
+    }
+    return candidate.peer.userId < current.peer.userId;
+}
+
+function isBetterOppositeCandidate(
+    candidate: CachedPeerCandidate,
+    current: CachedPeerCandidate | null
+): boolean {
+    if (!current) return true;
+    if (candidate.score < current.score - 1e-9) return true;
+    if (Math.abs(candidate.score - current.score) > 1e-9) return false;
+    if (candidate.sharedMealsCount !== current.sharedMealsCount) {
+        return candidate.sharedMealsCount < current.sharedMealsCount;
+    }
+    if (candidate.sharesFavProtein !== current.sharesFavProtein) {
+        return !candidate.sharesFavProtein;
+    }
+    return candidate.peer.userId < current.peer.userId;
 }
 
 function buildCacheSignature(calendarYear: number, allProfiles: RawTasteProfileRow[]): string {
@@ -225,10 +282,20 @@ function getOrBuildOfficeYearData(
     const activePool: ParsedProfileRow[] = [];
 
     for (const row of allProfiles) {
+        const parsedMetrics = parseMetrics(row.metrics);
+        const mealFreq = getPeerMealFrequencyMap(parsedMetrics);
         const parsed: ParsedProfileRow = {
             ...row,
-            parsedMetrics: parseMetrics(row.metrics),
+            parsedMetrics,
             resolvedPersonality: resolvePersonality(row.personalityType),
+            resolvedFavoriteProtein:
+                row.favoriteProtein ??
+                tasteProfileHelper.findFavorite(parsedMetrics.proteins) ??
+                null,
+            mealFreq,
+            mealNorm: computeVectorNorm(mealFreq),
+            proteinNorm: computeVectorNorm(parsedMetrics.proteins),
+            baseNorm: computeVectorNorm(parsedMetrics.bases),
         };
         profileByUserId.set(row.userId, parsed);
         if (parsed.totalMealsSelected > 0) {
@@ -321,6 +388,93 @@ function getOrBuildOfficeYearData(
         personalityBreakdown,
     };
 
+    const peerMatchesByUserId = new Map<number, CachedPeerMatchPair>();
+    for (const p of activePool) {
+        peerMatchesByUserId.set(p.userId, { twin: null, opposite: null });
+    }
+
+    for (let i = 0; i < activePool.length; i++) {
+        const userA = activePool[i];
+        if (!userA) continue;
+        const matchesA = peerMatchesByUserId.get(userA.userId)!;
+
+        for (let j = i + 1; j < activePool.length; j++) {
+            const userB = activePool[j];
+            if (!userB) continue;
+            const matchesB = peerMatchesByUserId.get(userB.userId)!;
+
+            let sharedMealsCount = 0;
+            for (const mId of Object.keys(userA.mealFreq)) {
+                if (userB.mealFreq[mId]) {
+                    sharedMealsCount++;
+                }
+            }
+
+            const mealSim = computeFastCosineSimilarity(
+                userA.mealFreq,
+                userA.mealNorm,
+                userB.mealFreq,
+                userB.mealNorm
+            );
+            const proteinSim = computeFastCosineSimilarity(
+                userA.parsedMetrics.proteins,
+                userA.proteinNorm,
+                userB.parsedMetrics.proteins,
+                userB.proteinNorm
+            );
+            const baseSim = computeFastCosineSimilarity(
+                userA.parsedMetrics.bases,
+                userA.baseNorm,
+                userB.parsedMetrics.bases,
+                userB.baseNorm
+            );
+
+            const hasPalateOverlap = mealSim > 0 || proteinSim > 0;
+            const personalityBonus =
+                hasPalateOverlap && userA.resolvedPersonality === userB.resolvedPersonality
+                    ? 1
+                    : 0;
+
+            const weighted =
+                TWIN_WEIGHT_MEALS * mealSim +
+                TWIN_WEIGHT_PROTEINS * proteinSim +
+                TWIN_WEIGHT_BASES * baseSim +
+                TWIN_WEIGHT_PERSONALITY * personalityBonus;
+
+            const sharesFavProtein = Boolean(
+                userA.resolvedFavoriteProtein &&
+                    userB.resolvedFavoriteProtein &&
+                    userA.resolvedFavoriteProtein === userB.resolvedFavoriteProtein
+            );
+
+            const candidateForA: CachedPeerCandidate = {
+                peer: userB,
+                score: weighted,
+                sharedMealsCount,
+                sharesFavProtein,
+            };
+            if (isBetterTwinCandidate(candidateForA, matchesA.twin)) {
+                matchesA.twin = candidateForA;
+            }
+            if (isBetterOppositeCandidate(candidateForA, matchesA.opposite)) {
+                matchesA.opposite = candidateForA;
+            }
+
+            const candidateForB: CachedPeerCandidate = {
+                peer: userA,
+                score: weighted,
+                sharedMealsCount,
+                sharesFavProtein,
+            };
+            if (isBetterTwinCandidate(candidateForB, matchesB.twin)) {
+                matchesB.twin = candidateForB;
+            }
+            if (isBetterOppositeCandidate(candidateForB, matchesB.opposite)) {
+                matchesB.opposite = candidateForB;
+            }
+        }
+    }
+
     const yearData: CachedOfficeYearData = {
         signature,
         activePool,
@@ -328,6 +482,7 @@ function getOrBuildOfficeYearData(
         officeAverages,
         officeMealStats,
         officeCrownMeal,
+        peerMatchesByUserId,
     };
 
     officeRecapCache.set(calendarYear, yearData);
@@ -389,6 +544,7 @@ export function buildTasteProfileRecap(
         officeAverages,
         officeMealStats,
         officeCrownMeal,
+        peerMatchesByUserId,
     } = getOrBuildOfficeYearData(calendarYear, allProfiles);
 
     const existingUserProfile = profileByUserId.get(targetUserId);
@@ -782,118 +938,29 @@ export function buildTasteProfileRecap(
         }
     }
 
-    // ── 7. Office Taste Twin & Taste Opposite ────────────────────────────────
+    // ── 7. Office Taste Twin & Taste Opposite (O(1) Cached Map Lookup) ───────
     let tasteTwinCard: UnorderedSlideCard | null = null;
     let tasteOppositeCard: UnorderedSlideCard | null = null;
-    const otherPeers = activePool.filter((p) => p.userId !== targetUserId);
+    const cachedMatches = peerMatchesByUserId.get(targetUserId);
 
-    if (otherPeers.length > 0) {
-        const userMealFreq = getPeerMealFrequencyMap(userMetrics);
-        const userMealIdSet = new Set(Object.keys(userMealFreq));
-
-        let bestPeer: ParsedProfileRow | null = null;
-        let bestScore = -1;
-        let bestSharedCount = -1;
-        let bestSharesProtein = false;
-        let bestSharedMealName: string | null = null;
-
-        let lowestPeer: ParsedProfileRow | null = null;
-        let lowestScore = Infinity;
-        let lowestSharedCount = Infinity;
-        let lowestSharesProtein = true;
-
-        for (const peer of otherPeers) {
-            const peerMealFreq = getPeerMealFrequencyMap(peer.parsedMetrics);
-            let sharedMealsCount = 0;
-            for (const mId of Object.keys(peerMealFreq)) {
-                if (userMealIdSet.has(mId)) {
-                    sharedMealsCount++;
-                }
-            }
-
-            const mealSim = computeCosineSimilarity(userMealFreq, peerMealFreq);
-            const proteinSim = computeCosineSimilarity(
-                userMetrics.proteins,
-                peer.parsedMetrics.proteins
-            );
-            const baseSim = computeCosineSimilarity(
-                userMetrics.bases,
-                peer.parsedMetrics.bases
-            );
-
-            const hasPalateOverlap = mealSim > 0 || proteinSim > 0;
-            const personalityBonus =
-                hasPalateOverlap && peer.resolvedPersonality === userPersonality ? 1 : 0;
-
-            const weighted =
-                TWIN_WEIGHT_MEALS * mealSim +
-                TWIN_WEIGHT_PROTEINS * proteinSim +
-                TWIN_WEIGHT_BASES * baseSim +
-                TWIN_WEIGHT_PERSONALITY * personalityBonus;
-
-            const peerFavProtein =
-                peer.favoriteProtein ??
-                tasteProfileHelper.findFavorite(peer.parsedMetrics.proteins) ??
-                null;
-            const sharesFavProtein = Boolean(
-                favoriteProtein && peerFavProtein && favoriteProtein === peerFavProtein
-            );
-
-            const isBetterTwin =
-                weighted > bestScore + 1e-9 ||
-                (Math.abs(weighted - bestScore) <= 1e-9 &&
-                    (sharedMealsCount > bestSharedCount ||
-                        (sharedMealsCount === bestSharedCount &&
-                            sharesFavProtein &&
-                            !bestSharesProtein) ||
-                        (sharedMealsCount === bestSharedCount &&
-                            sharesFavProtein === bestSharesProtein &&
-                            (!bestPeer || peer.userId < bestPeer.userId))));
-
-            if (isBetterTwin) {
-                bestScore = weighted;
-                bestPeer = peer;
-                bestSharedCount = sharedMealsCount;
-                bestSharesProtein = sharesFavProtein;
-                const sharedMeal = userMetrics.topMeals.find(
-                    (um) => getPeerMealOrderCount(peer.parsedMetrics, um.id) > 0
-                );
-                bestSharedMealName = sharedMeal?.name ?? null;
-            }
-
-            const isBetterOpposite =
-                weighted < lowestScore - 1e-9 ||
-                (Math.abs(weighted - lowestScore) <= 1e-9 &&
-                    (sharedMealsCount < lowestSharedCount ||
-                        (sharedMealsCount === lowestSharedCount &&
-                            !sharesFavProtein &&
-                            lowestSharesProtein) ||
-                        (sharedMealsCount === lowestSharedCount &&
-                            sharesFavProtein === lowestSharesProtein &&
-                            (!lowestPeer || peer.userId < lowestPeer.userId))));
-
-            if (isBetterOpposite) {
-                lowestScore = weighted;
-                lowestPeer = peer;
-                lowestSharedCount = sharedMealsCount;
-                lowestSharesProtein = sharesFavProtein;
-            }
-        }
-
+    if (cachedMatches) {
         let twinUserId: number | null = null;
-        if (bestPeer) {
-            const rawTwinScore = Math.min(99, Math.round(bestScore * 100));
+        const bestCandidate = cachedMatches.twin;
+
+        if (bestCandidate) {
+            const bestPeer = bestCandidate.peer;
+            const rawTwinScore = Math.min(99, Math.round(bestCandidate.score * 100));
             if (rawTwinScore >= TWIN_MIN_SIMILARITY_PERCENT) {
                 twinUserId = bestPeer.userId;
                 const peerName = bestPeer.user?.name ?? `User #${bestPeer.userId}`;
-                const peerFavProtein =
-                    bestPeer.favoriteProtein ??
-                    tasteProfileHelper.findFavorite(bestPeer.parsedMetrics.proteins) ??
-                    null;
                 const sharedFavoriteProtein =
-                    favoriteProtein && favoriteProtein === peerFavProtein
+                    bestCandidate.sharesFavProtein && favoriteProtein
                         ? resolveProteinName(favoriteProtein, proteinNameMap)
                         : null;
+                const sharedMeal = userMetrics.topMeals.find(
+                    (um) => getPeerMealOrderCount(bestPeer.parsedMetrics, um.id) > 0
+                );
+                const bestSharedMealName = sharedMeal?.name ?? null;
 
                 tasteTwinCard = {
                     id: "slide-taste-twin",
@@ -920,17 +987,15 @@ export function buildTasteProfileRecap(
             }
         }
 
-        if (lowestPeer && lowestPeer.userId !== twinUserId) {
-            const rawOppositeScore = Math.max(0, Math.round(lowestScore * 100));
+        const lowestCandidate = cachedMatches.opposite;
+        if (lowestCandidate && lowestCandidate.peer.userId !== twinUserId) {
+            const lowestPeer = lowestCandidate.peer;
+            const rawOppositeScore = Math.max(0, Math.round(lowestCandidate.score * 100));
             if (rawOppositeScore <= OPPOSITE_MAX_SIMILARITY_PERCENT) {
                 const peerName = lowestPeer.user?.name ?? `User #${lowestPeer.userId}`;
                 const peerTopMeal = lowestPeer.parsedMetrics.topMeals[0]?.name ?? null;
-                const peerProteinCode =
-                    lowestPeer.favoriteProtein ??
-                    tasteProfileHelper.findFavorite(lowestPeer.parsedMetrics.proteins) ??
-                    null;
-                const peerFavoriteProtein = peerProteinCode
-                    ? resolveProteinName(peerProteinCode, proteinNameMap)
+                const peerFavoriteProtein = lowestPeer.resolvedFavoriteProtein
+                    ? resolveProteinName(lowestPeer.resolvedFavoriteProtein, proteinNameMap)
                     : null;
                 const peerPersonalityMeta =
                     tastePersonalities[lowestPeer.resolvedPersonality] ??
@@ -992,6 +1057,14 @@ export function buildTasteProfileRecap(
         })
         .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
 
+    const dominantCohort = officeProfiles[0] ?? {
+        type: userPersonality,
+        name: personalityMeta.name,
+        count: cohortCount,
+        percentage: cohortPercentage,
+        isUser: true,
+    };
+    const dominantMeta = tastePersonalities[dominantCohort.type];
     const userCohortRank =
         1 + officeProfiles.filter((item) => item.count > cohortCount).length;
 
@@ -1010,7 +1083,7 @@ export function buildTasteProfileRecap(
             repeatedMeals: userMetrics.repeatedMeals,
         }),
 
-        // 2. Personality & Office Palate Breakdown (single unified slide with descending office profiles array)
+        // 2. Personality (User's own personality)
         {
             id: "slide-personality",
             category: "PERSONALITY",
@@ -1019,6 +1092,27 @@ export function buildTasteProfileRecap(
             description: personalityMeta.description,
             value: personalityMeta.name,
             unit: "personality",
+            rank: null,
+            totalParticipants,
+            percentile: cohortPercentage,
+            officeAverage: null,
+        },
+
+        // 3. Office Personalities Map (Descending array of office profiles with isUser flag)
+        {
+            id: "slide-personality-map",
+            category: "PERSONALITY_MAP",
+            title:
+                dominantCohort.type === userPersonality
+                    ? `${dominantMeta.pluralName} Rule the Office (${dominantCohort.percentage}%)`
+                    : `The Office Palate: ${dominantMeta.pluralName} Lead at ${dominantCohort.percentage}%`,
+            subtitle:
+                dominantCohort.type === userPersonality
+                    ? `Your ${personalityMeta.name} tribe is the #1 largest personality group in the office (${dominantCohort.count} of ${totalParticipants} colleagues)`
+                    : `${dominantCohort.count} colleagues are ${dominantMeta.pluralName}, while your ${personalityMeta.name} group has ${cohortCount} (${cohortPercentage}%)`,
+            description: `Across ${totalParticipants} active diners, the office split into ${officeProfiles.length} distinct taste personalities this year.`,
+            value: cohortPercentage,
+            unit: "% in your tribe",
             rank: userCohortRank,
             totalParticipants,
             percentile: cohortPercentage,
@@ -1026,7 +1120,7 @@ export function buildTasteProfileRecap(
             metadata: officeProfiles,
         },
 
-        // 3. Top Meal
+        // 4. Top Meal
         topMealCard,
 
         // 5. Office Crown
