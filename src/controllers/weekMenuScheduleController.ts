@@ -60,7 +60,7 @@ export const weekMenuScheduleController ={
             if(!parsed.success){
                 return res.status(400).json({ error: "Invalid week menu schedule payload", details: parsed.error.flatten() });
             }
-            const { week, year, menuId } = parsed.data;
+            const { week, year, menuId, excludedUserIds } = parsed.data;
 
             //Check if existing schedule for the same week and year, return error if true
             const existingSchedule = await weekMenuScheduleService.getWeekMenuScheduleByWeekAndYear({ week, year });
@@ -69,7 +69,12 @@ export const weekMenuScheduleController ={
             }
 
             //All clear , proceed
-            const newWeekMenuSchedule = await weekMenuScheduleService.createWeekMenuSchedule({week, year, menuId});
+            const newWeekMenuSchedule = await weekMenuScheduleService.createWeekMenuSchedule({
+                week,
+                year,
+                menuId,
+                excludedUserIds,
+            });
             res.status(201).json(newWeekMenuSchedule);
         } catch (error) {
             res.status(500).json({ message: "Failed to create week menu schedule", error });
