@@ -145,8 +145,12 @@ export const mealSelectionService = {
         const holidayCount = weekHolidays.length;
         const effectiveRequiredCount = Math.max(0, maxCount - holidayCount);
 
+        const excludedUserIds = weekMenuSchedule.excludedUserIds ?? [];
         const activeUsers = await prisma.users.findMany({
-            where: { status: "ACTIVE" },
+            where: {
+                ...(excludedUserIds.length > 0 ? { id: { notIn: excludedUserIds } } : {}),
+                createdAt: { lte: weekEnd },
+            },
             select: {
                 id: true,
                 name: true,
@@ -197,9 +201,10 @@ export const mealSelectionService = {
         
         if(!weekMenuSchedule) return [];
 
+        const excludedUserIds = weekMenuSchedule.excludedUserIds ?? [];
         const usersWithSelections = await prisma.users.findMany({
             where: {
-                status: "ACTIVE",
+                ...(excludedUserIds.length > 0 ? { id: { notIn: excludedUserIds } } : {}),
                 createdForSelections: {
                     some: {
                         weekMenuScheduleId: weekMenuSchedule.id
@@ -426,7 +431,7 @@ export const mealSelectionService = {
         const [schedules, existingSelections, recipients, existingForNewDays] = await Promise.all([
             prisma.weekMenuSchedule.findMany({
                 where: { id: { in: scheduleIds } },
-                select: { id: true, status: true }
+                select: { id: true, status: true, excludedUserIds: true }
             }),
             updateIds.length
                 ? prisma.selections.findMany({
@@ -495,6 +500,7 @@ export const mealSelectionService = {
         }
 
         const recipientMap = new Map(recipients.map(r => [r.id, r]));
+        const scheduleById = new Map(schedules.map(s => [s.id, s]));
 
         if (newSelections.length > 0) {
             if (recipients.length !== uniqueRecipientIds.length) {
@@ -513,6 +519,15 @@ export const mealSelectionService = {
 
                 const key = keyOf(selection);
                 const recipientName = recipientMap.get(selection.createdFor)?.name ?? "The recipient";
+
+                const targetSchedule = scheduleById.get(selection.weekMenuScheduleId);
+                if (targetSchedule?.excludedUserIds?.includes(selection.createdFor)) {
+                    throw new SelectionConflictError(
+                        selection.createdFor === requesterId
+                            ? "You are excluded from meal selections for this week."
+                            : `${recipientName} is excluded from meal selections for this week.`
+                    );
+                }
 
                 if (batchKeys.has(key)) {
                     throw new SelectionConflictError(
@@ -1003,6 +1018,7 @@ export const mealSelectionService = {
                 week: true,
                 year: true,
                 status: true,
+                excludedUserIds: true,
                 menu: {
                     select: {
                         id: true,
@@ -1052,6 +1068,7 @@ export const mealSelectionService = {
                 year: schedule.year,
                 menu: schedule.menu,
                 status: schedule.status,
+                excludedUserIds: schedule.excludedUserIds,
                 totalResponses,
                 selections: formatted
             };

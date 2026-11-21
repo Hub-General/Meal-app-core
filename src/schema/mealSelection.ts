@@ -192,6 +192,7 @@ export interface WeeklyHistoryReportItem {
         title: string;
     };
     status: string;
+    excludedUserIds: number[];
     totalResponses: number;
     selections: WeekMealSelectionResponse;
 }

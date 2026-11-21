@@ -138,6 +138,7 @@ export async function autoSubmitUserPreferences(targetScheduleId?: number) {
                 week: true,
                 year: true,
                 menuId: true,
+                excludedUserIds: true,
             },
         });
     } else {
@@ -150,6 +151,7 @@ export async function autoSubmitUserPreferences(targetScheduleId?: number) {
                 week: true,
                 year: true,
                 menuId: true,
+                excludedUserIds: true,
             },
         });
     }
@@ -163,9 +165,12 @@ export async function autoSubmitUserPreferences(targetScheduleId?: number) {
         activeWeekMenu.year,
     );
 
+    const excludedUserIds = activeWeekMenu.excludedUserIds ?? [];
+
     const users = await prisma.userPreferences.findMany({
         where: {
             autoSubmitPreset: true,
+            ...(excludedUserIds.length > 0 ? { userId: { notIn: excludedUserIds } } : {}),
 
             user: {
                 status: "ACTIVE",
